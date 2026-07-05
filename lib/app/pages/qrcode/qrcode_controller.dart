@@ -7,9 +7,11 @@ import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/exceptions/app_exception.dart';
+import '../../core/models/barcode_image_file.dart';
 import '../../core/models/barcode_scan_result.dart';
 import '../../core/models/local_image_file.dart';
 import '../../core/models/qr_code_image_file.dart';
+import '../../core/utils/barcode_generator.dart';
 import '../../core/utils/qr_code_generator.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
@@ -29,6 +31,7 @@ class QrcodeController extends GetxController {
        _recentFilesRepository = recentFilesRepository;
 
   static const int maxContentBytes = QrCodeGenerator.maxContentBytes;
+  static const int maxBarcodeLength = BarcodeGenerator.maxContentLength;
   static const int renderScale = 12;
   static const int quietZone = 4;
 
@@ -38,6 +41,7 @@ class QrcodeController extends GetxController {
 
   final inputController = TextEditingController(text: 'https://example.com');
   final result = Rxn<QrCodeImageFile>();
+  final barcodeResult = Rxn<BarcodeImageFile>();
   final selectedImage = Rxn<LocalImageFile>();
   final scanResult = Rxn<BarcodeScanResult>();
   final isBusy = false.obs;
@@ -63,9 +67,7 @@ class QrcodeController extends GetxController {
     }
 
     isBusy.value = true;
-    final startedInput = content.length > 80
-        ? '${content.substring(0, 80)}...'
-        : content;
+    final startedInput = _summarizeInput(content);
     try {
       final matrix = QrCodeGenerator.encodeText(content);
       final png = QrCodeGenerator.renderPng(
@@ -88,6 +90,7 @@ class QrcodeController extends GetxController {
         throw const FormatException('二维码输出文件异常');
       }
       result.value = qr;
+      barcodeResult.value = null;
       await _historyRepository.recordOperationSuccess(
         featureName: '二维码生成',
         inputPath: startedInput,
@@ -108,6 +111,62 @@ class QrcodeController extends GetxController {
     } catch (_) {
       await _recordFailure(startedInput, '二维码生成失败');
       _showError('二维码生成失败，请重试');
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
+  Future<void> generateBarcode() async {
+    if (isBusy.value) {
+      return;
+    }
+    final content = inputController.text.trim();
+    if (content.isEmpty) {
+      _showError('请输入条形码内容');
+      return;
+    }
+    if (content.length > maxBarcodeLength) {
+      _showError('条形码内容不能超过 $maxBarcodeLength 个字符');
+      return;
+    }
+
+    isBusy.value = true;
+    final startedInput = _summarizeInput(content);
+    try {
+      final barcode = BarcodeGenerator.renderCode128Png(content);
+      final output = await _createOutputFile(prefix: 'barcode');
+      await output.writeAsBytes(barcode.png, flush: true);
+      final file = BarcodeImageFile(
+        content: content,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
+        format: 'CODE_128',
+        pixelWidth: barcode.pixelWidth,
+        pixelHeight: barcode.pixelHeight,
+      );
+      if (!file.hasValidOutput) {
+        throw const FormatException('条形码输出文件异常');
+      }
+      barcodeResult.value = file;
+      result.value = null;
+      await _historyRepository.recordOperationSuccess(
+        featureName: '条形码生成',
+        inputPath: startedInput,
+        outputPath: output.path,
+        parameters: <String, Object>{
+          'format': file.format,
+          'pixelWidth': file.pixelWidth,
+          'pixelHeight': file.pixelHeight,
+        },
+      );
+      Get.snackbar('生成完成', '条形码 PNG 已导出到应用缓存目录');
+    } on ArgumentError catch (error) {
+      final message = error.message?.toString() ?? '条形码参数无效';
+      await _recordFailure(startedInput, message, featureName: '条形码生成');
+      _showError(message);
+    } catch (_) {
+      await _recordFailure(startedInput, '条形码生成失败', featureName: '条形码生成');
+      _showError('条形码生成失败，请重试');
     } finally {
       isBusy.value = false;
     }
@@ -195,23 +254,31 @@ class QrcodeController extends GetxController {
     return '${mib.toStringAsFixed(1)} MB';
   }
 
-  Future<File> _createOutputFile() async {
+  Future<File> _createOutputFile({String prefix = 'qrcode'}) async {
     final root = await getTemporaryDirectory();
     final directory = Directory('${root.path}/qrcode_images');
     if (!await directory.exists()) {
       await directory.create(recursive: true);
     }
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return File('${directory.path}/qrcode_$timestamp.png');
+    return File('${directory.path}/${prefix}_$timestamp.png');
   }
 
-  Future<void> _recordFailure(String input, String message) async {
+  Future<void> _recordFailure(
+    String input,
+    String message, {
+    String featureName = '二维码生成',
+  }) async {
     await _historyRepository.recordOperationFailure(
-      featureName: '二维码生成',
+      featureName: featureName,
       inputPath: input,
       parameters: const <String, Object>{'mode': 'generate'},
       errorMessage: message,
     );
+  }
+
+  String _summarizeInput(String input) {
+    return input.length > 80 ? '${input.substring(0, 80)}...' : input;
   }
 
   void _showError(String message) {

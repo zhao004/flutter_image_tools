@@ -8,7 +8,7 @@ import 'qrcode_controller.dart';
 /// 二维码工具页，支持文本和链接本地生成 QR Code PNG。
 ///
 /// 构建设计：输入、生成动作和结果预览放在同一流程内；当前版本先完成生成
-/// 与识别闭环，识别过程通过 Android 本地解码器完成，不上传图片。
+/// 与识别闭环；二维码和条形码都在本地生成，不上传图片或文本。
 class QrcodeView extends GetView<QrcodeController> {
   const QrcodeView({super.key});
 
@@ -23,6 +23,8 @@ class QrcodeView extends GetView<QrcodeController> {
             _GenerateCard(controller: controller),
             const SizedBox(height: 16),
             _ResultCard(controller: controller),
+            const SizedBox(height: 16),
+            _BarcodeResultCard(controller: controller),
             const SizedBox(height: 24),
             _ScanCard(controller: controller),
             const SizedBox(height: 16),
@@ -133,7 +135,7 @@ class _GenerateCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('生成二维码', style: Theme.of(context).textTheme.titleMedium),
+              Text('生成二维码/条形码', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
               TextField(
                 controller: controller.inputController,
@@ -143,28 +145,92 @@ class _GenerateCard extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: '输入文本、链接或短备注',
                   helperText:
-                      '最多 ${QrcodeController.maxContentBytes} 字节，完全本地生成。',
+                      '二维码最多 ${QrcodeController.maxContentBytes} 字节；条形码最多 ${QrcodeController.maxBarcodeLength} 个可打印 ASCII 字符。',
                   border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: controller.isBusy.value
-                    ? null
-                    : controller.generateQrCode,
-                icon: controller.isBusy.value
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.qr_code_2),
-                label: Text(controller.isBusy.value ? '生成中' : '生成 PNG'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.generateQrCode,
+                    icon: controller.isBusy.value
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.qr_code_2),
+                    label: Text(controller.isBusy.value ? '生成中' : '生成二维码'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.generateBarcode,
+                    icon: const Icon(Icons.view_week_outlined),
+                    label: const Text('生成条形码'),
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _BarcodeResultCard extends StatelessWidget {
+  const _BarcodeResultCard({required this.controller});
+
+  final QrcodeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final result = controller.barcodeResult.value;
+      if (result == null) {
+        return const SizedBox.shrink();
+      }
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('条形码结果', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                  child: Image.file(
+                    File(result.outputPath),
+                    height: 180,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) =>
+                        const Icon(Icons.broken_image_outlined, size: 72),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('格式：${result.format}'),
+              Text('像素：${result.pixelWidth} × ${result.pixelHeight}'),
+              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              const SizedBox(height: 8),
+              Text(
+                result.outputPath,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 

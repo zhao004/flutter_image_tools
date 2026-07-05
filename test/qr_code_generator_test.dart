@@ -1,6 +1,8 @@
 import 'package:flutter_image_tools/app/core/models/barcode_scan_result.dart';
+import 'package:flutter_image_tools/app/core/models/barcode_image_file.dart';
 import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
 import 'package:flutter_image_tools/app/core/models/qr_code_image_file.dart';
+import 'package:flutter_image_tools/app/core/utils/barcode_generator.dart';
 import 'package:flutter_image_tools/app/core/utils/qr_code_generator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -29,6 +31,35 @@ void main() {
     });
   });
 
+  group('BarcodeGenerator', () {
+    test('生成 Code 128 条形码 PNG', () {
+      final result = BarcodeGenerator.renderCode128Png(
+        'ABC-123',
+        moduleWidth: 2,
+        height: 100,
+      );
+
+      expect(result.pixelWidth, greaterThan(120));
+      expect(result.pixelHeight, 100);
+      expect(result.png.take(8), [137, 80, 78, 71, 13, 10, 26, 10]);
+      expect(result.png.length, greaterThan(100));
+    });
+
+    test('条形码内容非法时抛出参数错误', () {
+      expect(() => BarcodeGenerator.renderCode128Png(''), throwsArgumentError);
+      expect(
+        () => BarcodeGenerator.renderCode128Png('中文'),
+        throwsArgumentError,
+      );
+      expect(
+        () => BarcodeGenerator.renderCode128Png(
+          'A' * (BarcodeGenerator.maxContentLength + 1),
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('QrCodeImageFile', () {
     test('校验导出结果必要字段', () {
       const file = QrCodeImageFile(
@@ -38,6 +69,21 @@ void main() {
         version: 1,
         moduleCount: 21,
         pixelSize: 348,
+      );
+
+      expect(file.hasValidOutput, isTrue);
+    });
+  });
+
+  group('BarcodeImageFile', () {
+    test('校验条形码导出结果必要字段', () {
+      const file = BarcodeImageFile(
+        content: 'ABC-123',
+        outputPath: '/tmp/barcode.png',
+        outputSizeBytes: 2048,
+        format: 'CODE_128',
+        pixelWidth: 420,
+        pixelHeight: 160,
       );
 
       expect(file.hasValidOutput, isTrue);
