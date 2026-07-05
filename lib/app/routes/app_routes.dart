@@ -18,6 +18,7 @@ abstract class Routes {
   static const imageWatermark = _Paths.imageWatermark;
   static const logs = _Paths.logs;
   static const merge = _Paths.merge;
+  static const pdf = _Paths.pdf;
   static const resize = _Paths.resize;
   static const rotate = _Paths.rotate;
   static const settings = _Paths.settings;
@@ -41,6 +42,7 @@ abstract class _Paths {
   static const imageWatermark = '/image-watermark';
   static const logs = '/logs';
   static const merge = '/merge';
+  static const pdf = '/pdf';
   static const resize = '/resize';
   static const rotate = '/rotate';
   static const settings = '/settings';

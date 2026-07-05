@@ -138,7 +138,8 @@ class HomeController extends GetxController {
       title: 'PDF 工具',
       description: '图片转 PDF 与页面导出',
       icon: 'pdf',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.pdf,
     ),
     const HomeToolItem(
       title: '二维码',

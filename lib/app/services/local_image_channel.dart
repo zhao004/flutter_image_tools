@@ -12,6 +12,7 @@ import '../core/models/grid_image_file.dart';
 import '../core/models/image_watermarked_file.dart';
 import '../core/models/local_image_file.dart';
 import '../core/models/merged_image_file.dart';
+import '../core/models/pdf_image_file.dart';
 import '../core/models/resized_image_file.dart';
 import '../core/models/rotated_image_file.dart';
 import '../core/models/watermarked_image_file.dart';
@@ -28,6 +29,7 @@ class LocalImageChannel {
   static const String _channelName = 'image_toolkit/local_image';
   static const int maxResizeDimension = 10000;
   static const int maxMergeImages = 20;
+  static const int maxPdfImages = 50;
   static const int minGridSize = 2;
   static const int maxGridSize = 5;
   static const Set<String> supportedFilters = {
@@ -667,6 +669,62 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('删除 EXIF 失败，请重试', cause: error);
+    }
+  }
+
+  Future<PdfImageFile> imagesToPdf({
+    required List<LocalImageFile> sources,
+    required String pageSize,
+    required String orientation,
+  }) async {
+    if (sources.isEmpty) {
+      throw const AppException('请至少选择一张图片生成 PDF');
+    }
+    if (sources.length > maxPdfImages) {
+      throw const AppException('单次最多转换 50 张图片');
+    }
+    final normalizedPageSize = pageSize.trim().toLowerCase();
+    if (!{'a4', 'a3'}.contains(normalizedPageSize)) {
+      throw const AppException('PDF 页面规格仅支持 A4 或 A3');
+    }
+    final normalizedOrientation = orientation.trim().toLowerCase();
+    if (!{'portrait', 'landscape'}.contains(normalizedOrientation)) {
+      throw const AppException('PDF 页面方向无效');
+    }
+    final paths = sources.map((image) => image.path.trim()).toList();
+    if (paths.any((path) => path.isEmpty)) {
+      throw const AppException('图片路径为空，无法生成 PDF');
+    }
+
+    try {
+      final result = await _channel
+          .invokeMapMethod<Object?, Object?>('imagesToPdf', <String, Object?>{
+            'paths': paths,
+            'pageSize': normalizedPageSize,
+            'orientation': normalizedOrientation,
+          });
+      if (result == null) {
+        throw const AppException('PDF 生成结果为空，请重试');
+      }
+      final pdf = PdfImageFile.fromMap(
+        sources: sources,
+        pageSize: normalizedPageSize,
+        orientation: normalizedOrientation,
+        map: result,
+      );
+      if (pdf.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      if (pdf.pageCount != sources.length) {
+        throw const AppException('PDF 页数异常，请重试');
+      }
+      return pdf;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('生成 PDF 失败，请重试', cause: error);
     }
   }
 

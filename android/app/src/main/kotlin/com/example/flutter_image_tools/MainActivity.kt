@@ -8,6 +8,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.pdf.PdfDocument
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
@@ -51,6 +53,7 @@ class MainActivity : FlutterActivity() {
             "addImageWatermark" -> addImageWatermark(call, result)
             "readExif" -> readExif(call, result)
             "removeExif" -> removeExif(call, result)
+            "imagesToPdf" -> imagesToPdf(call, result)
             else -> result.notImplemented()
         }
     }
@@ -648,6 +651,77 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun imagesToPdf(call: MethodCall, result: MethodChannel.Result) {
+        val paths = call.argument<List<String>>("paths") ?: emptyList()
+        val pageSize = (call.argument<String>("pageSize") ?: "a4").lowercase()
+        val orientation = (call.argument<String>("orientation") ?: "portrait").lowercase()
+        if (paths.isEmpty() || paths.size > 50) {
+            result.error("invalid_args", "PDF 图片数量必须在 1 到 50 张之间", null)
+            return
+        }
+        if (pageSize !in setOf("a4", "a3") || orientation !in setOf("portrait", "landscape")) {
+            result.error("invalid_args", "PDF 页面参数无效", null)
+            return
+        }
+
+        val pagePointSize = pdfPagePointSize(pageSize, orientation)
+        val pdfDocument = PdfDocument()
+        try {
+            for (index in paths.indices) {
+                val path = paths[index]
+                if (path.isBlank()) {
+                    result.error("file_not_found", "图片路径为空", null)
+                    return
+                }
+                val source = File(path)
+                if (!source.exists()) {
+                    result.error("file_not_found", "图片文件不存在", null)
+                    return
+                }
+                val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+                if (bitmap == null) {
+                    result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+                    return
+                }
+                try {
+                    val pageInfo = PdfDocument.PageInfo.Builder(
+                        pagePointSize.first,
+                        pagePointSize.second,
+                        index + 1,
+                    ).create()
+                    val page = pdfDocument.startPage(pageInfo)
+                    page.canvas.drawColor(Color.WHITE)
+                    drawBitmapCenteredInPdfPage(
+                        bitmap,
+                        page.canvas,
+                        pagePointSize.first,
+                        pagePointSize.second,
+                    )
+                    pdfDocument.finishPage(page)
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+
+            val outputDir = File(cacheDir, "pdf_documents").apply { mkdirs() }
+            val output = File(outputDir, "images_${System.currentTimeMillis()}.pdf")
+            FileOutputStream(output).use { stream -> pdfDocument.writeTo(stream) }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "pageSize" to pageSize,
+                    "orientation" to orientation,
+                    "pageCount" to paths.size,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            pdfDocument.close()
+        }
+    }
+
     private fun addTextWatermark(call: MethodCall, result: MethodChannel.Result) {
         val path = call.argument<String>("path")
         val text = call.argument<String>("text")?.trim() ?: ""
@@ -1104,6 +1178,43 @@ class MainActivity : FlutterActivity() {
             "image/bmp" -> "bmp"
             else -> "img"
         }
+    }
+
+    private fun pdfPagePointSize(pageSize: String, orientation: String): Pair<Int, Int> {
+        val portrait = when (pageSize) {
+            "a3" -> Pair(842, 1191)
+            else -> Pair(595, 842)
+        }
+        return if (orientation == "landscape") {
+            Pair(portrait.second, portrait.first)
+        } else {
+            portrait
+        }
+    }
+
+    private fun drawBitmapCenteredInPdfPage(
+        bitmap: Bitmap,
+        canvas: Canvas,
+        pageWidth: Int,
+        pageHeight: Int,
+    ) {
+        val margin = 24f
+        val availableWidth = (pageWidth - margin * 2).coerceAtLeast(1f)
+        val availableHeight = (pageHeight - margin * 2).coerceAtLeast(1f)
+        val scale = minOf(
+            availableWidth / bitmap.width.toFloat(),
+            availableHeight / bitmap.height.toFloat(),
+        )
+        val targetWidth = bitmap.width * scale
+        val targetHeight = bitmap.height * scale
+        val left = (pageWidth - targetWidth) / 2f
+        val top = (pageHeight - targetHeight) / 2f
+        canvas.drawBitmap(
+            bitmap,
+            null,
+            RectF(left, top, left + targetWidth, top + targetHeight),
+            Paint(Paint.ANTI_ALIAS_FLAG),
+        )
     }
 
     private fun addExifAttribute(
