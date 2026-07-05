@@ -12,6 +12,7 @@ abstract class Routes {
   static const convert = _Paths.convert;
   static const crop = _Paths.crop;
   static const exif = _Paths.exif;
+  static const favorites = _Paths.favorites;
   static const filter = _Paths.filter;
   static const flip = _Paths.flip;
   static const grid = _Paths.grid;
@@ -37,6 +38,7 @@ abstract class _Paths {
   static const convert = '/convert';
   static const crop = '/crop';
   static const exif = '/exif';
+  static const favorites = '/favorites';
   static const filter = '/filter';
   static const flip = '/flip';
   static const grid = '/grid';

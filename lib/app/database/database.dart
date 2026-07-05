@@ -168,15 +168,38 @@ class AppDatabase extends _$AppDatabase {
     return into(favoriteTemplates).insert(template);
   }
 
-  Future<List<FavoriteTemplate>> getFavoriteTemplates({int limit = 20}) {
+  Future<List<FavoriteTemplate>> getFavoriteTemplates({
+    int limit = 20,
+    String keyword = '',
+  }) {
     if (limit <= 0) {
       return Future.value(const []);
     }
-    return (select(favoriteTemplates)
-          ..orderBy([(table) => OrderingTerm.desc(table.updatedAt)])
-          ..limit(limit))
-        .get();
+    final normalizedKeyword = keyword.trim();
+    final query = select(favoriteTemplates)
+      ..orderBy([(table) => OrderingTerm.desc(table.updatedAt)])
+      ..limit(limit);
+    if (normalizedKeyword.isNotEmpty) {
+      query.where(
+        (table) =>
+            table.featureName.contains(normalizedKeyword) |
+            table.templateName.contains(normalizedKeyword) |
+            table.parametersJson.contains(normalizedKeyword),
+      );
+    }
+    return query.get();
   }
+
+  Future<int> deleteFavoriteTemplate(int id) {
+    if (id <= 0) {
+      return Future.value(0);
+    }
+    return (delete(
+      favoriteTemplates,
+    )..where((table) => table.id.equals(id))).go();
+  }
+
+  Future<int> clearFavoriteTemplates() => delete(favoriteTemplates).go();
 
   Future<int> upsertCacheRecord(CacheRecordsCompanion record) {
     return into(cacheRecords).insertOnConflictUpdate(record);

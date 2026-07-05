@@ -16,6 +16,8 @@ import '../pages/crop/crop_binding.dart';
 import '../pages/crop/crop_view.dart';
 import '../pages/exif/exif_binding.dart';
 import '../pages/exif/exif_view.dart';
+import '../pages/favorites/favorites_binding.dart';
+import '../pages/favorites/favorites_view.dart';
 import '../pages/filter/filter_binding.dart';
 import '../pages/filter/filter_view.dart';
 import '../pages/flip/flip_binding.dart';
@@ -95,6 +97,11 @@ class AppPages {
       name: _Paths.exif,
       page: () => const ExifView(),
       binding: ExifBinding(),
+    ),
+    GetPage(
+      name: _Paths.favorites,
+      page: () => const FavoritesView(),
+      binding: FavoritesBinding(),
     ),
     GetPage(
       name: _Paths.filter,
