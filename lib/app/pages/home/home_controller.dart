@@ -96,7 +96,8 @@ class HomeController extends GetxController {
       title: '文字水印',
       description: '多行文字、透明度和位置',
       icon: 'watermark',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.watermark,
     ),
     const HomeToolItem(
       title: '格式转换',

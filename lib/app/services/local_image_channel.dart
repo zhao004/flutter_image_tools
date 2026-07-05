@@ -9,6 +9,7 @@ import '../core/models/local_image_file.dart';
 import '../core/models/merged_image_file.dart';
 import '../core/models/resized_image_file.dart';
 import '../core/models/rotated_image_file.dart';
+import '../core/models/watermarked_image_file.dart';
 
 /// Android 本地图片能力通道，封装选择图片和压缩图片的原生调用。
 ///
@@ -380,6 +381,77 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('拼接图片失败，请重试', cause: error);
+    }
+  }
+
+  Future<WatermarkedImageFile> addTextWatermark({
+    required LocalImageFile source,
+    required String text,
+    required String position,
+    required int fontSize,
+    required int opacity,
+    required String color,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法添加水印');
+    }
+    final normalizedText = text.trim();
+    if (normalizedText.isEmpty) {
+      throw const AppException('水印文字不能为空');
+    }
+    if (normalizedText.length > 80) {
+      throw const AppException('水印文字不能超过 80 个字符');
+    }
+    final normalizedPosition = position.trim().toLowerCase();
+    const supportedPositions = {
+      'topleft',
+      'topright',
+      'bottomleft',
+      'bottomright',
+      'center',
+      'tile',
+    };
+    if (!supportedPositions.contains(normalizedPosition)) {
+      throw const AppException('水印位置无效');
+    }
+    if (fontSize < 12 || fontSize > 160) {
+      throw const AppException('字号必须在 12 到 160 之间');
+    }
+    if (opacity < 10 || opacity > 100) {
+      throw const AppException('透明度必须在 10 到 100 之间');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'addTextWatermark',
+        <String, Object?>{
+          'path': source.path,
+          'text': normalizedText,
+          'position': normalizedPosition,
+          'fontSize': fontSize,
+          'opacity': opacity,
+          'color': color,
+        },
+      );
+      if (result == null) {
+        throw const AppException('水印结果为空，请重试');
+      }
+      final watermarked = WatermarkedImageFile.fromMap(
+        source: source,
+        text: normalizedText,
+        position: normalizedPosition,
+        map: result,
+      );
+      if (watermarked.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return watermarked;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('添加文字水印失败，请重试', cause: error);
     }
   }
 

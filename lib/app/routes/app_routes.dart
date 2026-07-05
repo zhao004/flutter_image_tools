@@ -14,6 +14,7 @@ abstract class Routes {
   static const resize = _Paths.resize;
   static const rotate = _Paths.rotate;
   static const settings = _Paths.settings;
+  static const watermark = _Paths.watermark;
 }
 
 abstract class _Paths {
@@ -29,4 +30,5 @@ abstract class _Paths {
   static const resize = '/resize';
   static const rotate = '/rotate';
   static const settings = '/settings';
+  static const watermark = '/watermark';
 }

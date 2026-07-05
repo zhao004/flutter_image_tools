@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
@@ -43,6 +44,7 @@ class MainActivity : FlutterActivity() {
             "mergeImages" -> mergeImages(call, result)
             "resizeImage" -> resizeImage(call, result)
             "rotateImage" -> rotateImage(call, result)
+            "addTextWatermark" -> addTextWatermark(call, result)
             else -> result.notImplemented()
         }
     }
@@ -640,6 +642,87 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun addTextWatermark(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val text = call.argument<String>("text")?.trim() ?: ""
+        val position = (call.argument<String>("position") ?: "bottomRight").lowercase()
+        val fontSize = call.argument<Int>("fontSize") ?: 36
+        val opacity = call.argument<Int>("opacity") ?: 70
+        val watermarkColor = call.argument<String>("color") ?: "#FFFFFF"
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (text.isBlank() || text.length > 80) {
+            result.error("invalid_args", "水印文字不能为空且不能超过 80 个字符", null)
+            return
+        }
+        if (position !in setOf("topleft", "topright", "bottomleft", "bottomright", "center", "tile")) {
+            result.error("invalid_args", "水印位置无效", null)
+            return
+        }
+        if (fontSize !in 12..160 || opacity !in 10..100) {
+            result.error("invalid_args", "水印字号或透明度超出范围", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        val outputBitmap = try {
+            bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        } catch (error: Exception) {
+            bitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+
+        try {
+            val canvas = Canvas(outputBitmap)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = fontSize.toFloat()
+                this.color = parseWatermarkColor(watermarkColor, opacity)
+                setShadowLayer(3f, 1.5f, 1.5f, Color.argb((opacity * 2.0).toInt().coerceIn(0, 160), 0, 0, 0))
+            }
+            if (position == "tile") {
+                drawTiledWatermark(canvas, text, paint, outputBitmap.width, outputBitmap.height, fontSize)
+            } else {
+                drawSingleWatermark(canvas, text, paint, outputBitmap.width, outputBitmap.height, position, fontSize)
+            }
+
+            val outputDir = File(cacheDir, "watermarked_images").apply { mkdirs() }
+            val output = File(outputDir, "watermarked_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = outputBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "文字水印导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "position" to position,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            outputBitmap.recycle()
+            bitmap.recycle()
+        }
+    }
+
     private fun queryImageInfo(uri: Uri): ImageInfo {
         var name = "selected_image"
         var mimeType = contentResolver.getType(uri) ?: "image/*"
@@ -732,6 +815,78 @@ class MainActivity : FlutterActivity() {
             positions.add(BitmapPosition(x, y))
         }
         return MergeLayout(width = width, height = height, positions = positions)
+    }
+
+    private fun parseWatermarkColor(color: String, opacity: Int): Int {
+        val alpha = (opacity * 255 / 100).coerceIn(0, 255)
+        val parsedColor = try {
+            Color.parseColor(color)
+        } catch (_: IllegalArgumentException) {
+            Color.WHITE
+        }
+        return Color.argb(
+            alpha,
+            Color.red(parsedColor),
+            Color.green(parsedColor),
+            Color.blue(parsedColor),
+        )
+    }
+
+    private fun drawSingleWatermark(
+        canvas: Canvas,
+        text: String,
+        paint: Paint,
+        width: Int,
+        height: Int,
+        position: String,
+        fontSize: Int,
+    ) {
+        val lines = text.split('\n').filter { it.isNotBlank() }
+        val fontMetrics = paint.fontMetrics
+        val lineHeight = (fontMetrics.bottom - fontMetrics.top).coerceAtLeast(fontSize.toFloat())
+        val blockWidth = lines.maxOf { paint.measureText(it) }
+        val blockHeight = lineHeight * lines.size
+        val margin = (fontSize * 0.8f).coerceAtLeast(24f)
+        val x = when (position) {
+            "topright", "bottomright" -> width - blockWidth - margin
+            "center" -> (width - blockWidth) / 2f
+            else -> margin
+        }.coerceIn(0f, width.toFloat())
+        val top = when (position) {
+            "bottomleft", "bottomright" -> height - blockHeight - margin
+            "center" -> (height - blockHeight) / 2f
+            else -> margin
+        }.coerceIn(0f, height.toFloat())
+        var baseline = top - fontMetrics.top
+        for (line in lines) {
+            canvas.drawText(line, x, baseline, paint)
+            baseline += lineHeight
+        }
+    }
+
+    private fun drawTiledWatermark(
+        canvas: Canvas,
+        text: String,
+        paint: Paint,
+        width: Int,
+        height: Int,
+        fontSize: Int,
+    ) {
+        val line = text.replace('\n', ' ')
+        val textWidth = paint.measureText(line).coerceAtLeast(fontSize.toFloat())
+        val stepX = (textWidth * 1.6f).coerceAtLeast(180f)
+        val stepY = (fontSize * 3.2f).coerceAtLeast(120f)
+        var y = fontSize.toFloat()
+        var row = 0
+        while (y < height + stepY) {
+            var x = if (row % 2 == 0) fontSize.toFloat() else stepX / 2f
+            while (x < width + stepX) {
+                canvas.drawText(line, x, y, paint)
+                x += stepX
+            }
+            row += 1
+            y += stepY
+        }
     }
 
     private fun compressFormatFor(format: String): Bitmap.CompressFormat? {
