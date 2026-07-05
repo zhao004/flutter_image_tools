@@ -51,6 +51,48 @@ class OperationHistoryRepository {
     );
   }
 
+  Future<void> recordOperationSuccess({
+    required String featureName,
+    required String inputPath,
+    required String outputPath,
+    required Map<String, Object> parameters,
+  }) async {
+    if (featureName.trim().isEmpty || inputPath.trim().isEmpty) {
+      throw ArgumentError('功能名称和输入路径不能为空');
+    }
+    await _database.createHistory(
+      OperationHistoryCompanion.insert(
+        featureName: featureName,
+        inputPath: inputPath,
+        outputPath: Value(outputPath),
+        parametersJson: jsonEncode(parameters),
+        status: 'success',
+        createdAt: DateTime.now().toUtc(),
+      ),
+    );
+  }
+
+  Future<void> recordOperationFailure({
+    required String featureName,
+    required String inputPath,
+    required Map<String, Object> parameters,
+    required String errorMessage,
+  }) async {
+    if (featureName.trim().isEmpty || inputPath.trim().isEmpty) {
+      throw ArgumentError('功能名称和输入路径不能为空');
+    }
+    await _database.createHistory(
+      OperationHistoryCompanion.insert(
+        featureName: featureName,
+        inputPath: inputPath,
+        parametersJson: jsonEncode(parameters),
+        status: 'failed',
+        errorMessage: Value(errorMessage),
+        createdAt: DateTime.now().toUtc(),
+      ),
+    );
+  }
+
   Future<void> recordCompressionFailure({
     required String inputPath,
     required int quality,

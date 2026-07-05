@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../core/exceptions/app_exception.dart';
 import '../core/models/compressed_image_file.dart';
 import '../core/models/local_image_file.dart';
+import '../core/models/rotated_image_file.dart';
 
 /// Android 本地图片能力通道，封装选择图片和压缩图片的原生调用。
 ///
@@ -100,6 +101,46 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('压缩图片失败，请重试', cause: error);
+    }
+  }
+
+  Future<RotatedImageFile> rotateImage({
+    required LocalImageFile source,
+    required int degrees,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法旋转');
+    }
+    if (degrees < -360 || degrees > 360) {
+      throw const AppException('旋转角度必须在 -360 到 360 之间');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'rotateImage',
+        <String, Object?>{
+          'path': source.path,
+          'degrees': degrees,
+        },
+      );
+      if (result == null) {
+        throw const AppException('旋转结果为空，请重试');
+      }
+      final rotated = RotatedImageFile.fromMap(
+        source: source,
+        degrees: degrees,
+        map: result,
+      );
+      if (rotated.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return rotated;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('旋转图片失败，请重试', cause: error);
     }
   }
 

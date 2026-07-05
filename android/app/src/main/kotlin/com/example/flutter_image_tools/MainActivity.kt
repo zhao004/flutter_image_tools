@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
@@ -32,6 +33,7 @@ class MainActivity : FlutterActivity() {
             "pickSingleImage" -> pickSingleImage(result)
             "pickMultipleImages" -> pickMultipleImages(result)
             "compressImage" -> compressImage(call, result)
+            "rotateImage" -> rotateImage(call, result)
             else -> result.notImplemented()
         }
     }
@@ -211,6 +213,63 @@ class MainActivity : FlutterActivity() {
         } catch (error: Exception) {
             result.error("export_failed", error.message, null)
         } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun rotateImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val degrees = call.argument<Int>("degrees") ?: 90
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (degrees !in -360..360) {
+            result.error("invalid_args", "旋转角度必须在 -360 到 360 之间", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        val matrix = Matrix().apply { postRotate(degrees.toFloat()) }
+        val rotatedBitmap = try {
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        } catch (error: Exception) {
+            bitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+
+        try {
+            val outputDir = File(cacheDir, "rotated_images").apply { mkdirs() }
+            val output = File(outputDir, "rotated_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "图片旋转导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            rotatedBitmap.recycle()
             bitmap.recycle()
         }
     }

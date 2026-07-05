@@ -79,7 +79,8 @@ class HomeController extends GetxController {
       title: '图片旋转',
       description: '90 度、180 度或任意角度',
       icon: 'rotate',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.rotate,
     ),
     const HomeToolItem(
       title: '文字水印',

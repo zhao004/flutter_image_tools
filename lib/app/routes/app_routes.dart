@@ -6,6 +6,7 @@ abstract class Routes {
   static const home = _Paths.home;
   static const compress = _Paths.compress;
   static const history = _Paths.history;
+  static const rotate = _Paths.rotate;
   static const settings = _Paths.settings;
 }
 
@@ -14,5 +15,6 @@ abstract class _Paths {
   static const home = '/home';
   static const compress = '/compress';
   static const history = '/history';
+  static const rotate = '/rotate';
   static const settings = '/settings';
 }

@@ -6,6 +6,8 @@ import '../pages/history/history_binding.dart';
 import '../pages/history/history_view.dart';
 import '../pages/home/home_binding.dart';
 import '../pages/home/home_view.dart';
+import '../pages/rotate/rotate_binding.dart';
+import '../pages/rotate/rotate_view.dart';
 import '../pages/settings/settings_binding.dart';
 import '../pages/settings/settings_view.dart';
 
@@ -31,6 +33,11 @@ class AppPages {
       name: _Paths.history,
       page: () => const HistoryView(),
       binding: HistoryBinding(),
+    ),
+    GetPage(
+      name: _Paths.rotate,
+      page: () => const RotateView(),
+      binding: RotateBinding(),
     ),
     GetPage(
       name: _Paths.settings,
