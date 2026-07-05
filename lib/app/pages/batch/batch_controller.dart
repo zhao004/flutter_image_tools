@@ -12,7 +12,8 @@ enum BatchOperation {
   convert(label: '格式转换', featureName: '批量格式转换'),
   rotate(label: '批量旋转', featureName: '批量旋转'),
   flip(label: '批量翻转', featureName: '批量翻转'),
-  resize(label: '尺寸调整', featureName: '批量尺寸调整');
+  resize(label: '尺寸调整', featureName: '批量尺寸调整'),
+  textWatermark(label: '文字水印', featureName: '批量文字水印');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -47,6 +48,32 @@ enum BatchResizeMode {
   exact(label: '固定宽高', value: 'exact');
 
   const BatchResizeMode({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+enum BatchWatermarkPosition {
+  topLeft(label: '左上', value: 'topLeft'),
+  topRight(label: '右上', value: 'topRight'),
+  bottomLeft(label: '左下', value: 'bottomLeft'),
+  bottomRight(label: '右下', value: 'bottomRight'),
+  center(label: '居中', value: 'center'),
+  tile(label: '平铺', value: 'tile');
+
+  const BatchWatermarkPosition({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+enum BatchWatermarkColor {
+  white(label: '白色', value: '#FFFFFF'),
+  black(label: '黑色', value: '#000000'),
+  red(label: '红色', value: '#E53935'),
+  yellow(label: '黄色', value: '#FDD835');
+
+  const BatchWatermarkColor({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -141,6 +168,11 @@ class BatchController extends GetxController {
   final resizePercent = 100.obs;
   final resizeWidth = 1024.obs;
   final resizeHeight = 1024.obs;
+  final watermarkText = 'Image Toolkit'.obs;
+  final watermarkPosition = BatchWatermarkPosition.bottomRight.obs;
+  final watermarkColor = BatchWatermarkColor.white.obs;
+  final watermarkFontSize = 36.obs;
+  final watermarkOpacity = 70.obs;
   final degrees = 90.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
@@ -258,6 +290,41 @@ class BatchController extends GetxController {
     resizeHeight.value = parsed.clamp(_minResizeDimension, _maxResizeDimension);
   }
 
+  void updateWatermarkText(String value) {
+    if (isRunning.value) {
+      return;
+    }
+    watermarkText.value = value;
+  }
+
+  void setWatermarkPosition(BatchWatermarkPosition value) {
+    if (isRunning.value) {
+      return;
+    }
+    watermarkPosition.value = value;
+  }
+
+  void setWatermarkColor(BatchWatermarkColor value) {
+    if (isRunning.value) {
+      return;
+    }
+    watermarkColor.value = value;
+  }
+
+  void updateWatermarkFontSize(double value) {
+    if (isRunning.value) {
+      return;
+    }
+    watermarkFontSize.value = value.round().clamp(12, 160);
+  }
+
+  void updateWatermarkOpacity(double value) {
+    if (isRunning.value) {
+      return;
+    }
+    watermarkOpacity.value = value.round().clamp(10, 100);
+  }
+
   Future<void> startQueue() async {
     if (isRunning.value) {
       return;
@@ -272,6 +339,10 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.resize &&
         !_hasValidResizeSettings()) {
+      return;
+    }
+    if (operation.value == BatchOperation.textWatermark &&
+        !_hasValidWatermarkSettings()) {
       return;
     }
     _resetTasksForCurrentSelection();
@@ -381,6 +452,8 @@ class BatchController extends GetxController {
           await _processFlipTask(index, task.source);
         case BatchOperation.resize:
           await _processResizeTask(index, task.source);
+        case BatchOperation.textWatermark:
+          await _processTextWatermarkTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -500,6 +573,34 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processTextWatermarkTask(
+    int index,
+    LocalImageFile source,
+  ) async {
+    final text = watermarkText.value.trim();
+    final watermarked = await _imageChannel.addTextWatermark(
+      source: source,
+      text: text,
+      position: watermarkPosition.value.value,
+      fontSize: watermarkFontSize.value,
+      opacity: watermarkOpacity.value,
+      color: watermarkColor.value.value,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: watermarked.outputPath,
+      outputSizeBytes: watermarked.outputSizeBytes,
+      resultLabel: watermarkPosition.value.label,
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: watermarked.outputPath,
+      parameters: _historyParameters,
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -583,6 +684,14 @@ class BatchController extends GetxController {
           'width': resizeWidth.value,
           'height': resizeHeight.value,
         });
+      case BatchOperation.textWatermark:
+        parameters.addAll(<String, Object>{
+          'text': watermarkText.value.trim(),
+          'position': watermarkPosition.value.value,
+          'fontSize': watermarkFontSize.value,
+          'opacity': watermarkOpacity.value,
+          'color': watermarkColor.value.value,
+        });
     }
     return parameters;
   }
@@ -614,6 +723,9 @@ class BatchController extends GetxController {
         BatchResizeMode.percent => '按百分比模式会基于每张图片原始尺寸分别缩放。',
         BatchResizeMode.exact => '固定宽高模式会把所有图片导出为相同目标尺寸。',
       };
+    }
+    if (operation.value == BatchOperation.textWatermark) {
+      return '文字水印会按当前文本、位置、颜色、字号和透明度批量导出新图片。';
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
@@ -663,6 +775,27 @@ class BatchController extends GetxController {
     if (resizeWidth.value > _maxResizeDimension ||
         resizeHeight.value > _maxResizeDimension) {
       _showError('目标宽高不能超过 $_maxResizeDimension 像素');
+      return false;
+    }
+    return true;
+  }
+
+  bool _hasValidWatermarkSettings() {
+    final text = watermarkText.value.trim();
+    if (text.isEmpty) {
+      _showError('请输入水印文字');
+      return false;
+    }
+    if (text.length > 80) {
+      _showError('水印文字不能超过 80 个字符');
+      return false;
+    }
+    if (watermarkFontSize.value < 12 || watermarkFontSize.value > 160) {
+      _showError('字号必须在 12 到 160 之间');
+      return false;
+    }
+    if (watermarkOpacity.value < 10 || watermarkOpacity.value > 100) {
+      _showError('透明度必须在 10 到 100 之间');
       return false;
     }
     return true;

@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
 /// 取消都只影响未开始任务，正在处理的单个本地任务会自然结束后再停队列。
@@ -190,6 +190,45 @@ class _OperationCard extends StatelessWidget {
                       .toList(growable: false),
                 ),
               ],
+              if (controller.operation.value ==
+                  BatchOperation.textWatermark) ...[
+                const SizedBox(height: 16),
+                const Text('水印位置'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: BatchWatermarkPosition.values
+                      .map(
+                        (item) => ChoiceChip(
+                          label: Text(item.label),
+                          selected: controller.watermarkPosition.value == item,
+                          onSelected: controller.isRunning.value
+                              ? null
+                              : (_) => controller.setWatermarkPosition(item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+                const SizedBox(height: 16),
+                const Text('水印颜色'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: BatchWatermarkColor.values
+                      .map(
+                        (item) => ChoiceChip(
+                          label: Text(item.label),
+                          selected: controller.watermarkColor.value == item,
+                          onSelected: controller.isRunning.value
+                              ? null
+                              : (_) => controller.setWatermarkColor(item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ],
           ),
         ),
@@ -284,6 +323,44 @@ class _SettingsCard extends StatelessWidget {
                     ],
                   ),
                 ],
+              ] else if (controller.operation.value ==
+                  BatchOperation.textWatermark) ...[
+                TextFormField(
+                  key: ValueKey(controller.watermarkText.value),
+                  initialValue: controller.watermarkText.value,
+                  enabled: !controller.isRunning.value,
+                  maxLength: 80,
+                  minLines: 1,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '水印文字',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: controller.updateWatermarkText,
+                ),
+                const SizedBox(height: 8),
+                Text('字号：${controller.watermarkFontSize.value}px'),
+                Slider(
+                  value: controller.watermarkFontSize.value.toDouble(),
+                  min: 12,
+                  max: 160,
+                  divisions: 74,
+                  label: '${controller.watermarkFontSize.value}px',
+                  onChanged: controller.isRunning.value
+                      ? null
+                      : controller.updateWatermarkFontSize,
+                ),
+                Text('透明度：${controller.watermarkOpacity.value}%'),
+                Slider(
+                  value: controller.watermarkOpacity.value.toDouble(),
+                  min: 10,
+                  max: 100,
+                  divisions: 18,
+                  label: '${controller.watermarkOpacity.value}%',
+                  onChanged: controller.isRunning.value
+                      ? null
+                      : controller.updateWatermarkOpacity,
+                ),
               ] else ...[
                 Text('质量：${controller.quality.value}%'),
                 Slider(
