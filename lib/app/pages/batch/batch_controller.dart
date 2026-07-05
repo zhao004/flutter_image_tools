@@ -1,12 +1,33 @@
 import 'package:get/get.dart';
 
 import '../../core/exceptions/app_exception.dart';
-import '../../core/models/compressed_image_file.dart';
 import '../../core/models/local_image_file.dart';
 import '../../repositories/app_settings_repository.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
+
+enum BatchOperation {
+  compress(label: '批量压缩', featureName: '批量压缩'),
+  convert(label: '格式转换', featureName: '批量格式转换');
+
+  const BatchOperation({required this.label, required this.featureName});
+
+  final String label;
+  final String featureName;
+}
+
+enum BatchConvertFormat {
+  jpg(label: 'JPG', value: 'jpg'),
+  png(label: 'PNG', value: 'png'),
+  webp(label: 'WebP', value: 'webp'),
+  bmp(label: 'BMP', value: 'bmp');
+
+  const BatchConvertFormat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
 
 enum BatchTaskStatus {
   pending(label: '等待'),
@@ -21,16 +42,20 @@ enum BatchTaskStatus {
   final String label;
 }
 
-class BatchCompressionTask {
-  const BatchCompressionTask({
+class BatchImageTask {
+  const BatchImageTask({
     required this.source,
-    this.result,
+    this.outputPath = '',
+    this.outputSizeBytes = 0,
+    this.resultLabel = '',
     this.errorMessage,
     this.status = BatchTaskStatus.pending,
   });
 
   final LocalImageFile source;
-  final CompressedImageFile? result;
+  final String outputPath;
+  final int outputSizeBytes;
+  final String resultLabel;
   final String? errorMessage;
   final BatchTaskStatus status;
 
@@ -41,15 +66,19 @@ class BatchCompressionTask {
 
   bool get canRetry => status == BatchTaskStatus.failed;
 
-  BatchCompressionTask copyWith({
-    CompressedImageFile? result,
+  BatchImageTask copyWith({
+    String? outputPath,
+    int? outputSizeBytes,
+    String? resultLabel,
     String? errorMessage,
     BatchTaskStatus? status,
     bool clearError = false,
   }) {
-    return BatchCompressionTask(
+    return BatchImageTask(
       source: source,
-      result: result ?? this.result,
+      outputPath: outputPath ?? this.outputPath,
+      outputSizeBytes: outputSizeBytes ?? this.outputSizeBytes,
+      resultLabel: resultLabel ?? this.resultLabel,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       status: status ?? this.status,
     );
@@ -78,7 +107,9 @@ class BatchController extends GetxController {
   final RecentFilesRepository _recentFilesRepository;
 
   final selectedImages = <LocalImageFile>[].obs;
-  final tasks = <BatchCompressionTask>[].obs;
+  final tasks = <BatchImageTask>[].obs;
+  final operation = BatchOperation.compress.obs;
+  final convertFormat = BatchConvertFormat.jpg.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
   final isRunning = false.obs;
@@ -109,9 +140,7 @@ class BatchController extends GetxController {
         return;
       }
       selectedImages.assignAll(images);
-      tasks.assignAll(
-        images.map((image) => BatchCompressionTask(source: image)),
-      );
+      tasks.assignAll(images.map((image) => BatchImageTask(source: image)));
       processedCount.value = 0;
       isPaused.value = false;
       isCancelRequested.value = false;
@@ -132,6 +161,21 @@ class BatchController extends GetxController {
     quality.value = value.round().clamp(1, 100);
   }
 
+  void setOperation(BatchOperation value) {
+    if (isRunning.value) {
+      return;
+    }
+    operation.value = value;
+    _resetTasksForCurrentSelection();
+  }
+
+  void setConvertFormat(BatchConvertFormat value) {
+    if (isRunning.value) {
+      return;
+    }
+    convertFormat.value = value;
+  }
+
   Future<void> startQueue() async {
     if (isRunning.value) {
       return;
@@ -140,9 +184,7 @@ class BatchController extends GetxController {
       _showError('请先选择图片');
       return;
     }
-    tasks.assignAll(
-      selectedImages.map((image) => BatchCompressionTask(source: image)),
-    );
+    _resetTasksForCurrentSelection();
     processedCount.value = 0;
     isPaused.value = false;
     isCancelRequested.value = false;
@@ -238,33 +280,66 @@ class BatchController extends GetxController {
       clearError: true,
     );
     try {
-      final compressed = await _imageChannel.compressImage(
-        source: task.source,
-        quality: quality.value,
-      );
-      tasks[index] = tasks[index].copyWith(
-        result: compressed,
-        status: BatchTaskStatus.success,
-        clearError: true,
-      );
-      await _historyRepository.recordCompressionSuccess(
-        inputPath: task.source.path,
-        outputPath: compressed.outputPath,
-        quality: quality.value,
-      );
+      switch (operation.value) {
+        case BatchOperation.compress:
+          await _processCompressTask(index, task.source);
+        case BatchOperation.convert:
+          await _processConvertTask(index, task.source);
+      }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
         status: BatchTaskStatus.failed,
         errorMessage: error.message,
       );
-      await _historyRepository.recordCompressionFailure(
+      await _historyRepository.recordOperationFailure(
+        featureName: operation.value.featureName,
         inputPath: task.source.path,
-        quality: quality.value,
+        parameters: _historyParameters,
         errorMessage: error.message,
       );
     } finally {
       processedCount.value = tasks.where((task) => task.isTerminal).length;
     }
+  }
+
+  Future<void> _processCompressTask(int index, LocalImageFile source) async {
+    final compressed = await _imageChannel.compressImage(
+      source: source,
+      quality: quality.value,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: compressed.outputPath,
+      outputSizeBytes: compressed.outputSizeBytes,
+      resultLabel: '压缩',
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordCompressionSuccess(
+      inputPath: source.path,
+      outputPath: compressed.outputPath,
+      quality: quality.value,
+    );
+  }
+
+  Future<void> _processConvertTask(int index, LocalImageFile source) async {
+    final converted = await _imageChannel.convertImage(
+      source: source,
+      format: convertFormat.value.value,
+      quality: quality.value,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: converted.outputPath,
+      outputSizeBytes: converted.outputSizeBytes,
+      resultLabel: converted.format.toUpperCase(),
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: converted.outputPath,
+      parameters: _historyParameters,
+    );
   }
 
   void _markPendingAsPaused() {
@@ -299,8 +374,14 @@ class BatchController extends GetxController {
     final success = successCount;
     final failed = failedCount;
     final canceled = canceledCount;
-    final title = onlyRetryFailed ? '失败重试完成' : '批量队列完成';
+    final title = onlyRetryFailed ? '失败重试完成' : '${operation.value.label}完成';
     Get.snackbar(title, '成功 $success 张，失败 $failed 张，取消 $canceled 张');
+  }
+
+  void _resetTasksForCurrentSelection() {
+    tasks.assignAll(
+      selectedImages.map((image) => BatchImageTask(source: image)),
+    );
   }
 
   double get progress {
@@ -324,6 +405,27 @@ class BatchController extends GetxController {
 
   int get totalSizeBytes =>
       selectedImages.fold<int>(0, (sum, image) => sum + image.sizeBytes);
+
+  Map<String, Object> get _historyParameters {
+    return <String, Object>{
+      'operation': operation.value.name,
+      'quality': quality.value,
+      if (operation.value == BatchOperation.convert)
+        'format': convertFormat.value.value,
+    };
+  }
+
+  String qualityHint() {
+    if (operation.value == BatchOperation.compress) {
+      return '压缩会按当前质量导出，质量越低文件越小。';
+    }
+    return switch (convertFormat.value) {
+      BatchConvertFormat.jpg ||
+      BatchConvertFormat.webp => 'JPG 和 WebP 会使用导出质量。',
+      BatchConvertFormat.png ||
+      BatchConvertFormat.bmp => 'PNG 和 BMP 为无损导出，质量参数会被忽略。',
+    };
+  }
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {

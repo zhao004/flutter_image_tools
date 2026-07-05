@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩队列和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
 /// 取消都只影响未开始任务，正在处理的单个本地压缩任务会自然结束后再停队列。
@@ -19,6 +19,8 @@ class BatchView extends GetView<BatchController> {
           padding: const EdgeInsets.all(16),
           children: [
             _PickerCard(controller: controller),
+            const SizedBox(height: 16),
+            _OperationCard(controller: controller),
             const SizedBox(height: 16),
             _SettingsCard(controller: controller),
             const SizedBox(height: 16),
@@ -49,10 +51,10 @@ class _PickerCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('批量压缩队列', style: Theme.of(context).textTheme.titleMedium),
+              Text('批量任务队列', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择多张 JPG、PNG 或 WebP 图片，任务会按顺序本地压缩。')
+                const Text('请选择多张 JPG、PNG、WebP 或 BMP 图片，任务会按顺序本地处理。')
               else ...[
                 Text('已选择 ${images.length} 张图片'),
                 const SizedBox(height: 4),
@@ -76,6 +78,62 @@ class _PickerCard extends StatelessWidget {
   }
 }
 
+class _OperationCard extends StatelessWidget {
+  const _OperationCard({required this.controller});
+
+  final BatchController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Obx(
+          () => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('处理类型', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              SegmentedButton<BatchOperation>(
+                segments: BatchOperation.values
+                    .map(
+                      (item) =>
+                          ButtonSegment(value: item, label: Text(item.label)),
+                    )
+                    .toList(growable: false),
+                selected: {controller.operation.value},
+                onSelectionChanged: controller.isRunning.value
+                    ? null
+                    : (values) => controller.setOperation(values.first),
+              ),
+              if (controller.operation.value == BatchOperation.convert) ...[
+                const SizedBox(height: 16),
+                const Text('目标格式'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: BatchConvertFormat.values
+                      .map(
+                        (item) => ChoiceChip(
+                          label: Text(item.label),
+                          selected: controller.convertFormat.value == item,
+                          onSelected: controller.isRunning.value
+                              ? null
+                              : (_) => controller.setConvertFormat(item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.controller});
 
@@ -90,7 +148,7 @@ class _SettingsCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('压缩参数', style: Theme.of(context).textTheme.titleMedium),
+              Text('导出参数', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Text('质量：${controller.quality.value}%'),
               Slider(
@@ -103,6 +161,7 @@ class _SettingsCard extends StatelessWidget {
                     ? null
                     : controller.updateQuality,
               ),
+              Text(controller.qualityHint()),
             ],
           ),
         ),
@@ -228,11 +287,9 @@ class _TaskListCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(task.errorMessage ?? task.status.label),
-                  trailing: task.result == null
+                  trailing: task.outputSizeBytes <= 0
                       ? null
-                      : Text(
-                          controller.formatBytes(task.result!.outputSizeBytes),
-                        ),
+                      : Text(controller.formatBytes(task.outputSizeBytes)),
                 ),
               ),
             ],
