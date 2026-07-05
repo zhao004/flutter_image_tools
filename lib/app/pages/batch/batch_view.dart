@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
 /// 取消都只影响未开始任务，正在处理的单个本地任务会自然结束后再停队列。
@@ -94,17 +95,20 @@ class _OperationCard extends StatelessWidget {
             children: [
               Text('处理类型', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
-              SegmentedButton<BatchOperation>(
-                segments: BatchOperation.values
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: BatchOperation.values
                     .map(
-                      (item) =>
-                          ButtonSegment(value: item, label: Text(item.label)),
+                      (item) => ChoiceChip(
+                        label: Text(item.label),
+                        selected: controller.operation.value == item,
+                        onSelected: controller.isRunning.value
+                            ? null
+                            : (_) => controller.setOperation(item),
+                      ),
                     )
                     .toList(growable: false),
-                selected: {controller.operation.value},
-                onSelectionChanged: controller.isRunning.value
-                    ? null
-                    : (values) => controller.setOperation(values.first),
               ),
               if (controller.operation.value == BatchOperation.convert) ...[
                 const SizedBox(height: 16),
@@ -166,6 +170,26 @@ class _OperationCard extends StatelessWidget {
                       .toList(growable: false),
                 ),
               ],
+              if (controller.operation.value == BatchOperation.resize) ...[
+                const SizedBox(height: 16),
+                const Text('尺寸模式'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: BatchResizeMode.values
+                      .map(
+                        (item) => ChoiceChip(
+                          label: Text(item.label),
+                          selected: controller.resizeMode.value == item,
+                          onSelected: controller.isRunning.value
+                              ? null
+                              : (_) => controller.setResizeMode(item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ],
           ),
         ),
@@ -204,6 +228,62 @@ class _SettingsCard extends StatelessWidget {
                 ),
               ] else if (controller.operation.value == BatchOperation.flip) ...[
                 Text('方向：${controller.flipDirection.value.label}'),
+              ] else if (controller.operation.value ==
+                  BatchOperation.resize) ...[
+                if (controller.resizeMode.value == BatchResizeMode.percent) ...[
+                  Text('缩放比例：${controller.resizePercent.value}%'),
+                  Slider(
+                    value: controller.resizePercent.value.toDouble(),
+                    min: 10,
+                    max: 300,
+                    divisions: 58,
+                    label: '${controller.resizePercent.value}%',
+                    onChanged: controller.isRunning.value
+                        ? null
+                        : controller.updateResizePercent,
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey(controller.resizeWidth.value),
+                          initialValue: controller.resizeWidth.value.toString(),
+                          enabled: !controller.isRunning.value,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: const InputDecoration(
+                            labelText: '宽度',
+                            suffixText: 'px',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: controller.updateResizeWidth,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey(controller.resizeHeight.value),
+                          initialValue: controller.resizeHeight.value
+                              .toString(),
+                          enabled: !controller.isRunning.value,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: const InputDecoration(
+                            labelText: '高度',
+                            suffixText: 'px',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: controller.updateResizeHeight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ] else ...[
                 Text('质量：${controller.quality.value}%'),
                 Slider(

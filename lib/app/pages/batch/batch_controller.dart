@@ -11,7 +11,8 @@ enum BatchOperation {
   compress(label: '批量压缩', featureName: '批量压缩'),
   convert(label: '格式转换', featureName: '批量格式转换'),
   rotate(label: '批量旋转', featureName: '批量旋转'),
-  flip(label: '批量翻转', featureName: '批量翻转');
+  flip(label: '批量翻转', featureName: '批量翻转'),
+  resize(label: '尺寸调整', featureName: '批量尺寸调整');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -36,6 +37,16 @@ enum BatchFlipDirection {
   vertical(label: '垂直翻转', value: 'vertical');
 
   const BatchFlipDirection({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+enum BatchResizeMode {
+  percent(label: '按百分比', value: 'percent'),
+  exact(label: '固定宽高', value: 'exact');
+
+  const BatchResizeMode({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -103,6 +114,9 @@ class BatchImageTask {
 /// 骨架；后续裁剪、旋转、格式转换等批量任务可沿用同一状态模型扩展。
 /// 异常策略：单个任务失败不会中断队列，错误写入历史并展示在任务行内。
 class BatchController extends GetxController {
+  static const int _minResizeDimension = 1;
+  static const int _maxResizeDimension = LocalImageChannel.maxResizeDimension;
+
   BatchController({
     required LocalImageChannel imageChannel,
     required OperationHistoryRepository historyRepository,
@@ -123,6 +137,10 @@ class BatchController extends GetxController {
   final operation = BatchOperation.compress.obs;
   final convertFormat = BatchConvertFormat.jpg.obs;
   final flipDirection = BatchFlipDirection.horizontal.obs;
+  final resizeMode = BatchResizeMode.percent.obs;
+  final resizePercent = 100.obs;
+  final resizeWidth = 1024.obs;
+  final resizeHeight = 1024.obs;
   final degrees = 90.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
@@ -204,6 +222,42 @@ class BatchController extends GetxController {
     degrees.value = value.clamp(-360, 360);
   }
 
+  void setResizeMode(BatchResizeMode value) {
+    if (isRunning.value) {
+      return;
+    }
+    resizeMode.value = value;
+  }
+
+  void updateResizePercent(double value) {
+    if (isRunning.value) {
+      return;
+    }
+    resizePercent.value = value.round().clamp(10, 300);
+  }
+
+  void updateResizeWidth(String value) {
+    if (isRunning.value) {
+      return;
+    }
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null) {
+      return;
+    }
+    resizeWidth.value = parsed.clamp(_minResizeDimension, _maxResizeDimension);
+  }
+
+  void updateResizeHeight(String value) {
+    if (isRunning.value) {
+      return;
+    }
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null) {
+      return;
+    }
+    resizeHeight.value = parsed.clamp(_minResizeDimension, _maxResizeDimension);
+  }
+
   Future<void> startQueue() async {
     if (isRunning.value) {
       return;
@@ -214,6 +268,10 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.rotate && degrees.value == 0) {
       _showError('旋转角度不能为 0');
+      return;
+    }
+    if (operation.value == BatchOperation.resize &&
+        !_hasValidResizeSettings()) {
       return;
     }
     _resetTasksForCurrentSelection();
@@ -321,6 +379,8 @@ class BatchController extends GetxController {
           await _processRotateTask(index, task.source);
         case BatchOperation.flip:
           await _processFlipTask(index, task.source);
+        case BatchOperation.resize:
+          await _processResizeTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -418,6 +478,28 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processResizeTask(int index, LocalImageFile source) async {
+    final dimensions = _resizeDimensionsForSource(source);
+    final resized = await _imageChannel.resizeImage(
+      source: source,
+      width: dimensions.width,
+      height: dimensions.height,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: resized.outputPath,
+      outputSizeBytes: resized.outputSizeBytes,
+      resultLabel: '${resized.width}×${resized.height}',
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: resized.outputPath,
+      parameters: _historyParametersForResize(dimensions),
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -494,8 +576,27 @@ class BatchController extends GetxController {
         parameters['degrees'] = degrees.value;
       case BatchOperation.flip:
         parameters['direction'] = flipDirection.value.value;
+      case BatchOperation.resize:
+        parameters.addAll(<String, Object>{
+          'mode': resizeMode.value.value,
+          'percent': resizePercent.value,
+          'width': resizeWidth.value,
+          'height': resizeHeight.value,
+        });
     }
     return parameters;
+  }
+
+  Map<String, Object> _historyParametersForResize(
+    _BatchResizeDimensions dimensions,
+  ) {
+    return <String, Object>{
+      'operation': operation.value.name,
+      'mode': resizeMode.value.value,
+      'percent': resizePercent.value,
+      'width': dimensions.width,
+      'height': dimensions.height,
+    };
   }
 
   String qualityHint() {
@@ -507,6 +608,12 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.flip) {
       return '翻转会按当前方向导出新图片，不会覆盖原文件。';
+    }
+    if (operation.value == BatchOperation.resize) {
+      return switch (resizeMode.value) {
+        BatchResizeMode.percent => '按百分比模式会基于每张图片原始尺寸分别缩放。',
+        BatchResizeMode.exact => '固定宽高模式会把所有图片导出为相同目标尺寸。',
+      };
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
@@ -535,4 +642,57 @@ class BatchController extends GetxController {
   void _showError(String message) {
     Get.snackbar('操作失败', message);
   }
+
+  bool _hasValidResizeSettings() {
+    if (resizeMode.value == BatchResizeMode.percent) {
+      if (resizePercent.value < 10 || resizePercent.value > 300) {
+        _showError('缩放比例必须在 10% 到 300% 之间');
+        return false;
+      }
+      if (!selectedImages.every((image) => image.hasValidDimensions)) {
+        _showError('按百分比缩放需要所有图片都有有效尺寸');
+        return false;
+      }
+      return true;
+    }
+    if (resizeWidth.value < _minResizeDimension ||
+        resizeHeight.value < _minResizeDimension) {
+      _showError('目标宽高必须大于 0');
+      return false;
+    }
+    if (resizeWidth.value > _maxResizeDimension ||
+        resizeHeight.value > _maxResizeDimension) {
+      _showError('目标宽高不能超过 $_maxResizeDimension 像素');
+      return false;
+    }
+    return true;
+  }
+
+  _BatchResizeDimensions _resizeDimensionsForSource(LocalImageFile source) {
+    if (resizeMode.value == BatchResizeMode.exact ||
+        !source.hasValidDimensions) {
+      return _BatchResizeDimensions(
+        width: resizeWidth.value,
+        height: resizeHeight.value,
+      );
+    }
+    return _BatchResizeDimensions(
+      width: _scaleResizeDimension(source.width, resizePercent.value),
+      height: _scaleResizeDimension(source.height, resizePercent.value),
+    );
+  }
+
+  int _scaleResizeDimension(int value, int percent) {
+    return (value * percent / 100).round().clamp(
+      _minResizeDimension,
+      _maxResizeDimension,
+    );
+  }
+}
+
+class _BatchResizeDimensions {
+  const _BatchResizeDimensions({required this.width, required this.height});
+
+  final int width;
+  final int height;
 }
