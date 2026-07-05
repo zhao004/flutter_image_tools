@@ -4,6 +4,7 @@ import '../core/exceptions/app_exception.dart';
 import '../core/models/compressed_image_file.dart';
 import '../core/models/flipped_image_file.dart';
 import '../core/models/local_image_file.dart';
+import '../core/models/resized_image_file.dart';
 import '../core/models/rotated_image_file.dart';
 
 /// Android 本地图片能力通道，封装选择图片和压缩图片的原生调用。
@@ -13,9 +14,10 @@ import '../core/models/rotated_image_file.dart';
 /// MethodChannel 细节。
 class LocalImageChannel {
   LocalImageChannel({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel(_channelName);
+    : _channel = channel ?? const MethodChannel(_channelName);
 
   static const String _channelName = 'image_toolkit/local_image';
+  static const int maxResizeDimension = 10000;
 
   final MethodChannel _channel;
 
@@ -80,10 +82,7 @@ class LocalImageChannel {
     try {
       final result = await _channel.invokeMapMethod<Object?, Object?>(
         'compressImage',
-        <String, Object?>{
-          'path': source.path,
-          'quality': quality,
-        },
+        <String, Object?>{'path': source.path, 'quality': quality},
       );
       if (result == null) {
         throw const AppException('压缩结果为空，请重试');
@@ -119,10 +118,7 @@ class LocalImageChannel {
     try {
       final result = await _channel.invokeMapMethod<Object?, Object?>(
         'rotateImage',
-        <String, Object?>{
-          'path': source.path,
-          'degrees': degrees,
-        },
+        <String, Object?>{'path': source.path, 'degrees': degrees},
       );
       if (result == null) {
         throw const AppException('旋转结果为空，请重试');
@@ -187,10 +183,57 @@ class LocalImageChannel {
     }
   }
 
+  Future<ResizedImageFile> resizeImage({
+    required LocalImageFile source,
+    required int width,
+    required int height,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法调整尺寸');
+    }
+    if (width < 1 || height < 1) {
+      throw const AppException('目标宽高必须大于 0');
+    }
+    if (width > maxResizeDimension || height > maxResizeDimension) {
+      throw const AppException('目标宽高不能超过 10000 像素');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'resizeImage',
+        <String, Object?>{
+          'path': source.path,
+          'width': width,
+          'height': height,
+        },
+      );
+      if (result == null) {
+        throw const AppException('尺寸调整结果为空，请重试');
+      }
+      final resized = ResizedImageFile.fromMap(
+        source: source,
+        width: width,
+        height: height,
+        map: result,
+      );
+      if (resized.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return resized;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('调整图片尺寸失败，请重试', cause: error);
+    }
+  }
+
   String _messageForCode(String code) {
     return switch (code) {
       'file_not_found' => '图片文件不存在，请重新选择',
       'invalid_image' => '图片格式不支持或文件已损坏',
+      'invalid_args' => '图片处理参数无效，请检查后重试',
       'export_failed' => '导出图片失败，请检查存储空间',
       'activity_missing' => '当前设备没有可用的图片选择器',
       'busy' => '已有图片任务正在进行，请稍后再试',

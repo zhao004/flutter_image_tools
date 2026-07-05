@@ -8,6 +8,8 @@ import '../pages/history/history_binding.dart';
 import '../pages/history/history_view.dart';
 import '../pages/home/home_binding.dart';
 import '../pages/home/home_view.dart';
+import '../pages/resize/resize_binding.dart';
+import '../pages/resize/resize_view.dart';
 import '../pages/rotate/rotate_binding.dart';
 import '../pages/rotate/rotate_view.dart';
 import '../pages/settings/settings_binding.dart';
@@ -40,6 +42,11 @@ class AppPages {
       name: _Paths.flip,
       page: () => const FlipView(),
       binding: FlipBinding(),
+    ),
+    GetPage(
+      name: _Paths.resize,
+      page: () => const ResizeView(),
+      binding: ResizeBinding(),
     ),
     GetPage(
       name: _Paths.rotate,

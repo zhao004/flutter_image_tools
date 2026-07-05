@@ -28,7 +28,7 @@ class HomeToolItem {
 /// 最近使用记录；跳转前校验 route，避免未实现功能触发空路由异常。
 class HomeController extends GetxController {
   HomeController({required RecentFilesRepository recentFilesRepository})
-      : _recentFilesRepository = recentFilesRepository;
+    : _recentFilesRepository = recentFilesRepository;
 
   final RecentFilesRepository _recentFilesRepository;
 
@@ -73,7 +73,8 @@ class HomeController extends GetxController {
       title: '尺寸调整',
       description: '按宽高或百分比缩放',
       icon: 'resize',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.resize,
     ),
     const HomeToolItem(
       title: '图片翻转',
@@ -129,7 +130,8 @@ class HomeController extends GetxController {
     return tools
         .where(
           (tool) =>
-              tool.title.contains(keyword) || tool.description.contains(keyword),
+              tool.title.contains(keyword) ||
+              tool.description.contains(keyword),
         )
         .toList(growable: false);
   }

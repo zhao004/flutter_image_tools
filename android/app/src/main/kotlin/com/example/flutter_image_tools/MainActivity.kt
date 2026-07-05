@@ -34,6 +34,7 @@ class MainActivity : FlutterActivity() {
             "pickMultipleImages" -> pickMultipleImages(result)
             "compressImage" -> compressImage(call, result)
             "flipImage" -> flipImage(call, result)
+            "resizeImage" -> resizeImage(call, result)
             "rotateImage" -> rotateImage(call, result)
             else -> result.notImplemented()
         }
@@ -165,6 +166,8 @@ class MainActivity : FlutterActivity() {
             "name" to info.name,
             "sizeBytes" to output.length(),
             "mimeType" to info.mimeType,
+            "width" to readImageWidth(output),
+            "height" to readImageHeight(output),
         )
     }
 
@@ -334,6 +337,65 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun resizeImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val width = call.argument<Int>("width") ?: 0
+        val height = call.argument<Int>("height") ?: 0
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (width !in 1..10000 || height !in 1..10000) {
+            result.error("invalid_args", "目标宽高必须在 1 到 10000 像素之间", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        val resizedBitmap = try {
+            Bitmap.createScaledBitmap(bitmap, width, height, true)
+        } catch (error: Exception) {
+            bitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+
+        try {
+            val outputDir = File(cacheDir, "resized_images").apply { mkdirs() }
+            val output = File(outputDir, "resized_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "图片尺寸调整导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "width" to width,
+                    "height" to height,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            resizedBitmap.recycle()
+            bitmap.recycle()
+        }
+    }
+
     private fun queryImageInfo(uri: Uri): ImageInfo {
         var name = "selected_image"
         var mimeType = contentResolver.getType(uri) ?: "image/*"
@@ -366,6 +428,18 @@ class MainActivity : FlutterActivity() {
             "image/bmp" -> "bmp"
             else -> "img"
         }
+    }
+
+    private fun readImageWidth(file: File): Int {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        return options.outWidth.coerceAtLeast(0)
+    }
+
+    private fun readImageHeight(file: File): Int {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        return options.outHeight.coerceAtLeast(0)
     }
 
     private data class ImageInfo(val name: String, val mimeType: String)
