@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../core/exceptions/app_exception.dart';
 import '../core/models/compressed_image_file.dart';
 import '../core/models/converted_image_file.dart';
+import '../core/models/cropped_image_file.dart';
 import '../core/models/flipped_image_file.dart';
 import '../core/models/local_image_file.dart';
 import '../core/models/resized_image_file.dart';
@@ -279,6 +280,46 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('转换图片格式失败，请重试', cause: error);
+    }
+  }
+
+  Future<CroppedImageFile> cropImage({
+    required LocalImageFile source,
+    required double aspectRatio,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法裁剪');
+    }
+    if (!aspectRatio.isFinite || aspectRatio <= 0) {
+      throw const AppException('裁剪比例必须大于 0');
+    }
+    if (aspectRatio < 0.1 || aspectRatio > 10) {
+      throw const AppException('裁剪比例必须在 0.1 到 10 之间');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'cropImage',
+        <String, Object?>{'path': source.path, 'aspectRatio': aspectRatio},
+      );
+      if (result == null) {
+        throw const AppException('裁剪结果为空，请重试');
+      }
+      final cropped = CroppedImageFile.fromMap(
+        source: source,
+        aspectRatio: aspectRatio,
+        map: result,
+      );
+      if (cropped.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return cropped;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('裁剪图片失败，请重试', cause: error);
     }
   }
 

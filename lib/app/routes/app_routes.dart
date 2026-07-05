@@ -7,6 +7,7 @@ abstract class Routes {
   static const home = _Paths.home;
   static const compress = _Paths.compress;
   static const convert = _Paths.convert;
+  static const crop = _Paths.crop;
   static const flip = _Paths.flip;
   static const history = _Paths.history;
   static const resize = _Paths.resize;
@@ -20,6 +21,7 @@ abstract class _Paths {
   static const home = '/home';
   static const compress = '/compress';
   static const convert = '/convert';
+  static const crop = '/crop';
   static const flip = '/flip';
   static const history = '/history';
   static const resize = '/resize';

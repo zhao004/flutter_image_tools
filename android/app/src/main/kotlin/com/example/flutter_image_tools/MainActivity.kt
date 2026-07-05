@@ -37,6 +37,7 @@ class MainActivity : FlutterActivity() {
             "pickMultipleImages" -> pickMultipleImages(result)
             "compressImage" -> compressImage(call, result)
             "convertImage" -> convertImage(call, result)
+            "cropImage" -> cropImage(call, result)
             "flipImage" -> flipImage(call, result)
             "resizeImage" -> resizeImage(call, result)
             "rotateImage" -> rotateImage(call, result)
@@ -464,6 +465,77 @@ class MainActivity : FlutterActivity() {
         } catch (error: Exception) {
             result.error("export_failed", error.message, null)
         } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun cropImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val aspectRatio = call.argument<Double>("aspectRatio") ?: 1.0
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (aspectRatio < 0.1 || aspectRatio > 10.0) {
+            result.error("invalid_args", "裁剪比例必须在 0.1 到 10 之间", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        val sourceRatio = bitmap.width.toDouble() / bitmap.height.toDouble()
+        val cropWidth: Int
+        val cropHeight: Int
+        if (sourceRatio > aspectRatio) {
+            cropHeight = bitmap.height
+            cropWidth = (cropHeight * aspectRatio).toInt().coerceIn(1, bitmap.width)
+        } else {
+            cropWidth = bitmap.width
+            cropHeight = (cropWidth / aspectRatio).toInt().coerceIn(1, bitmap.height)
+        }
+        val cropX = ((bitmap.width - cropWidth) / 2).coerceAtLeast(0)
+        val cropY = ((bitmap.height - cropHeight) / 2).coerceAtLeast(0)
+        val croppedBitmap = try {
+            Bitmap.createBitmap(bitmap, cropX, cropY, cropWidth, cropHeight)
+        } catch (error: Exception) {
+            bitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+
+        try {
+            val outputDir = File(cacheDir, "cropped_images").apply { mkdirs() }
+            val output = File(outputDir, "cropped_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "图片裁剪导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "width" to cropWidth,
+                    "height" to cropHeight,
+                    "aspectRatio" to aspectRatio,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            croppedBitmap.recycle()
             bitmap.recycle()
         }
     }

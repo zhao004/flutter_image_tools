@@ -6,6 +6,8 @@ import '../pages/compress/compress_binding.dart';
 import '../pages/compress/compress_view.dart';
 import '../pages/convert/convert_binding.dart';
 import '../pages/convert/convert_view.dart';
+import '../pages/crop/crop_binding.dart';
+import '../pages/crop/crop_view.dart';
 import '../pages/flip/flip_binding.dart';
 import '../pages/flip/flip_view.dart';
 import '../pages/history/history_binding.dart';
@@ -46,6 +48,11 @@ class AppPages {
       name: _Paths.convert,
       page: () => const ConvertView(),
       binding: ConvertBinding(),
+    ),
+    GetPage(
+      name: _Paths.crop,
+      page: () => const CropView(),
+      binding: CropBinding(),
     ),
     GetPage(
       name: _Paths.history,

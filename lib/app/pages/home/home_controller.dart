@@ -61,7 +61,8 @@ class HomeController extends GetxController {
       title: '图片裁剪',
       description: '自由比例和常用比例',
       icon: 'crop',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.crop,
     ),
     const HomeToolItem(
       title: '图片拼接',
