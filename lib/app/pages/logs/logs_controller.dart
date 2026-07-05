@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../database/database.dart';
 import '../../repositories/operation_logs_repository.dart';
@@ -26,10 +29,10 @@ enum LogsDateFilter {
   final int days;
 }
 
-/// 日志管理控制器，负责读取、筛选和清理本地操作日志。
+/// 日志管理控制器，负责读取、筛选、导出和清理本地操作日志。
 ///
 /// 异常策略：筛选条件变化后立即重新查询；读取失败不清空旧数据，避免短暂
-/// 数据库异常导致页面失去上下文。清理操作由页面确认后执行。
+/// 数据库异常导致页面失去上下文。导出失败只提示错误，不影响当前列表。
 class LogsController extends GetxController {
   LogsController({required OperationLogsRepository repository})
     : _repository = repository;
@@ -41,6 +44,7 @@ class LogsController extends GetxController {
   final keyword = ''.obs;
   final statusFilter = LogsStatusFilter.all.obs;
   final dateFilter = LogsDateFilter.all.obs;
+  final exportedPath = ''.obs;
 
   @override
   void onInit() {
@@ -93,6 +97,29 @@ class LogsController extends GetxController {
     }
   }
 
+  Future<void> exportLogs() async {
+    if (isLoading.value) {
+      return;
+    }
+    isLoading.value = true;
+    try {
+      final csv = await _repository.exportLogsCsv(
+        keyword: keyword.value,
+        status: statusFilter.value.value,
+        startDate: _startDateFor(dateFilter.value),
+      );
+      final output = await _createCsvFile(csv);
+      exportedPath.value = output.path;
+      Get.snackbar('导出完成', '日志 CSV 已导出到应用缓存目录');
+    } on StateError catch (error) {
+      Get.snackbar('导出失败', error.message);
+    } catch (_) {
+      Get.snackbar('导出失败', '日志导出失败，请检查存储空间后重试');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   String formatDateTime(DateTime value) {
     final local = value.toLocal();
     String twoDigits(int number) => number.toString().padLeft(2, '0');
@@ -119,5 +146,17 @@ class LogsController extends GetxController {
       return DateTime(now.year, now.month, now.day);
     }
     return now.subtract(Duration(days: filter.days));
+  }
+
+  Future<File> _createCsvFile(String csv) async {
+    final root = await getTemporaryDirectory();
+    final directory = Directory('${root.path}/operation_logs');
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final output = File('${directory.path}/operation_logs_$timestamp.csv');
+    // 写入 UTF-8 BOM，方便系统文件查看器和表格软件正确识别中文字段。
+    return output.writeAsString('\uFEFF$csv', flush: true);
   }
 }

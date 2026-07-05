@@ -52,5 +52,25 @@ void main() {
 
       expect(logs, isEmpty);
     });
+
+    test('导出 CSV 时转义逗号和引号', () async {
+      await repository.recordFailure(
+        featureName: 'PDF,工具',
+        inputPath: '/tmp/input.pdf',
+        parameters: const <String, Object?>{'page': 1, 'note': 'a"b'},
+        startedAt: DateTime.now(),
+        errorMessage: '页码,超出"范围"',
+      );
+
+      final csv = await repository.exportLogsCsv();
+
+      expect(csv, contains('ID,功能名称,输入路径,输出路径,参数,开始时间'));
+      expect(csv, contains('"PDF,工具"'));
+      expect(csv, contains('"页码,超出""范围"""'));
+    });
+
+    test('没有日志时导出 CSV 抛出状态错误', () async {
+      expect(repository.exportLogsCsv(), throwsStateError);
+    });
   });
 }

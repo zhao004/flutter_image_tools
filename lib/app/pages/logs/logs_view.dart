@@ -3,10 +3,10 @@ import 'package:get/get.dart';
 
 import 'logs_controller.dart';
 
-/// 日志管理页，展示本地任务诊断日志和清理入口。
+/// 日志管理页，展示本地任务诊断日志、筛选条件、CSV 导出和清理入口。
 ///
 /// 构建设计：日志字段较长，列表优先展示功能、状态、耗时和路径摘要；用户可
-/// 通过搜索、状态和日期快速缩小范围，后续可继续扩展导出能力。
+/// 通过搜索、状态和日期快速缩小范围，导出时复用当前筛选条件。
 class LogsView extends GetView<LogsController> {
   const LogsView({super.key});
 
@@ -16,6 +16,11 @@ class LogsView extends GetView<LogsController> {
       appBar: AppBar(
         title: const Text('日志管理'),
         actions: [
+          IconButton(
+            tooltip: '导出日志',
+            onPressed: controller.exportLogs,
+            icon: const Icon(Icons.file_download_outlined),
+          ),
           IconButton(
             tooltip: '清理日志',
             onPressed: () => _confirmClearLogs(context),
@@ -30,6 +35,8 @@ class LogsView extends GetView<LogsController> {
             padding: const EdgeInsets.all(16),
             children: [
               _LogsFilters(controller: controller),
+              const SizedBox(height: 16),
+              _ExportResultCard(controller: controller),
               const SizedBox(height: 16),
               Obx(() {
                 if (controller.isLoading.value) {
@@ -119,6 +126,37 @@ class LogsView extends GetView<LogsController> {
     if (confirmed == true) {
       await controller.clearLogs();
     }
+  }
+}
+
+class _ExportResultCard extends StatelessWidget {
+  const _ExportResultCard({required this.controller});
+
+  final LogsController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final path = controller.exportedPath.value;
+      if (path.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('导出结果', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              const Text('当前筛选条件下的日志已导出为 CSV。'),
+              const SizedBox(height: 8),
+              Text(path, maxLines: 2, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 

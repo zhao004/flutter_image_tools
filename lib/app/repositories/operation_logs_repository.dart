@@ -34,6 +34,58 @@ class OperationLogsRepository {
     return _database.clearLogs();
   }
 
+  Future<String> exportLogsCsv({
+    String keyword = '',
+    String status = '',
+    DateTime? startDate,
+    DateTime? endDate,
+    int limit = 1000,
+  }) async {
+    final logs = await getRecentLogs(
+      limit: limit,
+      keyword: keyword,
+      status: status,
+      startDate: startDate,
+      endDate: endDate,
+    );
+    if (logs.isEmpty) {
+      throw StateError('没有可导出的日志');
+    }
+    return buildLogsCsv(logs);
+  }
+
+  String buildLogsCsv(List<OperationLog> logs) {
+    final rows = <List<Object?>>[
+      const [
+        'ID',
+        '功能名称',
+        '输入路径',
+        '输出路径',
+        '参数',
+        '开始时间',
+        '完成时间',
+        '耗时毫秒',
+        '状态',
+        '错误信息',
+      ],
+      ...logs.map(
+        (log) => <Object?>[
+          log.id,
+          log.featureName,
+          log.inputPath,
+          log.outputPath ?? '',
+          log.parametersJson,
+          log.startedAt.toIso8601String(),
+          log.completedAt?.toIso8601String() ?? '',
+          log.durationMs ?? '',
+          log.status,
+          log.errorMessage ?? '',
+        ],
+      ),
+    ];
+    return rows.map(_formatCsvRow).join('\n');
+  }
+
   Future<void> recordSuccess({
     required String featureName,
     required String inputPath,
@@ -104,5 +156,21 @@ class OperationLogsRepository {
             : Value(errorMessage.trim()),
       ),
     );
+  }
+
+  String _formatCsvRow(List<Object?> values) {
+    return values
+        .map((value) => _escapeCsvCell(value?.toString() ?? ''))
+        .join(',');
+  }
+
+  String _escapeCsvCell(String value) {
+    final needsEscaping =
+        value.contains(',') ||
+        value.contains('"') ||
+        value.contains('\n') ||
+        value.contains('\r');
+    final escaped = value.replaceAll('"', '""');
+    return needsEscaping ? '"$escaped"' : escaped;
   }
 }
