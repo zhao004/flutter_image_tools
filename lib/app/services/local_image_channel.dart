@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 
 import '../core/exceptions/app_exception.dart';
 import '../core/models/compressed_image_file.dart';
+import '../core/models/converted_image_file.dart';
 import '../core/models/flipped_image_file.dart';
 import '../core/models/local_image_file.dart';
 import '../core/models/resized_image_file.dart';
@@ -18,6 +19,12 @@ class LocalImageChannel {
 
   static const String _channelName = 'image_toolkit/local_image';
   static const int maxResizeDimension = 10000;
+  static const Set<String> supportedConvertFormats = {
+    'jpg',
+    'png',
+    'webp',
+    'bmp',
+  };
 
   final MethodChannel _channel;
 
@@ -226,6 +233,52 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('调整图片尺寸失败，请重试', cause: error);
+    }
+  }
+
+  Future<ConvertedImageFile> convertImage({
+    required LocalImageFile source,
+    required String format,
+    required int quality,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法转换格式');
+    }
+    final normalizedFormat = format.trim().toLowerCase();
+    if (!supportedConvertFormats.contains(normalizedFormat)) {
+      throw const AppException('目标格式仅支持 JPG、PNG、WebP 或 BMP');
+    }
+    if (quality < 1 || quality > 100) {
+      throw const AppException('导出质量必须在 1 到 100 之间');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'convertImage',
+        <String, Object?>{
+          'path': source.path,
+          'format': normalizedFormat,
+          'quality': quality,
+        },
+      );
+      if (result == null) {
+        throw const AppException('格式转换结果为空，请重试');
+      }
+      final converted = ConvertedImageFile.fromMap(
+        source: source,
+        format: normalizedFormat,
+        map: result,
+      );
+      if (converted.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return converted;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('转换图片格式失败，请重试', cause: error);
     }
   }
 

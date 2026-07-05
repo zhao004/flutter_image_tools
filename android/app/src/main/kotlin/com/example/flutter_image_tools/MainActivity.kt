@@ -4,8 +4,10 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.Matrix
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -13,6 +15,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
 import java.util.UUID
 
 class MainActivity : FlutterActivity() {
@@ -33,6 +36,7 @@ class MainActivity : FlutterActivity() {
             "pickSingleImage" -> pickSingleImage(result)
             "pickMultipleImages" -> pickMultipleImages(result)
             "compressImage" -> compressImage(call, result)
+            "convertImage" -> convertImage(call, result)
             "flipImage" -> flipImage(call, result)
             "resizeImage" -> resizeImage(call, result)
             "rotateImage" -> rotateImage(call, result)
@@ -396,6 +400,74 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun convertImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val format = (call.argument<String>("format") ?: "jpg").lowercase()
+        val quality = call.argument<Int>("quality") ?: 95
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (format !in setOf("jpg", "jpeg", "png", "webp", "bmp")) {
+            result.error("invalid_args", "目标格式不支持", null)
+            return
+        }
+        if (quality !in 1..100) {
+            result.error("invalid_args", "导出质量必须在 1 到 100 之间", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        val normalizedFormat = if (format == "jpeg") "jpg" else format
+        try {
+            val outputDir = File(cacheDir, "converted_images").apply { mkdirs() }
+            val output = File(
+                outputDir,
+                "converted_${System.currentTimeMillis()}.$normalizedFormat",
+            )
+            FileOutputStream(output).use { stream ->
+                val success = if (normalizedFormat == "bmp") {
+                    writeBitmapAsBmp(bitmap, stream)
+                    true
+                } else {
+                    val compressFormat = compressFormatFor(normalizedFormat)
+                    if (compressFormat == null) {
+                        false
+                    } else {
+                        bitmap.compress(compressFormat, quality, stream)
+                    }
+                }
+                if (!success) {
+                    result.error("export_failed", "图片格式转换导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "format" to normalizedFormat,
+                    "mimeType" to mimeTypeForFormat(normalizedFormat),
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     private fun queryImageInfo(uri: Uri): ImageInfo {
         var name = "selected_image"
         var mimeType = contentResolver.getType(uri) ?: "image/*"
@@ -428,6 +500,82 @@ class MainActivity : FlutterActivity() {
             "image/bmp" -> "bmp"
             else -> "img"
         }
+    }
+
+    private fun compressFormatFor(format: String): Bitmap.CompressFormat? {
+        return when (format) {
+            "jpg" -> Bitmap.CompressFormat.JPEG
+            "png" -> Bitmap.CompressFormat.PNG
+            "webp" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+            }
+            else -> null
+        }
+    }
+
+    private fun mimeTypeForFormat(format: String): String {
+        return when (format) {
+            "jpg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "bmp" -> "image/bmp"
+            else -> "image/*"
+        }
+    }
+
+    private fun writeBitmapAsBmp(bitmap: Bitmap, stream: OutputStream) {
+        val width = bitmap.width
+        val height = bitmap.height
+        val rowSize = ((width * 3 + 3) / 4) * 4
+        val imageSize = rowSize * height
+        val fileSize = 54 + imageSize
+        stream.write(byteArrayOf('B'.code.toByte(), 'M'.code.toByte()))
+        writeIntLe(stream, fileSize)
+        writeShortLe(stream, 0)
+        writeShortLe(stream, 0)
+        writeIntLe(stream, 54)
+        writeIntLe(stream, 40)
+        writeIntLe(stream, width)
+        writeIntLe(stream, height)
+        writeShortLe(stream, 1)
+        writeShortLe(stream, 24)
+        writeIntLe(stream, 0)
+        writeIntLe(stream, imageSize)
+        writeIntLe(stream, 2835)
+        writeIntLe(stream, 2835)
+        writeIntLe(stream, 0)
+        writeIntLe(stream, 0)
+
+        val padding = ByteArray(rowSize - width * 3)
+        val row = ByteArray(width * 3)
+        for (y in height - 1 downTo 0) {
+            var offset = 0
+            for (x in 0 until width) {
+                val pixel = bitmap.getPixel(x, y)
+                row[offset++] = Color.blue(pixel).toByte()
+                row[offset++] = Color.green(pixel).toByte()
+                row[offset++] = Color.red(pixel).toByte()
+            }
+            stream.write(row)
+            if (padding.isNotEmpty()) {
+                stream.write(padding)
+            }
+        }
+    }
+
+    private fun writeIntLe(stream: OutputStream, value: Int) {
+        stream.write(value and 0xFF)
+        stream.write(value ushr 8 and 0xFF)
+        stream.write(value ushr 16 and 0xFF)
+        stream.write(value ushr 24 and 0xFF)
+    }
+
+    private fun writeShortLe(stream: OutputStream, value: Int) {
+        stream.write(value and 0xFF)
+        stream.write(value ushr 8 and 0xFF)
     }
 
     private fun readImageWidth(file: File): Int {

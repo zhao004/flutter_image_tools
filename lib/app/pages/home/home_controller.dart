@@ -100,7 +100,8 @@ class HomeController extends GetxController {
       title: '格式转换',
       description: 'PNG、JPG、WebP、BMP',
       icon: 'convert',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.convert,
     ),
     const HomeToolItem(
       title: 'PDF 工具',
