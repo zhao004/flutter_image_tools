@@ -4,6 +4,8 @@ import '../pages/annotation/annotation_binding.dart';
 import '../pages/annotation/annotation_view.dart';
 import '../pages/base64/base64_binding.dart';
 import '../pages/base64/base64_view.dart';
+import '../pages/batch/batch_binding.dart';
+import '../pages/batch/batch_view.dart';
 import '../pages/cache/cache_binding.dart';
 import '../pages/cache/cache_view.dart';
 import '../pages/color_picker/color_picker_binding.dart';
@@ -66,6 +68,11 @@ class AppPages {
       name: _Paths.base64,
       page: () => const Base64View(),
       binding: Base64Binding(),
+    ),
+    GetPage(
+      name: _Paths.batch,
+      page: () => const BatchView(),
+      binding: BatchBinding(),
     ),
     GetPage(
       name: _Paths.cache,

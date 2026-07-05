@@ -254,6 +254,7 @@ class _ToolCard extends StatelessWidget {
 IconData _toolIconFor(String key) {
   return switch (key) {
     'compress' => Icons.compress,
+    'batch' => Icons.playlist_add_check_outlined,
     'history' => Icons.history,
     'settings' => Icons.settings_outlined,
     'crop' => Icons.crop,

@@ -44,6 +44,13 @@ class HomeController extends GetxController {
       route: Routes.compress,
     ),
     const HomeToolItem(
+      title: '批量处理',
+      description: '队列、暂停、重试和取消',
+      icon: 'batch',
+      availability: ToolAvailability.available,
+      route: Routes.batch,
+    ),
+    const HomeToolItem(
       title: '历史记录',
       description: '查看本机处理记录',
       icon: 'history',
