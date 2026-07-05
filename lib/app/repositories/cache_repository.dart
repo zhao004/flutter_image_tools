@@ -34,4 +34,12 @@ class CacheRepository {
   Future<int> clearExpiredRecords() {
     return _database.deleteExpiredCacheRecords(DateTime.now().toUtc());
   }
+
+  Future<List<CacheRecord>> getRecords() {
+    return _database.getCacheRecords();
+  }
+
+  Future<int> clearRecords() {
+    return _database.clearCacheRecords();
+  }
 }

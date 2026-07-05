@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../routes/app_pages.dart';
 import 'settings_controller.dart';
 
 /// 设置页，展示离线隐私说明和默认压缩参数。
@@ -24,7 +25,10 @@ class SettingsView extends GetView<SettingsController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('隐私模式', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      '隐私模式',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     const Text('所有图片均在本机处理，不上传服务器，不需要登录。'),
                   ],
@@ -94,7 +98,10 @@ class SettingsView extends GetView<SettingsController> {
                   () => Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('主题模式', style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        '主题模式',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 12),
                       SegmentedButton<String>(
                         segments: const [
@@ -119,14 +126,25 @@ class SettingsView extends GetView<SettingsController> {
                   () => Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('默认导出目录', style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
                       Text(
-                        controller.defaultExportDirectory.value ?? '应用缓存目录',
+                        '默认导出目录',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
+                      const SizedBox(height: 8),
+                      Text(controller.defaultExportDirectory.value ?? '应用缓存目录'),
                     ],
                   ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.cleaning_services_outlined),
+                title: const Text('缓存管理'),
+                subtitle: const Text('查看缓存大小并清理临时文件'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Get.toNamed(Routes.cache),
               ),
             ),
           ],

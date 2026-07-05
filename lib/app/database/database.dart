@@ -32,23 +32,24 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (migrator) => migrator.createAll(),
-        onUpgrade: (migrator, from, to) async {
-          if (from < 2) {
-            await migrator.createTable(appSettings);
-            await migrator.createTable(favoriteTemplates);
-            await migrator.createTable(recentFiles);
-            await migrator.createTable(cacheRecords);
-          }
-        },
-      );
+    onCreate: (migrator) => migrator.createAll(),
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.createTable(appSettings);
+        await migrator.createTable(favoriteTemplates);
+        await migrator.createTable(recentFiles);
+        await migrator.createTable(cacheRecords);
+      }
+    },
+  );
 
   Future<AppSetting?> getSetting(String key) {
     if (key.trim().isEmpty) {
       return Future.value(null);
     }
-    return (select(appSettings)..where((table) => table.settingKey.equals(key)))
-        .getSingleOrNull();
+    return (select(
+      appSettings,
+    )..where((table) => table.settingKey.equals(key))).getSingleOrNull();
   }
 
   Future<int> upsertSetting(AppSettingsCompanion setting) {
@@ -68,9 +69,7 @@ class AppDatabase extends _$AppDatabase {
     final normalizedKeyword = keyword.trim();
     final normalizedStatus = status.trim();
     final query = select(operationHistory)
-      ..orderBy([
-        (table) => OrderingTerm.desc(table.createdAt),
-      ])
+      ..orderBy([(table) => OrderingTerm.desc(table.createdAt)])
       ..limit(limit);
 
     if (normalizedKeyword.isNotEmpty) {
@@ -116,9 +115,7 @@ class AppDatabase extends _$AppDatabase {
       return Future.value(const []);
     }
     return (select(recentFiles)
-          ..orderBy([
-            (table) => OrderingTerm.desc(table.lastUsedAt),
-          ])
+          ..orderBy([(table) => OrderingTerm.desc(table.lastUsedAt)])
           ..limit(limit))
         .get();
   }
@@ -132,9 +129,7 @@ class AppDatabase extends _$AppDatabase {
       return Future.value(const []);
     }
     return (select(favoriteTemplates)
-          ..orderBy([
-            (table) => OrderingTerm.desc(table.updatedAt),
-          ])
+          ..orderBy([(table) => OrderingTerm.desc(table.updatedAt)])
           ..limit(limit))
         .get();
   }
@@ -143,11 +138,19 @@ class AppDatabase extends _$AppDatabase {
     return into(cacheRecords).insertOnConflictUpdate(record);
   }
 
-  Future<int> deleteExpiredCacheRecords(DateTime now) {
-    return (delete(cacheRecords)
-          ..where((table) => table.expiresAt.isSmallerThanValue(now)))
-        .go();
+  Future<List<CacheRecord>> getCacheRecords() {
+    return (select(
+      cacheRecords,
+    )..orderBy([(table) => OrderingTerm.desc(table.createdAt)])).get();
   }
+
+  Future<int> deleteExpiredCacheRecords(DateTime now) {
+    return (delete(
+      cacheRecords,
+    )..where((table) => table.expiresAt.isSmallerThanValue(now))).go();
+  }
+
+  Future<int> clearCacheRecords() => delete(cacheRecords).go();
 }
 
 LazyDatabase _openConnection() {

@@ -4,6 +4,7 @@ part of 'app_pages.dart';
 abstract class Routes {
   Routes._();
   static const base64 = _Paths.base64;
+  static const cache = _Paths.cache;
   static const colorPicker = _Paths.colorPicker;
   static const home = _Paths.home;
   static const compress = _Paths.compress;
@@ -23,6 +24,7 @@ abstract class Routes {
 abstract class _Paths {
   _Paths._();
   static const base64 = '/base64';
+  static const cache = '/cache';
   static const colorPicker = '/color-picker';
   static const home = '/home';
   static const compress = '/compress';
