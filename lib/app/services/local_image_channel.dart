@@ -4,6 +4,8 @@ import '../core/exceptions/app_exception.dart';
 import '../core/models/compressed_image_file.dart';
 import '../core/models/converted_image_file.dart';
 import '../core/models/cropped_image_file.dart';
+import '../core/models/exif_cleaned_image_file.dart';
+import '../core/models/exif_info.dart';
 import '../core/models/filtered_image_file.dart';
 import '../core/models/flipped_image_file.dart';
 import '../core/models/grid_image_file.dart';
@@ -613,6 +615,58 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('九宫格切图失败，请重试', cause: error);
+    }
+  }
+
+  Future<ExifInfo> readExif({required LocalImageFile source}) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法读取 EXIF');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'readExif',
+        <String, Object?>{'path': source.path},
+      );
+      if (result == null) {
+        throw const AppException('EXIF 结果为空，请重试');
+      }
+      return ExifInfo.fromMap(source: source, map: result);
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('读取 EXIF 失败，请重试', cause: error);
+    }
+  }
+
+  Future<ExifCleanedImageFile> removeExif({
+    required LocalImageFile source,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法删除 EXIF');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'removeExif',
+        <String, Object?>{'path': source.path},
+      );
+      if (result == null) {
+        throw const AppException('EXIF 清理结果为空，请重试');
+      }
+      final cleaned = ExifCleanedImageFile.fromMap(source: source, map: result);
+      if (cleaned.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return cleaned;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('删除 EXIF 失败，请重试', cause: error);
     }
   }
 

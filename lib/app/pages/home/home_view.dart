@@ -266,6 +266,7 @@ IconData _toolIconFor(String key) {
     'filter' => Icons.filter_vintage_outlined,
     'grid' => Icons.grid_view_outlined,
     'convert' => Icons.swap_horiz,
+    'exif' => Icons.info_outline,
     'pdf' => Icons.picture_as_pdf_outlined,
     'qrcode' => Icons.qr_code,
     'base64' => Icons.code,

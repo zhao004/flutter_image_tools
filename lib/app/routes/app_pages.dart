@@ -12,6 +12,8 @@ import '../pages/convert/convert_binding.dart';
 import '../pages/convert/convert_view.dart';
 import '../pages/crop/crop_binding.dart';
 import '../pages/crop/crop_view.dart';
+import '../pages/exif/exif_binding.dart';
+import '../pages/exif/exif_view.dart';
 import '../pages/filter/filter_binding.dart';
 import '../pages/filter/filter_view.dart';
 import '../pages/flip/flip_binding.dart';
@@ -77,6 +79,11 @@ class AppPages {
       name: _Paths.crop,
       page: () => const CropView(),
       binding: CropBinding(),
+    ),
+    GetPage(
+      name: _Paths.exif,
+      page: () => const ExifView(),
+      binding: ExifBinding(),
     ),
     GetPage(
       name: _Paths.filter,

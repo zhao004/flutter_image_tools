@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
@@ -48,6 +49,8 @@ class MainActivity : FlutterActivity() {
             "rotateImage" -> rotateImage(call, result)
             "addTextWatermark" -> addTextWatermark(call, result)
             "addImageWatermark" -> addImageWatermark(call, result)
+            "readExif" -> readExif(call, result)
+            "removeExif" -> removeExif(call, result)
             else -> result.notImplemented()
         }
     }
@@ -989,6 +992,86 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun readExif(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        try {
+            val exif = ExifInterface(source.absolutePath)
+            val attributes = linkedMapOf<String, String>()
+            addExifAttribute(attributes, "拍摄时间", exif, ExifInterface.TAG_DATETIME_ORIGINAL)
+            addExifAttribute(attributes, "修改时间", exif, ExifInterface.TAG_DATETIME)
+            addExifAttribute(attributes, "相机品牌", exif, ExifInterface.TAG_MAKE)
+            addExifAttribute(attributes, "相机型号", exif, ExifInterface.TAG_MODEL)
+            addExifAttribute(attributes, "方向", exif, ExifInterface.TAG_ORIENTATION)
+            addExifAttribute(attributes, "闪光灯", exif, ExifInterface.TAG_FLASH)
+            addExifAttribute(attributes, "ISO", exif, ExifInterface.TAG_ISO_SPEED_RATINGS)
+            addExifAttribute(attributes, "光圈", exif, ExifInterface.TAG_F_NUMBER)
+            addExifAttribute(attributes, "曝光时间", exif, ExifInterface.TAG_EXPOSURE_TIME)
+            addExifAttribute(attributes, "焦距", exif, ExifInterface.TAG_FOCAL_LENGTH)
+            addExifAttribute(attributes, "图片宽度", exif, ExifInterface.TAG_IMAGE_WIDTH)
+            addExifAttribute(attributes, "图片高度", exif, ExifInterface.TAG_IMAGE_LENGTH)
+            val location = formatExifLocation(exif)
+            if (location.isNotBlank()) {
+                attributes["GPS"] = location
+            }
+            result.success(mapOf("attributes" to attributes))
+        } catch (error: Exception) {
+            result.error("invalid_image", error.message, null)
+        }
+    }
+
+    private fun removeExif(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        try {
+            val outputDir = File(cacheDir, "exif_cleaned_images").apply { mkdirs() }
+            val output = File(outputDir, "exif_cleaned_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "EXIF 清理导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     private fun queryImageInfo(uri: Uri): ImageInfo {
         var name = "selected_image"
         var mimeType = contentResolver.getType(uri) ?: "image/*"
@@ -1021,6 +1104,31 @@ class MainActivity : FlutterActivity() {
             "image/bmp" -> "bmp"
             else -> "img"
         }
+    }
+
+    private fun addExifAttribute(
+        attributes: MutableMap<String, String>,
+        label: String,
+        exif: ExifInterface,
+        tag: String,
+    ) {
+        val value = exif.getAttribute(tag)?.trim().orEmpty()
+        if (value.isNotBlank()) {
+            attributes[label] = value
+        }
+    }
+
+    private fun formatExifLocation(exif: ExifInterface): String {
+        val latitude = exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE)?.trim().orEmpty()
+        val latitudeRef = exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE_REF)?.trim().orEmpty()
+        val longitude = exif.getAttribute(ExifInterface.TAG_GPS_LONGITUDE)?.trim().orEmpty()
+        val longitudeRef = exif.getAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF)?.trim().orEmpty()
+        if (latitude.isBlank() || longitude.isBlank()) {
+            return ""
+        }
+        return listOf(latitudeRef, latitude, longitudeRef, longitude)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
     }
 
     private fun calculateMergeLayout(

@@ -128,6 +128,13 @@ class HomeController extends GetxController {
       route: Routes.convert,
     ),
     const HomeToolItem(
+      title: 'EXIF 管理',
+      description: '查看拍摄信息并清除隐私元数据',
+      icon: 'exif',
+      availability: ToolAvailability.available,
+      route: Routes.exif,
+    ),
+    const HomeToolItem(
       title: 'PDF 工具',
       description: '图片转 PDF 与页面导出',
       icon: 'pdf',
