@@ -50,7 +50,7 @@ class HomeView extends GetView<HomeController> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               sliver: SliverToBoxAdapter(
                 child: Text(
-                  '最近常用',
+                  '功能入口',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -71,6 +71,46 @@ class HomeView extends GetView<HomeController> {
                       )
                       .toList(growable: false),
                 ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: Text(
+                  '最近图片',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverToBoxAdapter(
+                child: Obx(() {
+                  if (controller.recentFiles.isEmpty) {
+                    return const Text('选择图片后会显示在这里');
+                  }
+                  return SizedBox(
+                    height: 72,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: controller.recentFiles.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final file = controller.recentFiles[index];
+                        return Chip(
+                          avatar: const Icon(Icons.image_outlined, size: 18),
+                          label: SizedBox(
+                            width: 140,
+                            child: Text(
+                              file.fileName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }),
               ),
             ),
             SliverPadding(

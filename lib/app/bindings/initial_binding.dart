@@ -1,7 +1,11 @@
 import 'package:get/get.dart';
 
 import '../database/database.dart';
+import '../repositories/app_settings_repository.dart';
+import '../repositories/cache_repository.dart';
+import '../repositories/favorite_templates_repository.dart';
 import '../repositories/operation_history_repository.dart';
+import '../repositories/recent_files_repository.dart';
 import '../services/local_image_channel.dart';
 
 /// 全局依赖绑定，集中注册数据库、平台通道和仓储。
@@ -15,6 +19,22 @@ class InitialBinding extends Bindings {
     Get.lazyPut<LocalImageChannel>(() => LocalImageChannel(), fenix: true);
     Get.lazyPut<OperationHistoryRepository>(
       () => OperationHistoryRepository(database: Get.find<AppDatabase>()),
+      fenix: true,
+    );
+    Get.lazyPut<AppSettingsRepository>(
+      () => AppSettingsRepository(database: Get.find<AppDatabase>()),
+      fenix: true,
+    );
+    Get.lazyPut<RecentFilesRepository>(
+      () => RecentFilesRepository(database: Get.find<AppDatabase>()),
+      fenix: true,
+    );
+    Get.lazyPut<FavoriteTemplatesRepository>(
+      () => FavoriteTemplatesRepository(database: Get.find<AppDatabase>()),
+      fenix: true,
+    );
+    Get.lazyPut<CacheRepository>(
+      () => CacheRepository(database: Get.find<AppDatabase>()),
       fenix: true,
     );
   }

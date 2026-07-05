@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
 
+import '../../database/database.dart';
+import '../../repositories/recent_files_repository.dart';
 import '../../routes/app_pages.dart';
 
 enum ToolAvailability { available, planned }
@@ -25,7 +27,13 @@ class HomeToolItem {
 /// 设计意图：工具清单先集中在 Controller，后续可迁移到 Drift 收藏和
 /// 最近使用记录；跳转前校验 route，避免未实现功能触发空路由异常。
 class HomeController extends GetxController {
+  HomeController({required RecentFilesRepository recentFilesRepository})
+      : _recentFilesRepository = recentFilesRepository;
+
+  final RecentFilesRepository _recentFilesRepository;
+
   final query = ''.obs;
+  final recentFiles = <RecentFile>[].obs;
 
   final tools = <HomeToolItem>[
     const HomeToolItem(
@@ -121,6 +129,20 @@ class HomeController extends GetxController {
   List<HomeToolItem> get recentTools => tools
       .where((tool) => tool.availability == ToolAvailability.available)
       .toList(growable: false);
+
+  @override
+  void onInit() {
+    super.onInit();
+    loadRecentFiles();
+  }
+
+  Future<void> loadRecentFiles() async {
+    try {
+      recentFiles.assignAll(await _recentFilesRepository.getRecentFiles());
+    } catch (_) {
+      recentFiles.clear();
+    }
+  }
 
   void updateQuery(String value) {
     query.value = value;

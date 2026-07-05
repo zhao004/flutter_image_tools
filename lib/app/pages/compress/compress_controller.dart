@@ -3,7 +3,9 @@ import 'package:get/get.dart';
 import '../../core/exceptions/app_exception.dart';
 import '../../core/models/compressed_image_file.dart';
 import '../../core/models/local_image_file.dart';
+import '../../repositories/app_settings_repository.dart';
 import '../../repositories/operation_history_repository.dart';
+import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
 /// 图片压缩控制器，管理选择、质量参数、执行状态和结果展示。
@@ -14,16 +16,36 @@ class CompressController extends GetxController {
   CompressController({
     required LocalImageChannel imageChannel,
     required OperationHistoryRepository historyRepository,
+    required AppSettingsRepository settingsRepository,
+    required RecentFilesRepository recentFilesRepository,
   })  : _imageChannel = imageChannel,
-        _historyRepository = historyRepository;
+        _historyRepository = historyRepository,
+        _settingsRepository = settingsRepository,
+        _recentFilesRepository = recentFilesRepository;
 
   final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
+  final AppSettingsRepository _settingsRepository;
+  final RecentFilesRepository _recentFilesRepository;
 
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<CompressedImageFile>();
   final quality = 80.obs;
   final isBusy = false.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _loadDefaultQuality();
+  }
+
+  Future<void> _loadDefaultQuality() async {
+    try {
+      quality.value = await _settingsRepository.getDefaultQuality();
+    } catch (_) {
+      quality.value = 80;
+    }
+  }
 
   Future<void> pickImage() async {
     if (isBusy.value) {
@@ -36,8 +58,11 @@ class CompressController extends GetxController {
       }
       selectedImage.value = image;
       result.value = null;
+      await _recentFilesRepository.recordImage(image);
     } on AppException catch (error) {
       _showError(error.message);
+    } catch (_) {
+      _showError('记录最近文件失败，请重试');
     }
   }
 
