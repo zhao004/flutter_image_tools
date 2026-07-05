@@ -119,7 +119,8 @@ class HomeController extends GetxController {
       title: 'Base64',
       description: '图片和文本互转',
       icon: 'base64',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.base64,
     ),
   ];
 

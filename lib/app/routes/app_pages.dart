@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
 
+import '../pages/base64/base64_binding.dart';
+import '../pages/base64/base64_view.dart';
 import '../pages/compress/compress_binding.dart';
 import '../pages/compress/compress_view.dart';
 import '../pages/convert/convert_binding.dart';
@@ -25,6 +27,11 @@ class AppPages {
   static const initial = Routes.home;
 
   static final routes = [
+    GetPage(
+      name: _Paths.base64,
+      page: () => const Base64View(),
+      binding: Base64Binding(),
+    ),
     GetPage(
       name: _Paths.home,
       page: () => const HomeView(),

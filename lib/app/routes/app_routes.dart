@@ -3,6 +3,7 @@ part of 'app_pages.dart';
 
 abstract class Routes {
   Routes._();
+  static const base64 = _Paths.base64;
   static const home = _Paths.home;
   static const compress = _Paths.compress;
   static const convert = _Paths.convert;
@@ -15,6 +16,7 @@ abstract class Routes {
 
 abstract class _Paths {
   _Paths._();
+  static const base64 = '/base64';
   static const home = '/home';
   static const compress = '/compress';
   static const convert = '/convert';
