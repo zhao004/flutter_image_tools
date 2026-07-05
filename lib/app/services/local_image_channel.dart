@@ -54,6 +54,10 @@ class LocalImageChannel {
     'invert',
     'warm',
     'cool',
+    'hdr',
+    'film',
+    'sharpen',
+    'soften',
   };
   static const Set<String> supportedConvertFormats = {
     'jpg',

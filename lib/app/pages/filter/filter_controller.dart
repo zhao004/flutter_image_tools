@@ -13,7 +13,11 @@ enum ImageFilterType {
   sepia(label: '怀旧', value: 'sepia'),
   invert(label: '反色', value: 'invert'),
   warm(label: '暖色', value: 'warm'),
-  cool(label: '冷色', value: 'cool');
+  cool(label: '冷色', value: 'cool'),
+  hdr(label: 'HDR', value: 'hdr'),
+  film(label: '胶片', value: 'film'),
+  sharpen(label: '锐化', value: 'sharpen'),
+  soften(label: '柔化', value: 'soften');
 
   const ImageFilterType({required this.label, required this.value});
 

@@ -1586,7 +1586,20 @@ class MainActivity : FlutterActivity() {
             result.error("file_not_found", "图片路径为空", null)
             return
         }
-        if (filter !in setOf("grayscale", "monochrome", "sepia", "invert", "warm", "cool")) {
+        if (
+            filter !in setOf(
+                "grayscale",
+                "monochrome",
+                "sepia",
+                "invert",
+                "warm",
+                "cool",
+                "hdr",
+                "film",
+                "sharpen",
+                "soften",
+            )
+        ) {
             result.error("invalid_args", "滤镜类型不支持", null)
             return
         }
@@ -2166,6 +2179,22 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun applyBitmapFilter(bitmap: Bitmap, filter: String): Bitmap {
+        if (filter == "sharpen") {
+            return applyConvolutionFilter(
+                bitmap,
+                intArrayOf(0, -1, 0, -1, 5, -1, 0, -1, 0),
+                1,
+                0,
+            )
+        }
+        if (filter == "soften") {
+            return applyConvolutionFilter(
+                bitmap,
+                intArrayOf(1, 2, 1, 2, 4, 2, 1, 2, 1),
+                16,
+                0,
+            )
+        }
         val output = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val pixels = IntArray(output.width * output.height)
         output.getPixels(pixels, 0, output.width, 0, 0, output.width, output.height)
@@ -2173,6 +2202,53 @@ class MainActivity : FlutterActivity() {
             pixels[index] = transformPixel(pixels[index], filter)
         }
         output.setPixels(pixels, 0, output.width, 0, 0, output.width, output.height)
+        return output
+    }
+
+    private fun applyConvolutionFilter(
+        bitmap: Bitmap,
+        kernel: IntArray,
+        divisor: Int,
+        bias: Int,
+    ): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        val sourcePixels = IntArray(width * height)
+        val outputPixels = IntArray(width * height)
+        bitmap.getPixels(sourcePixels, 0, width, 0, 0, width, height)
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                if (x == 0 || y == 0 || x == width - 1 || y == height - 1) {
+                    outputPixels[y * width + x] = sourcePixels[y * width + x]
+                    continue
+                }
+
+                var red = 0
+                var green = 0
+                var blue = 0
+                var kernelIndex = 0
+                for (ky in -1..1) {
+                    for (kx in -1..1) {
+                        val pixel = sourcePixels[(y + ky) * width + (x + kx)]
+                        val weight = kernel[kernelIndex++]
+                        red += Color.red(pixel) * weight
+                        green += Color.green(pixel) * weight
+                        blue += Color.blue(pixel) * weight
+                    }
+                }
+                val alpha = Color.alpha(sourcePixels[y * width + x])
+                outputPixels[y * width + x] = Color.argb(
+                    alpha,
+                    clampColor(red / divisor + bias),
+                    clampColor(green / divisor + bias),
+                    clampColor(blue / divisor + bias),
+                )
+            }
+        }
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        output.setPixels(outputPixels, 0, width, 0, 0, width, height)
         return output
     }
 
@@ -2194,6 +2270,24 @@ class MainActivity : FlutterActivity() {
                 Color.argb(alpha, clampColor(nextRed), clampColor(nextGreen), clampColor(nextBlue))
             }
             "invert" -> Color.argb(alpha, 255 - red, 255 - green, 255 - blue)
+            "hdr" -> {
+                val contrast = 1.28
+                val nextRed = ((red - 128) * contrast + 128).toInt() + 8
+                val nextGreen = ((green - 128) * contrast + 128).toInt() + 8
+                val nextBlue = ((blue - 128) * contrast + 128).toInt() + 8
+                Color.argb(
+                    alpha,
+                    clampColor(nextRed),
+                    clampColor(nextGreen),
+                    clampColor(nextBlue),
+                )
+            }
+            "film" -> {
+                val nextRed = (red * 1.08 + green * 0.04 + 12).toInt()
+                val nextGreen = (green * 0.96 + blue * 0.04 + 6).toInt()
+                val nextBlue = (blue * 0.88 + red * 0.04 + 18).toInt()
+                Color.argb(alpha, clampColor(nextRed), clampColor(nextGreen), clampColor(nextBlue))
+            }
             "warm" -> Color.argb(
                 alpha,
                 clampColor((red * 1.12).toInt() + 12),
