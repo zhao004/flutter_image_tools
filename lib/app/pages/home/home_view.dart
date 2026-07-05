@@ -270,6 +270,7 @@ IconData _toolIconFor(String key) {
     'exif' => Icons.info_outline,
     'pdf' => Icons.picture_as_pdf_outlined,
     'qrcode' => Icons.qr_code,
+    'gif' => Icons.gif_box_outlined,
     'base64' => Icons.code,
     'color' => Icons.colorize_outlined,
     _ => Icons.image_outlined,

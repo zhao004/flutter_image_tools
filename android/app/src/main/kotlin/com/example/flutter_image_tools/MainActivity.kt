@@ -23,6 +23,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
+import java.util.LinkedHashMap
 import java.util.UUID
 
 class MainActivity : FlutterActivity() {
@@ -57,6 +58,7 @@ class MainActivity : FlutterActivity() {
             "addImageWatermark" -> addImageWatermark(call, result)
             "readExif" -> readExif(call, result)
             "removeExif" -> removeExif(call, result)
+            "imagesToGif" -> imagesToGif(call, result)
             "imagesToPdf" -> imagesToPdf(call, result)
             "exportPdfPageAsImage" -> exportPdfPageAsImage(call, result)
             "exportPdfAllPagesAsImages" -> exportPdfAllPagesAsImages(call, result)
@@ -722,6 +724,72 @@ class MainActivity : FlutterActivity() {
         } catch (error: Exception) {
             bitmaps.forEach { it.recycle() }
             result.error("export_failed", error.message, null)
+        }
+    }
+
+    private fun imagesToGif(call: MethodCall, result: MethodChannel.Result) {
+        val paths = call.argument<List<String>>("paths") ?: emptyList()
+        val delayMs = call.argument<Int>("delayMs") ?: 300
+        if (paths.size < 2 || paths.size > 30) {
+            result.error("invalid_args", "GIF 图片数量必须在 2 到 30 张之间", null)
+            return
+        }
+        if (delayMs !in 50..2000) {
+            result.error("invalid_args", "每帧间隔必须在 50 到 2000 毫秒之间", null)
+            return
+        }
+
+        val frames = mutableListOf<Bitmap>()
+        try {
+            for (path in paths) {
+                if (path.isBlank()) {
+                    result.error("file_not_found", "图片路径为空", null)
+                    frames.forEach { it.recycle() }
+                    return
+                }
+                val source = File(path)
+                if (!source.exists()) {
+                    result.error("file_not_found", "图片文件不存在", null)
+                    frames.forEach { it.recycle() }
+                    return
+                }
+                val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+                if (bitmap == null) {
+                    result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+                    frames.forEach { it.recycle() }
+                    return
+                }
+                frames.add(bitmap)
+            }
+
+            val targetWidth = frames.first().width
+            val targetHeight = frames.first().height
+            val pixelCount = targetWidth.toLong() * targetHeight.toLong()
+            if (targetWidth <= 0 || targetHeight <= 0 || pixelCount > 12000000L) {
+                result.error("invalid_args", "GIF 输出尺寸过大，请先缩小图片", null)
+                frames.forEach { it.recycle() }
+                return
+            }
+
+            val outputDir = File(cacheDir, "gif_images").apply { mkdirs() }
+            val output = File(outputDir, "images_${System.currentTimeMillis()}.gif")
+            FileOutputStream(output).use { stream ->
+                writeAnimatedGif(frames, targetWidth, targetHeight, delayMs, stream)
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "frameCount" to frames.size,
+                    "delayMs" to delayMs,
+                    "width" to targetWidth,
+                    "height" to targetHeight,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            frames.forEach { it.recycle() }
         }
     }
 
@@ -2011,6 +2079,179 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun writeAnimatedGif(
+        frames: List<Bitmap>,
+        width: Int,
+        height: Int,
+        delayMs: Int,
+        stream: OutputStream,
+    ) {
+        stream.writeAscii("GIF89a")
+        writeShortLe(stream, width)
+        writeShortLe(stream, height)
+        stream.write(0)
+        stream.write(0)
+        stream.write(0)
+        stream.writeAscii("NETSCAPE2.0".let { "\u0021\u00FF\u000B$it" })
+        stream.write(byteArrayOf(3, 1, 0, 0, 0))
+
+        for (source in frames) {
+            val frame = scaleGifFrame(source, width, height)
+            try {
+                val indexed = quantizeGifFrame(frame)
+                stream.write(0x21)
+                stream.write(0xF9)
+                stream.write(4)
+                stream.write(0)
+                writeShortLe(stream, (delayMs / 10).coerceAtLeast(1))
+                stream.write(0)
+                stream.write(0)
+                stream.write(0x2C)
+                writeShortLe(stream, 0)
+                writeShortLe(stream, 0)
+                writeShortLe(stream, width)
+                writeShortLe(stream, height)
+                stream.write(0x87)
+                for (color in indexed.palette) {
+                    stream.write(Color.red(color))
+                    stream.write(Color.green(color))
+                    stream.write(Color.blue(color))
+                }
+                stream.write(8)
+                writeGifImageData(indexed.indices, stream)
+            } finally {
+                if (frame !== source) {
+                    frame.recycle()
+                }
+            }
+        }
+        stream.write(0x3B)
+    }
+
+    private fun scaleGifFrame(source: Bitmap, width: Int, height: Int): Bitmap {
+        if (source.width == width && source.height == height) {
+            return source
+        }
+        return Bitmap.createScaledBitmap(source, width, height, true)
+    }
+
+    private fun quantizeGifFrame(bitmap: Bitmap): GifIndexedFrame {
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val colorCounts = LinkedHashMap<Int, Int>()
+        for (pixel in pixels) {
+            val color = gifColorBucket(pixel)
+            colorCounts[color] = (colorCounts[color] ?: 0) + 1
+        }
+
+        val palette = colorCounts.entries
+            .sortedByDescending { it.value }
+            .take(256)
+            .map { it.key }
+            .toMutableList()
+        while (palette.size < 256) {
+            palette.add(Color.rgb(0, 0, 0))
+        }
+
+        val paletteLookup = palette.withIndex().associate { it.value to it.index }
+        val indices = ByteArray(pixels.size)
+        for (index in pixels.indices) {
+            val color = gifColorBucket(pixels[index])
+            val paletteIndex = paletteLookup[color] ?: nearestGifPaletteIndex(color, palette)
+            indices[index] = paletteIndex.toByte()
+        }
+        return GifIndexedFrame(palette, indices)
+    }
+
+    private fun gifColorBucket(pixel: Int): Int {
+        val red = Color.red(pixel) and 0xE0
+        val green = Color.green(pixel) and 0xE0
+        val blue = Color.blue(pixel) and 0xC0
+        return Color.rgb(red, green, blue)
+    }
+
+    private fun nearestGifPaletteIndex(color: Int, palette: List<Int>): Int {
+        var bestIndex = 0
+        var bestDistance = Int.MAX_VALUE
+        val red = Color.red(color)
+        val green = Color.green(color)
+        val blue = Color.blue(color)
+        for (index in palette.indices) {
+            val item = palette[index]
+            val dr = red - Color.red(item)
+            val dg = green - Color.green(item)
+            val db = blue - Color.blue(item)
+            val distance = dr * dr + dg * dg + db * db
+            if (distance < bestDistance) {
+                bestDistance = distance
+                bestIndex = index
+            }
+        }
+        return bestIndex
+    }
+
+    private fun writeGifImageData(indices: ByteArray, stream: OutputStream) {
+        val compressed = lzwCompressGif(indices, 8)
+        var offset = 0
+        while (offset < compressed.size) {
+            val size = minOf(255, compressed.size - offset)
+            stream.write(size)
+            stream.write(compressed, offset, size)
+            offset += size
+        }
+        stream.write(0)
+    }
+
+    private fun lzwCompressGif(indices: ByteArray, minCodeSize: Int): ByteArray {
+        val clearCode = 1 shl minCodeSize
+        val endCode = clearCode + 1
+        val codeWriter = GifCodeWriter()
+        var codeSize = minCodeSize + 1
+        var nextCode = endCode + 1
+        val dictionary = HashMap<String, Int>()
+        fun resetDictionary() {
+            dictionary.clear()
+            for (index in 0 until clearCode) {
+                dictionary[index.toChar().toString()] = index
+            }
+            codeSize = minCodeSize + 1
+            nextCode = endCode + 1
+        }
+
+        resetDictionary()
+        codeWriter.write(clearCode, codeSize)
+        var current = (indices.firstOrNull()?.toInt() ?: 0 and 0xFF).toChar().toString()
+        for (index in 1 until indices.size) {
+            val next = (indices[index].toInt() and 0xFF).toChar().toString()
+            val combined = current + next
+            if (dictionary.containsKey(combined)) {
+                current = combined
+            } else {
+                codeWriter.write(dictionary[current] ?: 0, codeSize)
+                if (nextCode < 4096) {
+                    dictionary[combined] = nextCode
+                    nextCode += 1
+                    if (nextCode == (1 shl codeSize) && codeSize < 12) {
+                        codeSize += 1
+                    }
+                } else {
+                    codeWriter.write(clearCode, codeSize)
+                    resetDictionary()
+                }
+                current = next
+            }
+        }
+        codeWriter.write(dictionary[current] ?: 0, codeSize)
+        codeWriter.write(endCode, codeSize)
+        return codeWriter.finish()
+    }
+
+    private fun OutputStream.writeAscii(value: String) {
+        for (char in value) {
+            write(char.code and 0xFF)
+        }
+    }
+
     private fun writeIntLe(stream: OutputStream, value: Int) {
         stream.write(value and 0xFF)
         stream.write(value ushr 8 and 0xFF)
@@ -2036,6 +2277,29 @@ class MainActivity : FlutterActivity() {
     }
 
     private data class ImageInfo(val name: String, val mimeType: String)
+    private data class GifIndexedFrame(val palette: List<Int>, val indices: ByteArray)
+    private class GifCodeWriter {
+        private val bytes = mutableListOf<Byte>()
+        private var current = 0
+        private var bitCount = 0
+
+        fun write(code: Int, size: Int) {
+            current = current or (code shl bitCount)
+            bitCount += size
+            while (bitCount >= 8) {
+                bytes.add((current and 0xFF).toByte())
+                current = current ushr 8
+                bitCount -= 8
+            }
+        }
+
+        fun finish(): ByteArray {
+            if (bitCount > 0) {
+                bytes.add((current and 0xFF).toByte())
+            }
+            return bytes.toByteArray()
+        }
+    }
     private data class BitmapPosition(val x: Int, val y: Int)
     private data class MergeLayout(
         val width: Int,

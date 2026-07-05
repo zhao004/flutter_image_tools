@@ -156,6 +156,13 @@ class HomeController extends GetxController {
       route: Routes.qrcode,
     ),
     const HomeToolItem(
+      title: 'GIF 工具',
+      description: '多图本地生成动图',
+      icon: 'gif',
+      availability: ToolAvailability.available,
+      route: Routes.gif,
+    ),
+    const HomeToolItem(
       title: 'Base64',
       description: '图片和文本互转',
       icon: 'base64',

@@ -24,6 +24,8 @@ import '../pages/flip/flip_binding.dart';
 import '../pages/flip/flip_view.dart';
 import '../pages/grid/grid_binding.dart';
 import '../pages/grid/grid_view.dart';
+import '../pages/gif/gif_binding.dart';
+import '../pages/gif/gif_view.dart';
 import '../pages/history/history_binding.dart';
 import '../pages/history/history_view.dart';
 import '../pages/home/home_binding.dart';
@@ -114,6 +116,11 @@ class AppPages {
       name: _Paths.grid,
       page: () => const GridView(),
       binding: GridBinding(),
+    ),
+    GetPage(
+      name: _Paths.gif,
+      page: () => const GifView(),
+      binding: GifBinding(),
     ),
     GetPage(
       name: _Paths.history,

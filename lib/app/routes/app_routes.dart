@@ -16,6 +16,7 @@ abstract class Routes {
   static const filter = _Paths.filter;
   static const flip = _Paths.flip;
   static const grid = _Paths.grid;
+  static const gif = _Paths.gif;
   static const history = _Paths.history;
   static const imageWatermark = _Paths.imageWatermark;
   static const logs = _Paths.logs;
@@ -43,6 +44,7 @@ abstract class _Paths {
   static const filter = '/filter';
   static const flip = '/flip';
   static const grid = '/grid';
+  static const gif = '/gif';
   static const history = '/history';
   static const imageWatermark = '/image-watermark';
   static const logs = '/logs';

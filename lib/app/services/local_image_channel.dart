@@ -9,6 +9,7 @@ import '../core/models/exif_cleaned_image_file.dart';
 import '../core/models/exif_info.dart';
 import '../core/models/filtered_image_file.dart';
 import '../core/models/flipped_image_file.dart';
+import '../core/models/gif_image_file.dart';
 import '../core/models/grid_image_file.dart';
 import '../core/models/image_watermarked_file.dart';
 import '../core/models/local_image_file.dart';
@@ -34,6 +35,9 @@ class LocalImageChannel {
   static const int maxResizeDimension = 10000;
   static const int maxMergeImages = 20;
   static const int maxPdfImages = 50;
+  static const int maxGifImages = 30;
+  static const int minGifDelayMs = 50;
+  static const int maxGifDelayMs = 2000;
   static const int minGridSize = 2;
   static const int maxGridSize = 5;
   static const Set<String> supportedFilters = {
@@ -760,6 +764,56 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('生成 PDF 失败，请重试', cause: error);
+    }
+  }
+
+  Future<GifImageFile> imagesToGif({
+    required List<LocalImageFile> sources,
+    required int delayMs,
+  }) async {
+    if (sources.length < 2) {
+      throw const AppException('请至少选择两张图片生成 GIF');
+    }
+    if (sources.length > maxGifImages) {
+      throw const AppException('单次最多转换 30 张图片');
+    }
+    if (delayMs < minGifDelayMs || delayMs > maxGifDelayMs) {
+      throw const AppException('每帧间隔必须在 50 到 2000 毫秒之间');
+    }
+    final paths = sources.map((image) => image.path.trim()).toList();
+    if (paths.any((path) => path.isEmpty)) {
+      throw const AppException('图片路径为空，无法生成 GIF');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'imagesToGif',
+        <String, Object?>{'paths': paths, 'delayMs': delayMs},
+      );
+      if (result == null) {
+        throw const AppException('GIF 生成结果为空，请重试');
+      }
+      final gif = GifImageFile.fromMap(
+        sources: sources,
+        delayMs: delayMs,
+        map: result,
+      );
+      if (gif.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      if (gif.frameCount != sources.length) {
+        throw const AppException('GIF 帧数异常，请重试');
+      }
+      if (!gif.hasValidDimensions) {
+        throw const AppException('GIF 输出尺寸异常，请重试');
+      }
+      return gif;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('生成 GIF 失败，请重试', cause: error);
     }
   }
 
