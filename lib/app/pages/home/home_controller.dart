@@ -100,6 +100,13 @@ class HomeController extends GetxController {
       route: Routes.watermark,
     ),
     const HomeToolItem(
+      title: '图片滤镜',
+      description: '灰度、怀旧、反色和冷暖色',
+      icon: 'filter',
+      availability: ToolAvailability.available,
+      route: Routes.filter,
+    ),
+    const HomeToolItem(
       title: '格式转换',
       description: 'PNG、JPG、WebP、BMP',
       icon: 'convert',

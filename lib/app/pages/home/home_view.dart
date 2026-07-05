@@ -171,16 +171,16 @@ class _HeaderCard extends StatelessWidget {
             Text(
               '本地离线图片工具',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               '图片只在手机本地处理，不上传服务器；第一阶段已开放图片压缩闭环。',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                  ),
+                color: colorScheme.onPrimaryContainer,
+              ),
             ),
           ],
         ),
@@ -262,6 +262,7 @@ IconData _toolIconFor(String key) {
     'flip' => Icons.flip,
     'rotate' => Icons.rotate_90_degrees_ccw,
     'watermark' => Icons.branding_watermark_outlined,
+    'filter' => Icons.filter_vintage_outlined,
     'convert' => Icons.swap_horiz,
     'pdf' => Icons.picture_as_pdf_outlined,
     'qrcode' => Icons.qr_code,

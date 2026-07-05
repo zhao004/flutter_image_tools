@@ -40,6 +40,7 @@ class MainActivity : FlutterActivity() {
             "compressImage" -> compressImage(call, result)
             "convertImage" -> convertImage(call, result)
             "cropImage" -> cropImage(call, result)
+            "applyFilter" -> applyFilter(call, result)
             "flipImage" -> flipImage(call, result)
             "mergeImages" -> mergeImages(call, result)
             "resizeImage" -> resizeImage(call, result)
@@ -723,6 +724,69 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun applyFilter(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val filter = (call.argument<String>("filter") ?: "grayscale").lowercase()
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (filter !in setOf("grayscale", "monochrome", "sepia", "invert", "warm", "cool")) {
+            result.error("invalid_args", "滤镜类型不支持", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+        val pixelCount = bitmap.width.toLong() * bitmap.height.toLong()
+        if (pixelCount > 36000000L) {
+            bitmap.recycle()
+            result.error("invalid_args", "图片过大，请先调整尺寸后再应用滤镜", null)
+            return
+        }
+
+        val outputBitmap = try {
+            applyBitmapFilter(bitmap, filter)
+        } catch (error: Exception) {
+            bitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+
+        try {
+            val outputDir = File(cacheDir, "filtered_images").apply { mkdirs() }
+            val output = File(outputDir, "filtered_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = outputBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "图片滤镜导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "filter" to filter,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            outputBitmap.recycle()
+            bitmap.recycle()
+        }
+    }
+
     private fun queryImageInfo(uri: Uri): ImageInfo {
         var name = "selected_image"
         var mimeType = contentResolver.getType(uri) ?: "image/*"
@@ -887,6 +951,62 @@ class MainActivity : FlutterActivity() {
             row += 1
             y += stepY
         }
+    }
+
+    private fun applyBitmapFilter(bitmap: Bitmap, filter: String): Bitmap {
+        val output = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val pixels = IntArray(output.width * output.height)
+        output.getPixels(pixels, 0, output.width, 0, 0, output.width, output.height)
+        for (index in pixels.indices) {
+            pixels[index] = transformPixel(pixels[index], filter)
+        }
+        output.setPixels(pixels, 0, output.width, 0, 0, output.width, output.height)
+        return output
+    }
+
+    private fun transformPixel(pixel: Int, filter: String): Int {
+        val alpha = Color.alpha(pixel)
+        val red = Color.red(pixel)
+        val green = Color.green(pixel)
+        val blue = Color.blue(pixel)
+        return when (filter) {
+            "monochrome" -> {
+                val gray = luminance(red, green, blue)
+                val value = if (gray >= 128) 255 else 0
+                Color.argb(alpha, value, value, value)
+            }
+            "sepia" -> {
+                val nextRed = (red * 0.393 + green * 0.769 + blue * 0.189).toInt()
+                val nextGreen = (red * 0.349 + green * 0.686 + blue * 0.168).toInt()
+                val nextBlue = (red * 0.272 + green * 0.534 + blue * 0.131).toInt()
+                Color.argb(alpha, clampColor(nextRed), clampColor(nextGreen), clampColor(nextBlue))
+            }
+            "invert" -> Color.argb(alpha, 255 - red, 255 - green, 255 - blue)
+            "warm" -> Color.argb(
+                alpha,
+                clampColor((red * 1.12).toInt() + 12),
+                clampColor((green * 1.04).toInt()),
+                clampColor((blue * 0.88).toInt()),
+            )
+            "cool" -> Color.argb(
+                alpha,
+                clampColor((red * 0.88).toInt()),
+                clampColor((green * 1.03).toInt()),
+                clampColor((blue * 1.15).toInt() + 10),
+            )
+            else -> {
+                val gray = luminance(red, green, blue)
+                Color.argb(alpha, gray, gray, gray)
+            }
+        }
+    }
+
+    private fun luminance(red: Int, green: Int, blue: Int): Int {
+        return (red * 0.299 + green * 0.587 + blue * 0.114).toInt().coerceIn(0, 255)
+    }
+
+    private fun clampColor(value: Int): Int {
+        return value.coerceIn(0, 255)
     }
 
     private fun compressFormatFor(format: String): Bitmap.CompressFormat? {

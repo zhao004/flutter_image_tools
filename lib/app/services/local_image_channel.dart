@@ -4,6 +4,7 @@ import '../core/exceptions/app_exception.dart';
 import '../core/models/compressed_image_file.dart';
 import '../core/models/converted_image_file.dart';
 import '../core/models/cropped_image_file.dart';
+import '../core/models/filtered_image_file.dart';
 import '../core/models/flipped_image_file.dart';
 import '../core/models/local_image_file.dart';
 import '../core/models/merged_image_file.dart';
@@ -23,6 +24,14 @@ class LocalImageChannel {
   static const String _channelName = 'image_toolkit/local_image';
   static const int maxResizeDimension = 10000;
   static const int maxMergeImages = 20;
+  static const Set<String> supportedFilters = {
+    'grayscale',
+    'monochrome',
+    'sepia',
+    'invert',
+    'warm',
+    'cool',
+  };
   static const Set<String> supportedConvertFormats = {
     'jpg',
     'png',
@@ -452,6 +461,44 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('添加文字水印失败，请重试', cause: error);
+    }
+  }
+
+  Future<FilteredImageFile> applyFilter({
+    required LocalImageFile source,
+    required String filter,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法应用滤镜');
+    }
+    final normalizedFilter = filter.trim().toLowerCase();
+    if (!supportedFilters.contains(normalizedFilter)) {
+      throw const AppException('滤镜类型不支持');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'applyFilter',
+        <String, Object?>{'path': source.path, 'filter': normalizedFilter},
+      );
+      if (result == null) {
+        throw const AppException('滤镜结果为空，请重试');
+      }
+      final filtered = FilteredImageFile.fromMap(
+        source: source,
+        filter: normalizedFilter,
+        map: result,
+      );
+      if (filtered.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return filtered;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('应用图片滤镜失败，请重试', cause: error);
     }
   }
 
