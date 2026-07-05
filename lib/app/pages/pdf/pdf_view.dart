@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import 'pdf_controller.dart';
 
-/// PDF 工具页，支持多张图片离线生成 PDF，也支持指定 PDF 页面导出 PNG。
+/// PDF 工具页，支持多张图片离线生成 PDF，也支持 PDF 页面导出 PNG。
 ///
 /// 构建设计：图片转 PDF 与 PDF 转图片分为独立卡片，避免两个流程的输入
-/// 状态互相影响；导出页码在 Dart 层先做整数校验，真实页数由 Android 校验。
+/// 状态互相影响；指定页码在 Dart 层先做整数校验，全部页面由 Android 顺序渲染。
 class PdfView extends GetView<PdfController> {
   const PdfView({super.key});
 
@@ -42,6 +43,8 @@ class PdfView extends GetView<PdfController> {
             _PdfPageExportCard(controller: controller),
             const SizedBox(height: 16),
             _PageImageResultCard(controller: controller),
+            const SizedBox(height: 16),
+            _AllPagesResultCard(controller: controller),
           ],
         ),
       ),
@@ -83,6 +86,7 @@ class _PdfPageExportCard extends StatelessWidget {
               TextField(
                 controller: controller.pageNumberController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(
                   labelText: '导出页码',
                   helperText: '页码从 1 开始，超出页数会提示错误。',
@@ -91,23 +95,87 @@ class _PdfPageExportCard extends StatelessWidget {
                 enabled: !controller.isBusy.value,
               ),
               const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: controller.isBusy.value
-                    ? null
-                    : controller.exportPdfPage,
-                icon: controller.isBusy.value
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.image_outlined),
-                label: Text(controller.isBusy.value ? '导出中' : '导出页面 PNG'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.exportPdfPage,
+                    icon: controller.isBusy.value
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.image_outlined),
+                    label: Text(controller.isBusy.value ? '导出中' : '导出指定页'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.exportAllPdfPages,
+                    icon: const Icon(Icons.collections_outlined),
+                    label: const Text('导出全部页面'),
+                  ),
+                ],
               ),
             ],
           );
         }),
       ),
     );
+  }
+}
+
+class _AllPagesResultCard extends StatelessWidget {
+  const _AllPagesResultCard({required this.controller});
+
+  final PdfController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final result = controller.allPagesResult.value;
+      if (result == null) {
+        return const SizedBox.shrink();
+      }
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('全部页面结果', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text('源文件：${result.sourceName}'),
+              Text('页数：${result.pageCount} 页'),
+              Text(
+                '总大小：${controller.formatBytes(result.totalOutputSizeBytes)}',
+              ),
+              const SizedBox(height: 8),
+              Text(
+                result.outputDirectory,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              ...result.outputPaths
+                  .take(3)
+                  .map(
+                    (path) => Text(
+                      path,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              if (result.outputPaths.length > 3)
+                Text('还有 ${result.outputPaths.length - 3} 个文件'),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 

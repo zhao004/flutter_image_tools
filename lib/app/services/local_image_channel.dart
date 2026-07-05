@@ -16,6 +16,7 @@ import '../core/models/merged_image_file.dart';
 import '../core/models/pdf_document_file.dart';
 import '../core/models/pdf_image_file.dart';
 import '../core/models/pdf_page_image_file.dart';
+import '../core/models/pdf_pages_image_export.dart';
 import '../core/models/resized_image_file.dart';
 import '../core/models/rotated_image_file.dart';
 import '../core/models/watermarked_image_file.dart';
@@ -800,6 +801,42 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('PDF 页面导出图片失败，请重试', cause: error);
+    }
+  }
+
+  Future<PdfPagesImageExport> exportPdfAllPagesAsImages({
+    required PdfDocumentFile source,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('PDF 路径为空，无法导出图片');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'exportPdfAllPagesAsImages',
+        <String, Object?>{'path': source.path},
+      );
+      if (result == null) {
+        throw const AppException('PDF 全页导出结果为空，请重试');
+      }
+      final export = PdfPagesImageExport.fromMap(
+        sourcePath: source.path,
+        sourceName: source.name,
+        map: result,
+      );
+      if (export.outputDirectory.isEmpty || export.outputPaths.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      if (!export.isComplete) {
+        throw const AppException('PDF 页面导出数量异常，请重试');
+      }
+      return export;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('PDF 全页导出图片失败，请重试', cause: error);
     }
   }
 

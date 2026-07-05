@@ -59,6 +59,7 @@ class MainActivity : FlutterActivity() {
             "removeExif" -> removeExif(call, result)
             "imagesToPdf" -> imagesToPdf(call, result)
             "exportPdfPageAsImage" -> exportPdfPageAsImage(call, result)
+            "exportPdfAllPagesAsImages" -> exportPdfAllPagesAsImages(call, result)
             "annotateImage" -> annotateImage(call, result)
             else -> result.notImplemented()
         }
@@ -859,6 +860,91 @@ class MainActivity : FlutterActivity() {
                             bitmap.recycle()
                         }
                     }
+                }
+            }
+        } catch (error: SecurityException) {
+            result.error("file_not_found", error.message, null)
+        } catch (error: IllegalArgumentException) {
+            result.error("invalid_pdf", error.message, null)
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        }
+    }
+
+    private fun exportPdfAllPagesAsImages(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "PDF 路径为空", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "PDF 文件不存在", null)
+            return
+        }
+
+        try {
+            ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+                PdfRenderer(descriptor).use { renderer ->
+                    val pageCount = renderer.pageCount
+                    if (pageCount <= 0) {
+                        result.error("invalid_pdf", "PDF 没有可导出的页面", null)
+                        return
+                    }
+
+                    val outputDir = File(
+                        cacheDir,
+                        "pdf_page_images/all_${System.currentTimeMillis()}",
+                    ).apply { mkdirs() }
+                    val outputPaths = mutableListOf<String>()
+                    var totalOutputSize = 0L
+                    for (index in 0 until pageCount) {
+                        renderer.openPage(index).use { page ->
+                            val scale = 2
+                            val width = (page.width * scale).coerceAtLeast(1)
+                            val height = (page.height * scale).coerceAtLeast(1)
+                            val bitmap = Bitmap.createBitmap(
+                                width,
+                                height,
+                                Bitmap.Config.ARGB_8888,
+                            )
+                            try {
+                                bitmap.eraseColor(Color.WHITE)
+                                page.render(
+                                    bitmap,
+                                    null,
+                                    null,
+                                    PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY,
+                                )
+                                val output = File(outputDir, "page_${index + 1}.png")
+                                FileOutputStream(output).use { stream ->
+                                    val success = bitmap.compress(
+                                        Bitmap.CompressFormat.PNG,
+                                        100,
+                                        stream,
+                                    )
+                                    if (!success) {
+                                        result.error("export_failed", "PDF 页面图片导出失败", null)
+                                        return
+                                    }
+                                }
+                                outputPaths.add(output.absolutePath)
+                                totalOutputSize += output.length()
+                            } finally {
+                                bitmap.recycle()
+                            }
+                        }
+                    }
+
+                    result.success(
+                        mapOf(
+                            "outputDirectory" to outputDir.absolutePath,
+                            "outputPaths" to outputPaths,
+                            "totalOutputSizeBytes" to totalOutputSize,
+                            "pageCount" to pageCount,
+                        ),
+                    )
                 }
             }
         } catch (error: SecurityException) {

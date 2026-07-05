@@ -2,6 +2,7 @@ import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
 import 'package:flutter_image_tools/app/core/models/pdf_document_file.dart';
 import 'package:flutter_image_tools/app/core/models/pdf_image_file.dart';
 import 'package:flutter_image_tools/app/core/models/pdf_page_image_file.dart';
+import 'package:flutter_image_tools/app/core/models/pdf_pages_image_export.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -124,6 +125,50 @@ void main() {
       expect(image.pageNumber, 3);
       expect(image.pageCount, 0);
       expect(image.hasValidDimensions, isFalse);
+    });
+  });
+
+  group('PdfPagesImageExport', () {
+    test('解析 PDF 全部页面导出结果并冻结路径列表', () {
+      final export = PdfPagesImageExport.fromMap(
+        sourcePath: '/tmp/source.pdf',
+        sourceName: 'source.pdf',
+        map: const <Object?, Object?>{
+          'outputDirectory': '/tmp/pdf_pages',
+          'outputPaths': [
+            '/tmp/pdf_pages/page_1.png',
+            '/tmp/pdf_pages/page_2.png',
+          ],
+          'totalOutputSizeBytes': 16384,
+          'pageCount': 2,
+        },
+      );
+
+      expect(export.sourcePath, '/tmp/source.pdf');
+      expect(export.sourceName, 'source.pdf');
+      expect(export.outputDirectory, '/tmp/pdf_pages');
+      expect(export.outputPaths, hasLength(2));
+      expect(export.totalOutputSizeBytes, 16384);
+      expect(export.pageCount, 2);
+      expect(export.isComplete, isTrue);
+      expect(
+        () => export.outputPaths.add('/tmp/other.png'),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('缺少页数时使用输出路径数量兜底', () {
+      final export = PdfPagesImageExport.fromMap(
+        sourcePath: '/tmp/source.pdf',
+        sourceName: 'source.pdf',
+        map: const <Object?, Object?>{
+          'outputDirectory': '/tmp/pdf_pages',
+          'outputPaths': ['/tmp/pdf_pages/page_1.png'],
+        },
+      );
+
+      expect(export.pageCount, 1);
+      expect(export.isComplete, isTrue);
     });
   });
 }

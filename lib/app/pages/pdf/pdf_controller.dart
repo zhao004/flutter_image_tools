@@ -6,6 +6,7 @@ import '../../core/models/local_image_file.dart';
 import '../../core/models/pdf_document_file.dart';
 import '../../core/models/pdf_image_file.dart';
 import '../../core/models/pdf_page_image_file.dart';
+import '../../core/models/pdf_pages_image_export.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
@@ -30,7 +31,7 @@ enum PdfOrientation {
   final String value;
 }
 
-/// PDF 工具控制器，负责图片转 PDF 和 PDF 指定页面导出图片。
+/// PDF 工具控制器，负责图片转 PDF、指定页面和全部页面导出图片。
 ///
 /// 异常策略：Dart 层限制图片数量和页面参数，Android 层负责文件存在性、
 /// 图片解码、PDF 读取和文件写入校验；失败写入历史记录，便于追踪输入组合。
@@ -51,6 +52,7 @@ class PdfController extends GetxController {
   final result = Rxn<PdfImageFile>();
   final selectedPdf = Rxn<PdfDocumentFile>();
   final pageImageResult = Rxn<PdfPageImageFile>();
+  final allPagesResult = Rxn<PdfPagesImageExport>();
   final pageSize = PdfPageSize.a4.obs;
   final orientation = PdfOrientation.portrait.obs;
   final isBusy = false.obs;
@@ -98,6 +100,7 @@ class PdfController extends GetxController {
       }
       selectedPdf.value = pdf;
       pageImageResult.value = null;
+      allPagesResult.value = null;
       if (pageNumberController.text.trim().isEmpty) {
         pageNumberController.text = '1';
       }
@@ -176,6 +179,7 @@ class PdfController extends GetxController {
         pageNumber: pageNumber,
       );
       pageImageResult.value = image;
+      allPagesResult.value = null;
       await _historyRepository.recordOperationSuccess(
         featureName: 'PDF 转图片',
         inputPath: pdf.path,
@@ -191,6 +195,44 @@ class PdfController extends GetxController {
         featureName: 'PDF 转图片',
         inputPath: pdf.path,
         parameters: <String, Object>{'pageNumber': pageNumber},
+        errorMessage: error.message,
+      );
+      _showError(error.message);
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
+  Future<void> exportAllPdfPages() async {
+    if (isBusy.value) {
+      return;
+    }
+    final pdf = selectedPdf.value;
+    if (pdf == null) {
+      _showError('请先选择 PDF 文件');
+      return;
+    }
+
+    isBusy.value = true;
+    try {
+      final export = await _imageChannel.exportPdfAllPagesAsImages(source: pdf);
+      allPagesResult.value = export;
+      pageImageResult.value = null;
+      await _historyRepository.recordOperationSuccess(
+        featureName: 'PDF 全页转图片',
+        inputPath: pdf.path,
+        outputPath: export.outputDirectory,
+        parameters: <String, Object>{
+          'pageCount': export.pageCount,
+          'outputCount': export.outputPaths.length,
+        },
+      );
+      Get.snackbar('全页导出完成', '已导出 ${export.pageCount} 张 PNG 图片');
+    } on AppException catch (error) {
+      await _historyRepository.recordOperationFailure(
+        featureName: 'PDF 全页转图片',
+        inputPath: pdf.path,
+        parameters: const <String, Object>{'mode': 'all_pages'},
         errorMessage: error.message,
       );
       _showError(error.message);
