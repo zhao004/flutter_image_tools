@@ -114,6 +114,13 @@ class HomeController extends GetxController {
       route: Routes.filter,
     ),
     const HomeToolItem(
+      title: '图片标注',
+      description: '画笔、箭头、形状、文本和马赛克',
+      icon: 'annotation',
+      availability: ToolAvailability.available,
+      route: Routes.annotation,
+    ),
+    const HomeToolItem(
       title: '九宫格切图',
       description: '2×2 到 5×5 编号切片',
       icon: 'grid',

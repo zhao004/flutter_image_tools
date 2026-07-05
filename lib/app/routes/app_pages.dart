@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
 
+import '../pages/annotation/annotation_binding.dart';
+import '../pages/annotation/annotation_view.dart';
 import '../pages/base64/base64_binding.dart';
 import '../pages/base64/base64_view.dart';
 import '../pages/cache/cache_binding.dart';
@@ -49,6 +51,11 @@ class AppPages {
   static const initial = Routes.home;
 
   static final routes = [
+    GetPage(
+      name: _Paths.annotation,
+      page: () => const AnnotationView(),
+      binding: AnnotationBinding(),
+    ),
     GetPage(
       name: _Paths.base64,
       page: () => const Base64View(),

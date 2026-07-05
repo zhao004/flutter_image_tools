@@ -264,6 +264,7 @@ IconData _toolIconFor(String key) {
     'watermark' => Icons.branding_watermark_outlined,
     'imageWatermark' => Icons.layers_outlined,
     'filter' => Icons.filter_vintage_outlined,
+    'annotation' => Icons.edit_outlined,
     'grid' => Icons.grid_view_outlined,
     'convert' => Icons.swap_horiz,
     'exif' => Icons.info_outline,

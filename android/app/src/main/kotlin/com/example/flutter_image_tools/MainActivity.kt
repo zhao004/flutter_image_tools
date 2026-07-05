@@ -54,6 +54,7 @@ class MainActivity : FlutterActivity() {
             "readExif" -> readExif(call, result)
             "removeExif" -> removeExif(call, result)
             "imagesToPdf" -> imagesToPdf(call, result)
+            "annotateImage" -> annotateImage(call, result)
             else -> result.notImplemented()
         }
     }
@@ -722,6 +723,74 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun annotateImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val mode = (call.argument<String>("mode") ?: "brush").lowercase()
+        val text = call.argument<String>("text")?.trim() ?: ""
+        val annotationColor = call.argument<String>("color") ?: "#E53935"
+        val strokeWidth = call.argument<Int>("strokeWidth") ?: 12
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (mode !in setOf("brush", "arrow", "rectangle", "circle", "text", "highlight", "mosaic")) {
+            result.error("invalid_args", "标注模式无效", null)
+            return
+        }
+        if (mode == "text" && text.isBlank()) {
+            result.error("invalid_args", "文本标注内容不能为空", null)
+            return
+        }
+        if (text.length > 40 || strokeWidth !in 2..48) {
+            result.error("invalid_args", "标注参数超出范围", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+        val outputBitmap = try {
+            bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        } catch (error: Exception) {
+            bitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+
+        try {
+            drawAnnotation(outputBitmap, mode, text, annotationColor, strokeWidth)
+            val outputDir = File(cacheDir, "annotated_images").apply { mkdirs() }
+            val output = File(outputDir, "annotated_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = outputBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "图片标注导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "mode" to mode,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            outputBitmap.recycle()
+            bitmap.recycle()
+        }
+    }
+
     private fun addTextWatermark(call: MethodCall, result: MethodChannel.Result) {
         val path = call.argument<String>("path")
         val text = call.argument<String>("text")?.trim() ?: ""
@@ -1315,6 +1384,145 @@ class MainActivity : FlutterActivity() {
             Color.green(parsedColor),
             Color.blue(parsedColor),
         )
+    }
+
+    private fun drawAnnotation(
+        bitmap: Bitmap,
+        mode: String,
+        text: String,
+        color: String,
+        strokeWidth: Int,
+    ) {
+        val canvas = Canvas(bitmap)
+        val baseColor = try {
+            Color.parseColor(color)
+        } catch (_: IllegalArgumentException) {
+            Color.RED
+        }
+        val minSide = minOf(bitmap.width, bitmap.height).toFloat()
+        val margin = (minSide * 0.12f).coerceAtLeast(24f)
+        val left = margin
+        val top = margin
+        val right = bitmap.width - margin
+        val bottom = bitmap.height - margin
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = baseColor
+            style = Paint.Style.STROKE
+            this.strokeWidth = strokeWidth.toFloat()
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+
+        when (mode) {
+            "arrow" -> drawAnnotationArrow(canvas, paint, left, top, right, bottom)
+            "rectangle" -> canvas.drawRect(RectF(left, top, right, bottom), paint)
+            "circle" -> canvas.drawOval(RectF(left, top, right, bottom), paint)
+            "text" -> drawAnnotationText(canvas, text, baseColor, left, top, minSide)
+            "highlight" -> drawAnnotationHighlight(canvas, baseColor, left, top, right, bottom)
+            "mosaic" -> drawAnnotationMosaic(bitmap, left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
+            else -> drawAnnotationBrush(canvas, paint, left, top, right, bottom)
+        }
+    }
+
+    private fun drawAnnotationBrush(
+        canvas: Canvas,
+        paint: Paint,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+    ) {
+        val width = right - left
+        val height = bottom - top
+        val path = android.graphics.Path().apply {
+            moveTo(left, top + height * 0.58f)
+            cubicTo(left + width * 0.22f, top, left + width * 0.36f, bottom, left + width * 0.55f, top + height * 0.45f)
+            cubicTo(left + width * 0.72f, top + height * 0.08f, left + width * 0.86f, bottom, right, top + height * 0.36f)
+        }
+        canvas.drawPath(path, paint)
+    }
+
+    private fun drawAnnotationArrow(
+        canvas: Canvas,
+        paint: Paint,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+    ) {
+        canvas.drawLine(left, bottom, right, top, paint)
+        val headLength = minOf(right - left, bottom - top) * 0.18f
+        canvas.drawLine(right, top, right - headLength, top + headLength * 0.25f, paint)
+        canvas.drawLine(right, top, right - headLength * 0.25f, top + headLength, paint)
+    }
+
+    private fun drawAnnotationText(
+        canvas: Canvas,
+        text: String,
+        color: Int,
+        left: Float,
+        top: Float,
+        minSide: Float,
+    ) {
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color
+            style = Paint.Style.FILL
+            textSize = (minSide * 0.09f).coerceIn(28f, 88f)
+            setShadowLayer(4f, 2f, 2f, Color.argb(120, 0, 0, 0))
+        }
+        canvas.drawText(text, left, top + textPaint.textSize, textPaint)
+    }
+
+    private fun drawAnnotationHighlight(
+        canvas: Canvas,
+        color: Int,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+    ) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = Color.argb(
+                96,
+                Color.red(color),
+                Color.green(color),
+                Color.blue(color),
+            )
+            style = Paint.Style.FILL
+        }
+        val height = bottom - top
+        canvas.drawRoundRect(
+            RectF(left, top + height * 0.35f, right, top + height * 0.62f),
+            12f,
+            12f,
+            paint,
+        )
+    }
+
+    private fun drawAnnotationMosaic(bitmap: Bitmap, left: Int, top: Int, right: Int, bottom: Int) {
+        val blockSize = (minOf(bitmap.width, bitmap.height) / 32).coerceIn(8, 32)
+        val safeLeft = left.coerceIn(0, bitmap.width - 1)
+        val safeTop = top.coerceIn(0, bitmap.height - 1)
+        val safeRight = right.coerceIn(safeLeft + 1, bitmap.width)
+        val safeBottom = bottom.coerceIn(safeTop + 1, bitmap.height)
+        var y = safeTop
+        while (y < safeBottom) {
+            var x = safeLeft
+            while (x < safeRight) {
+                val sampleX = x.coerceAtMost(bitmap.width - 1)
+                val sampleY = y.coerceAtMost(bitmap.height - 1)
+                val color = bitmap.getPixel(sampleX, sampleY)
+                val blockRight = (x + blockSize).coerceAtMost(safeRight)
+                val blockBottom = (y + blockSize).coerceAtMost(safeBottom)
+                for (drawY in y until blockBottom) {
+                    for (drawX in x until blockRight) {
+                        bitmap.setPixel(drawX, drawY, color)
+                    }
+                }
+                x += blockSize
+            }
+            y += blockSize
+        }
     }
 
     private fun drawSingleWatermark(

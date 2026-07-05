@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../core/exceptions/app_exception.dart';
+import '../core/models/annotated_image_file.dart';
 import '../core/models/compressed_image_file.dart';
 import '../core/models/converted_image_file.dart';
 import '../core/models/cropped_image_file.dart';
@@ -45,6 +46,15 @@ class LocalImageChannel {
     'png',
     'webp',
     'bmp',
+  };
+  static const Set<String> supportedAnnotationModes = {
+    'brush',
+    'arrow',
+    'rectangle',
+    'circle',
+    'text',
+    'highlight',
+    'mosaic',
   };
 
   final MethodChannel _channel;
@@ -725,6 +735,61 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('生成 PDF 失败，请重试', cause: error);
+    }
+  }
+
+  Future<AnnotatedImageFile> annotateImage({
+    required LocalImageFile source,
+    required String mode,
+    required String text,
+    required String color,
+    required int strokeWidth,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法标注');
+    }
+    final normalizedMode = mode.trim().toLowerCase();
+    if (!supportedAnnotationModes.contains(normalizedMode)) {
+      throw const AppException('标注模式不支持');
+    }
+    final normalizedText = text.trim();
+    if (normalizedMode == 'text' && normalizedText.isEmpty) {
+      throw const AppException('文本标注内容不能为空');
+    }
+    if (normalizedText.length > 40) {
+      throw const AppException('文本标注不能超过 40 个字符');
+    }
+    if (strokeWidth < 2 || strokeWidth > 48) {
+      throw const AppException('标注粗细必须在 2 到 48 之间');
+    }
+
+    try {
+      final result = await _channel
+          .invokeMapMethod<Object?, Object?>('annotateImage', <String, Object?>{
+            'path': source.path,
+            'mode': normalizedMode,
+            'text': normalizedText,
+            'color': color,
+            'strokeWidth': strokeWidth,
+          });
+      if (result == null) {
+        throw const AppException('标注结果为空，请重试');
+      }
+      final annotated = AnnotatedImageFile.fromMap(
+        source: source,
+        mode: normalizedMode,
+        map: result,
+      );
+      if (annotated.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return annotated;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('图片标注失败，请重试', cause: error);
     }
   }
 

@@ -3,6 +3,7 @@ part of 'app_pages.dart';
 
 abstract class Routes {
   Routes._();
+  static const annotation = _Paths.annotation;
   static const base64 = _Paths.base64;
   static const cache = _Paths.cache;
   static const colorPicker = _Paths.colorPicker;
@@ -27,6 +28,7 @@ abstract class Routes {
 
 abstract class _Paths {
   _Paths._();
+  static const annotation = '/annotation';
   static const base64 = '/base64';
   static const cache = '/cache';
   static const colorPicker = '/color-picker';
