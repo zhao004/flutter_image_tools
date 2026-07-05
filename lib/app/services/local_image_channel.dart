@@ -428,6 +428,8 @@ class LocalImageChannel {
     required int columns,
     required int spacing,
     required String backgroundColor,
+    required int borderWidth,
+    required String borderColor,
   }) async {
     if (sources.length < 2) {
       throw const AppException('请至少选择两张图片进行拼接');
@@ -445,9 +447,16 @@ class LocalImageChannel {
     if (spacing < 0 || spacing > 100) {
       throw const AppException('图片间距必须在 0 到 100 像素之间');
     }
+    if (borderWidth < 0 || borderWidth > 50) {
+      throw const AppException('边框宽度必须在 0 到 50 像素之间');
+    }
     final normalizedBackgroundColor = _normalizeHexColor(backgroundColor);
     if (normalizedBackgroundColor == null) {
       throw const AppException('背景颜色必须是 #RRGGBB 格式');
+    }
+    final normalizedBorderColor = _normalizeHexColor(borderColor);
+    if (normalizedBorderColor == null) {
+      throw const AppException('边框颜色必须是 #RRGGBB 格式');
     }
     final paths = sources.map((image) => image.path.trim()).toList();
     if (paths.any((path) => path.isEmpty)) {
@@ -462,6 +471,8 @@ class LocalImageChannel {
             'columns': columns,
             'spacing': spacing,
             'backgroundColor': normalizedBackgroundColor,
+            'borderWidth': borderWidth,
+            'borderColor': normalizedBorderColor,
           });
       if (result == null) {
         throw const AppException('拼接结果为空，请重试');
@@ -470,6 +481,8 @@ class LocalImageChannel {
         sources: sources,
         mode: normalizedMode,
         backgroundColor: normalizedBackgroundColor,
+        borderWidth: borderWidth,
+        borderColor: normalizedBorderColor,
         map: result,
       );
       if (merged.outputPath.isEmpty) {

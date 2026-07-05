@@ -688,6 +688,8 @@ class MainActivity : FlutterActivity() {
         val columns = call.argument<Int>("columns") ?: 2
         val spacing = call.argument<Int>("spacing") ?: 8
         val backgroundColorText = call.argument<String>("backgroundColor") ?: "#FFFFFF"
+        val borderWidth = call.argument<Int>("borderWidth") ?: 0
+        val borderColorText = call.argument<String>("borderColor") ?: "#000000"
         if (paths.size < 2 || paths.size > 20) {
             result.error("invalid_args", "拼接图片数量必须在 2 到 20 张之间", null)
             return
@@ -696,13 +698,18 @@ class MainActivity : FlutterActivity() {
             result.error("invalid_args", "拼接模式无效", null)
             return
         }
-        if (columns !in 1..10 || spacing !in 0..100) {
+        if (columns !in 1..10 || spacing !in 0..100 || borderWidth !in 0..50) {
             result.error("invalid_args", "拼接参数超出范围", null)
             return
         }
         val backgroundColor = parseHexColor(backgroundColorText)
         if (backgroundColor == null) {
             result.error("invalid_args", "背景颜色格式无效", null)
+            return
+        }
+        val borderColor = parseHexColor(borderColorText)
+        if (borderColor == null) {
+            result.error("invalid_args", "边框颜色格式无效", null)
             return
         }
 
@@ -753,6 +760,23 @@ class MainActivity : FlutterActivity() {
                 val bitmap = bitmaps[index]
                 val position = layout.positions[index]
                 canvas.drawBitmap(bitmap, position.x.toFloat(), position.y.toFloat(), null)
+                if (borderWidth > 0) {
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = borderColor
+                        style = Paint.Style.STROKE
+                        strokeWidth = borderWidth.toFloat()
+                    }
+                    val halfStroke = borderWidth / 2f
+                    canvas.drawRect(
+                        RectF(
+                            position.x + halfStroke,
+                            position.y + halfStroke,
+                            position.x + bitmap.width - halfStroke,
+                            position.y + bitmap.height - halfStroke,
+                        ),
+                        paint,
+                    )
+                }
             }
 
             try {
@@ -773,6 +797,8 @@ class MainActivity : FlutterActivity() {
                         "height" to layout.height,
                         "mode" to mode,
                         "backgroundColor" to backgroundColorText.uppercase(),
+                        "borderWidth" to borderWidth,
+                        "borderColor" to borderColorText.uppercase(),
                     ),
                 )
             } catch (error: Exception) {

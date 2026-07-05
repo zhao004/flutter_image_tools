@@ -179,6 +179,40 @@ class _LayoutCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const Text('图片会在对应行、列或网格单元内居中对齐。'),
+              const SizedBox(height: 16),
+              Text('边框宽度：${controller.borderWidth.value}px'),
+              Slider(
+                value: controller.borderWidth.value.toDouble(),
+                min: 0,
+                max: 50,
+                divisions: 10,
+                label: '${controller.borderWidth.value}px',
+                onChanged: controller.isBusy.value
+                    ? null
+                    : controller.updateBorderWidth,
+              ),
+              const SizedBox(height: 8),
+              const Text('边框颜色'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: MergeBorderColor.values
+                    .map(
+                      (item) => ChoiceChip(
+                        avatar: CircleAvatar(
+                          backgroundColor: _parseColor(item.value),
+                          radius: 8,
+                        ),
+                        label: Text(item.label),
+                        selected: controller.borderColor.value == item,
+                        onSelected: controller.isBusy.value
+                            ? null
+                            : (_) => controller.setBorderColor(item),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
             ],
           ),
         ),
@@ -210,6 +244,7 @@ class _ResultCard extends StatelessWidget {
               Text('输入数量：${result.sources.length} 张'),
               Text('布局模式：${result.mode}'),
               Text('背景颜色：${result.backgroundColor}'),
+              Text('边框：${result.borderWidth}px / ${result.borderColor}'),
               Text('输出尺寸：${result.width} × ${result.height} px'),
               Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
               const SizedBox(height: 8),

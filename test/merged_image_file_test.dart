@@ -19,6 +19,8 @@ void main() {
         sources: const [source, source],
         mode: 'grid',
         backgroundColor: '#FFFFFF',
+        borderWidth: 0,
+        borderColor: '#000000',
         map: const <Object?, Object?>{
           'outputPath': '/tmp/merged.jpg',
           'outputSizeBytes': 8192,
@@ -26,6 +28,8 @@ void main() {
           'height': 960,
           'mode': 'grid',
           'backgroundColor': '#333333',
+          'borderWidth': 4,
+          'borderColor': '#FFFFFF',
         },
       );
 
@@ -36,10 +40,12 @@ void main() {
       expect(merged.height, 960);
       expect(merged.mode, 'grid');
       expect(merged.backgroundColor, '#333333');
+      expect(merged.borderWidth, 4);
+      expect(merged.borderColor, '#FFFFFF');
       expect(() => merged.sources.add(source), throwsUnsupportedError);
     });
 
-    test('通道缺少背景颜色时使用请求参数兜底', () {
+    test('通道缺少背景和边框时使用请求参数兜底', () {
       const source = LocalImageFile(
         path: '/tmp/source.jpg',
         name: 'source.jpg',
@@ -53,11 +59,15 @@ void main() {
         sources: const [source, source],
         mode: 'horizontal',
         backgroundColor: '#F2F2F2',
+        borderWidth: 2,
+        borderColor: '#808080',
         map: const <Object?, Object?>{'outputPath': '/tmp/merged.jpg'},
       );
 
       expect(merged.mode, 'horizontal');
       expect(merged.backgroundColor, '#F2F2F2');
+      expect(merged.borderWidth, 2);
+      expect(merged.borderColor, '#808080');
     });
   });
 }
