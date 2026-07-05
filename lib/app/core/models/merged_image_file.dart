@@ -12,6 +12,7 @@ class MergedImageFile {
     required this.width,
     required this.height,
     required this.mode,
+    required this.backgroundColor,
   });
 
   final List<LocalImageFile> sources;
@@ -20,10 +21,12 @@ class MergedImageFile {
   final int width;
   final int height;
   final String mode;
+  final String backgroundColor;
 
   factory MergedImageFile.fromMap({
     required List<LocalImageFile> sources,
     required String mode,
+    required String backgroundColor,
     required Map<Object?, Object?> map,
   }) {
     return MergedImageFile(
@@ -33,6 +36,7 @@ class MergedImageFile {
       width: map['width'] as int? ?? 0,
       height: map['height'] as int? ?? 0,
       mode: map['mode'] as String? ?? mode,
+      backgroundColor: map['backgroundColor'] as String? ?? backgroundColor,
     );
   }
 }

@@ -18,6 +18,18 @@ enum MergeMode {
   final String value;
 }
 
+enum MergeBackgroundColor {
+  white(label: '白色', value: '#FFFFFF'),
+  lightGray(label: '浅灰', value: '#F2F2F2'),
+  black(label: '黑色', value: '#000000'),
+  darkGray(label: '深灰', value: '#333333');
+
+  const MergeBackgroundColor({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
 /// 图片拼接控制器，管理批量选图、布局模式、网格列数、间距和拼接结果。
 ///
 /// 异常策略：Dart 侧限制图片数量和布局参数，Android 侧再校验文件与输出
@@ -38,6 +50,7 @@ class MergeController extends GetxController {
   final selectedImages = <LocalImageFile>[].obs;
   final result = Rxn<MergedImageFile>();
   final mode = MergeMode.horizontal.obs;
+  final backgroundColor = MergeBackgroundColor.white.obs;
   final columns = 2.obs;
   final spacing = 8.obs;
   final isBusy = false.obs;
@@ -71,6 +84,10 @@ class MergeController extends GetxController {
     mode.value = value;
   }
 
+  void setBackgroundColor(MergeBackgroundColor value) {
+    backgroundColor.value = value;
+  }
+
   void updateColumns(double value) {
     columns.value = value.round().clamp(1, 10);
   }
@@ -96,6 +113,7 @@ class MergeController extends GetxController {
         mode: mode.value.value,
         columns: columns.value,
         spacing: spacing.value,
+        backgroundColor: backgroundColor.value.value,
       );
       result.value = merged;
       await _historyRepository.recordOperationSuccess(
@@ -107,6 +125,7 @@ class MergeController extends GetxController {
           'count': selectedImages.length,
           'columns': columns.value,
           'spacing': spacing.value,
+          'backgroundColor': backgroundColor.value.value,
         },
       );
       Get.snackbar('拼接完成', '图片已导出到应用缓存目录');
@@ -119,6 +138,7 @@ class MergeController extends GetxController {
           'count': selectedImages.length,
           'columns': columns.value,
           'spacing': spacing.value,
+          'backgroundColor': backgroundColor.value.value,
         },
         errorMessage: error.message,
       );

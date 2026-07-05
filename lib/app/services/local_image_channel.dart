@@ -427,6 +427,7 @@ class LocalImageChannel {
     required String mode,
     required int columns,
     required int spacing,
+    required String backgroundColor,
   }) async {
     if (sources.length < 2) {
       throw const AppException('请至少选择两张图片进行拼接');
@@ -444,27 +445,31 @@ class LocalImageChannel {
     if (spacing < 0 || spacing > 100) {
       throw const AppException('图片间距必须在 0 到 100 像素之间');
     }
+    final normalizedBackgroundColor = _normalizeHexColor(backgroundColor);
+    if (normalizedBackgroundColor == null) {
+      throw const AppException('背景颜色必须是 #RRGGBB 格式');
+    }
     final paths = sources.map((image) => image.path.trim()).toList();
     if (paths.any((path) => path.isEmpty)) {
       throw const AppException('图片路径为空，无法拼接');
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'mergeImages',
-        <String, Object?>{
-          'paths': paths,
-          'mode': normalizedMode,
-          'columns': columns,
-          'spacing': spacing,
-        },
-      );
+      final result = await _channel
+          .invokeMapMethod<Object?, Object?>('mergeImages', <String, Object?>{
+            'paths': paths,
+            'mode': normalizedMode,
+            'columns': columns,
+            'spacing': spacing,
+            'backgroundColor': normalizedBackgroundColor,
+          });
       if (result == null) {
         throw const AppException('拼接结果为空，请重试');
       }
       final merged = MergedImageFile.fromMap(
         sources: sources,
         mode: normalizedMode,
+        backgroundColor: normalizedBackgroundColor,
         map: result,
       );
       if (merged.outputPath.isEmpty) {
@@ -478,6 +483,15 @@ class LocalImageChannel {
     } catch (error) {
       throw AppException('拼接图片失败，请重试', cause: error);
     }
+  }
+
+  String? _normalizeHexColor(String value) {
+    final normalized = value.trim().toUpperCase();
+    final pattern = RegExp(r'^#[0-9A-F]{6}$');
+    if (!pattern.hasMatch(normalized)) {
+      return null;
+    }
+    return normalized;
   }
 
   Future<WatermarkedImageFile> addTextWatermark({

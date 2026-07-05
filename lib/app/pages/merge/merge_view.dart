@@ -155,7 +155,30 @@ class _LayoutCard extends StatelessWidget {
                     ? null
                     : controller.updateSpacing,
               ),
-              const Text('默认白色背景，图片会在对应行、列或网格单元内居中对齐。'),
+              const SizedBox(height: 16),
+              const Text('背景颜色'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: MergeBackgroundColor.values
+                    .map(
+                      (item) => ChoiceChip(
+                        avatar: CircleAvatar(
+                          backgroundColor: _parseColor(item.value),
+                          radius: 8,
+                        ),
+                        label: Text(item.label),
+                        selected: controller.backgroundColor.value == item,
+                        onSelected: controller.isBusy.value
+                            ? null
+                            : (_) => controller.setBackgroundColor(item),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+              const SizedBox(height: 12),
+              const Text('图片会在对应行、列或网格单元内居中对齐。'),
             ],
           ),
         ),
@@ -186,6 +209,7 @@ class _ResultCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text('输入数量：${result.sources.length} 张'),
               Text('布局模式：${result.mode}'),
+              Text('背景颜色：${result.backgroundColor}'),
               Text('输出尺寸：${result.width} × ${result.height} px'),
               Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
               const SizedBox(height: 8),
@@ -200,4 +224,9 @@ class _ResultCard extends StatelessWidget {
       );
     });
   }
+}
+
+Color _parseColor(String hex) {
+  final normalized = hex.replaceFirst('#', '');
+  return Color(int.parse('FF$normalized', radix: 16));
 }

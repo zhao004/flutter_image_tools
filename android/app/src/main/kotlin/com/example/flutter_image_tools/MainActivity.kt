@@ -687,6 +687,7 @@ class MainActivity : FlutterActivity() {
         val mode = (call.argument<String>("mode") ?: "horizontal").lowercase()
         val columns = call.argument<Int>("columns") ?: 2
         val spacing = call.argument<Int>("spacing") ?: 8
+        val backgroundColorText = call.argument<String>("backgroundColor") ?: "#FFFFFF"
         if (paths.size < 2 || paths.size > 20) {
             result.error("invalid_args", "拼接图片数量必须在 2 到 20 张之间", null)
             return
@@ -697,6 +698,11 @@ class MainActivity : FlutterActivity() {
         }
         if (columns !in 1..10 || spacing !in 0..100) {
             result.error("invalid_args", "拼接参数超出范围", null)
+            return
+        }
+        val backgroundColor = parseHexColor(backgroundColorText)
+        if (backgroundColor == null) {
+            result.error("invalid_args", "背景颜色格式无效", null)
             return
         }
 
@@ -742,7 +748,7 @@ class MainActivity : FlutterActivity() {
                 Bitmap.Config.ARGB_8888,
             )
             val canvas = Canvas(mergedBitmap)
-            canvas.drawColor(Color.WHITE)
+            canvas.drawColor(backgroundColor)
             for (index in bitmaps.indices) {
                 val bitmap = bitmaps[index]
                 val position = layout.positions[index]
@@ -766,6 +772,7 @@ class MainActivity : FlutterActivity() {
                         "width" to layout.width,
                         "height" to layout.height,
                         "mode" to mode,
+                        "backgroundColor" to backgroundColorText.uppercase(),
                     ),
                 )
             } catch (error: Exception) {
@@ -778,6 +785,14 @@ class MainActivity : FlutterActivity() {
             bitmaps.forEach { it.recycle() }
             result.error("export_failed", error.message, null)
         }
+    }
+
+    private fun parseHexColor(value: String): Int? {
+        val normalized = value.trim()
+        if (!Regex("^#[0-9A-Fa-f]{6}$").matches(normalized)) {
+            return null
+        }
+        return Color.parseColor(normalized)
     }
 
     private fun imagesToGif(call: MethodCall, result: MethodChannel.Result) {
