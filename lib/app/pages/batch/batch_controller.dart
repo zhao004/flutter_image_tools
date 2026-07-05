@@ -9,7 +9,8 @@ import '../../services/local_image_channel.dart';
 
 enum BatchOperation {
   compress(label: '批量压缩', featureName: '批量压缩'),
-  convert(label: '格式转换', featureName: '批量格式转换');
+  convert(label: '格式转换', featureName: '批量格式转换'),
+  rotate(label: '批量旋转', featureName: '批量旋转');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -110,6 +111,7 @@ class BatchController extends GetxController {
   final tasks = <BatchImageTask>[].obs;
   final operation = BatchOperation.compress.obs;
   final convertFormat = BatchConvertFormat.jpg.obs;
+  final degrees = 90.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
   final isRunning = false.obs;
@@ -176,12 +178,23 @@ class BatchController extends GetxController {
     convertFormat.value = value;
   }
 
+  void setDegrees(int value) {
+    if (isRunning.value) {
+      return;
+    }
+    degrees.value = value.clamp(-360, 360);
+  }
+
   Future<void> startQueue() async {
     if (isRunning.value) {
       return;
     }
     if (selectedImages.isEmpty) {
       _showError('请先选择图片');
+      return;
+    }
+    if (operation.value == BatchOperation.rotate && degrees.value == 0) {
+      _showError('旋转角度不能为 0');
       return;
     }
     _resetTasksForCurrentSelection();
@@ -285,6 +298,8 @@ class BatchController extends GetxController {
           await _processCompressTask(index, task.source);
         case BatchOperation.convert:
           await _processConvertTask(index, task.source);
+        case BatchOperation.rotate:
+          await _processRotateTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -338,6 +353,26 @@ class BatchController extends GetxController {
       featureName: operation.value.featureName,
       inputPath: source.path,
       outputPath: converted.outputPath,
+      parameters: _historyParameters,
+    );
+  }
+
+  Future<void> _processRotateTask(int index, LocalImageFile source) async {
+    final rotated = await _imageChannel.rotateImage(
+      source: source,
+      degrees: degrees.value,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: rotated.outputPath,
+      outputSizeBytes: rotated.outputSizeBytes,
+      resultLabel: '${rotated.degrees}°',
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: rotated.outputPath,
       parameters: _historyParameters,
     );
   }
@@ -407,17 +442,25 @@ class BatchController extends GetxController {
       selectedImages.fold<int>(0, (sum, image) => sum + image.sizeBytes);
 
   Map<String, Object> get _historyParameters {
-    return <String, Object>{
-      'operation': operation.value.name,
-      'quality': quality.value,
-      if (operation.value == BatchOperation.convert)
-        'format': convertFormat.value.value,
-    };
+    final parameters = <String, Object>{'operation': operation.value.name};
+    switch (operation.value) {
+      case BatchOperation.compress:
+        parameters['quality'] = quality.value;
+      case BatchOperation.convert:
+        parameters['quality'] = quality.value;
+        parameters['format'] = convertFormat.value.value;
+      case BatchOperation.rotate:
+        parameters['degrees'] = degrees.value;
+    }
+    return parameters;
   }
 
   String qualityHint() {
     if (operation.value == BatchOperation.compress) {
       return '压缩会按当前质量导出，质量越低文件越小。';
+    }
+    if (operation.value == BatchOperation.rotate) {
+      return '旋转会按当前角度导出新图片，不会覆盖原文件。';
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||

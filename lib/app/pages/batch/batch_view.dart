@@ -3,10 +3,10 @@ import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩、格式转换和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
-/// 取消都只影响未开始任务，正在处理的单个本地压缩任务会自然结束后再停队列。
+/// 取消都只影响未开始任务，正在处理的单个本地任务会自然结束后再停队列。
 class BatchView extends GetView<BatchController> {
   const BatchView({super.key});
 
@@ -126,6 +126,26 @@ class _OperationCard extends StatelessWidget {
                       .toList(growable: false),
                 ),
               ],
+              if (controller.operation.value == BatchOperation.rotate) ...[
+                const SizedBox(height: 16),
+                const Text('旋转角度'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: const [-90, 90, 180, 270]
+                      .map(
+                        (item) => ChoiceChip(
+                          label: Text('$item°'),
+                          selected: controller.degrees.value == item,
+                          onSelected: controller.isRunning.value
+                              ? null
+                              : (_) => controller.setDegrees(item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ],
           ),
         ),
@@ -150,17 +170,31 @@ class _SettingsCard extends StatelessWidget {
             children: [
               Text('导出参数', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              Text('质量：${controller.quality.value}%'),
-              Slider(
-                value: controller.quality.value.toDouble(),
-                min: 1,
-                max: 100,
-                divisions: 99,
-                label: '${controller.quality.value}%',
-                onChanged: controller.isRunning.value
-                    ? null
-                    : controller.updateQuality,
-              ),
+              if (controller.operation.value == BatchOperation.rotate) ...[
+                Text('角度：${controller.degrees.value}°'),
+                Slider(
+                  value: controller.degrees.value.toDouble(),
+                  min: -360,
+                  max: 360,
+                  divisions: 720,
+                  label: '${controller.degrees.value}°',
+                  onChanged: controller.isRunning.value
+                      ? null
+                      : (value) => controller.setDegrees(value.round()),
+                ),
+              ] else ...[
+                Text('质量：${controller.quality.value}%'),
+                Slider(
+                  value: controller.quality.value.toDouble(),
+                  min: 1,
+                  max: 100,
+                  divisions: 99,
+                  label: '${controller.quality.value}%',
+                  onChanged: controller.isRunning.value
+                      ? null
+                      : controller.updateQuality,
+                ),
+              ],
               Text(controller.qualityHint()),
             ],
           ),
