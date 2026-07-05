@@ -5,8 +5,8 @@ import 'merge_controller.dart';
 
 /// 图片拼接页，支持横向、纵向和网格布局的本地图片拼接。
 ///
-/// 构建设计：先提供确定性布局参数，图片顺序沿用系统选择器返回顺序；
-/// 后续可在此基础上增加拖拽排序、背景色和边框设置。
+/// 构建设计：图片顺序既可沿用系统选择器结果，也可在本页拖拽调整；
+/// 拼接前所有布局参数都会传入本地通道，避免 UI 状态和导出结果不一致。
 class MergeView extends GetView<MergeController> {
   const MergeView({super.key});
 
@@ -79,19 +79,34 @@ class _ImagePickerCard extends StatelessWidget {
               ),
               if (images.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                ...images
-                    .take(8)
-                    .map(
-                      (image) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          image.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                const Text('拖动右侧图标可调整拼接顺序。'),
+                const SizedBox(height: 8),
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: images.length,
+                  onReorder: controller.reorderSelectedImages,
+                  buildDefaultDragHandles: false,
+                  itemBuilder: (context, index) {
+                    final image = images[index];
+                    return ListTile(
+                      key: ValueKey('${image.path}#$index'),
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(child: Text('${index + 1}')),
+                      title: Text(
+                        image.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                if (images.length > 8) Text('还有 ${images.length - 8} 张图片'),
+                      subtitle: Text(controller.formatBytes(image.sizeBytes)),
+                      trailing: ReorderableDragStartListener(
+                        index: index,
+                        enabled: !controller.isBusy.value,
+                        child: const Icon(Icons.drag_handle),
+                      ),
+                    );
+                  },
+                ),
               ],
             ],
           );

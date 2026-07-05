@@ -127,6 +127,26 @@ class MergeController extends GetxController {
     scaleMode.value = value;
   }
 
+  void reorderSelectedImages(int oldIndex, int newIndex) {
+    if (isBusy.value) {
+      return;
+    }
+    if (oldIndex < 0 || oldIndex >= selectedImages.length) {
+      return;
+    }
+    final targetIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    if (targetIndex < 0 || targetIndex >= selectedImages.length) {
+      return;
+    }
+    if (oldIndex == targetIndex) {
+      return;
+    }
+
+    final image = selectedImages.removeAt(oldIndex);
+    selectedImages.insert(targetIndex, image);
+    result.value = null;
+  }
+
   void updateColumns(double value) {
     columns.value = value.round().clamp(1, 10);
   }
