@@ -7,6 +7,35 @@ import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
+class FlipTask {
+  const FlipTask({
+    required this.source,
+    this.result,
+    this.errorMessage,
+    this.isCompleted = false,
+  });
+
+  final LocalImageFile source;
+  final FlippedImageFile? result;
+  final String? errorMessage;
+  final bool isCompleted;
+
+  bool get isSuccess => isCompleted && result != null;
+
+  FlipTask copyWith({
+    FlippedImageFile? result,
+    String? errorMessage,
+    bool? isCompleted,
+  }) {
+    return FlipTask(
+      source: source,
+      result: result ?? this.result,
+      errorMessage: errorMessage ?? this.errorMessage,
+      isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
+}
+
 enum FlipDirection {
   horizontal(label: '水平翻转', value: 'horizontal'),
   vertical(label: '垂直翻转', value: 'vertical');
@@ -20,15 +49,16 @@ enum FlipDirection {
 /// 图片翻转控制器，管理选图、翻转方向、执行状态和结果展示。
 ///
 /// 异常策略：平台和文件异常统一转为中文提示；失败任务写入历史记录，便于
-/// 用户后续在历史页通过状态筛选定位问题。
+/// 用户后续在历史页通过状态筛选定位问题；批量翻转顺序执行，降低多张大图
+/// 同时处理导致的内存压力。
 class FlipController extends GetxController {
   FlipController({
     required LocalImageChannel imageChannel,
     required OperationHistoryRepository historyRepository,
     required RecentFilesRepository recentFilesRepository,
-  })  : _imageChannel = imageChannel,
-        _historyRepository = historyRepository,
-        _recentFilesRepository = recentFilesRepository;
+  }) : _imageChannel = imageChannel,
+       _historyRepository = historyRepository,
+       _recentFilesRepository = recentFilesRepository;
 
   final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
@@ -36,6 +66,9 @@ class FlipController extends GetxController {
 
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<FlippedImageFile>();
+  final selectedImages = <LocalImageFile>[].obs;
+  final tasks = <FlipTask>[].obs;
+  final processedCount = 0.obs;
   final direction = FlipDirection.horizontal.obs;
   final isBusy = false.obs;
 
@@ -49,8 +82,35 @@ class FlipController extends GetxController {
         return;
       }
       selectedImage.value = image;
+      selectedImages.assignAll([image]);
       result.value = null;
+      tasks.clear();
+      processedCount.value = 0;
       await _recentFilesRepository.recordImage(image);
+    } on AppException catch (error) {
+      _showError(error.message);
+    } catch (_) {
+      _showError('记录最近文件失败，请重试');
+    }
+  }
+
+  Future<void> pickImages() async {
+    if (isBusy.value) {
+      return;
+    }
+    try {
+      final images = await _imageChannel.pickMultipleImages();
+      if (images.isEmpty) {
+        return;
+      }
+      selectedImages.assignAll(images);
+      selectedImage.value = images.first;
+      result.value = null;
+      processedCount.value = 0;
+      tasks.assignAll(images.map((image) => FlipTask(source: image)));
+      for (final image in images) {
+        await _recentFilesRepository.recordImage(image);
+      }
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
@@ -66,37 +126,74 @@ class FlipController extends GetxController {
     if (isBusy.value) {
       return;
     }
-    final source = selectedImage.value;
-    if (source == null) {
-      _showError('请先选择一张图片');
+    if (selectedImages.isEmpty) {
+      final source = selectedImage.value;
+      if (source != null) {
+        selectedImages.assignAll([source]);
+      }
+    }
+    if (selectedImages.isEmpty) {
+      _showError('请先选择图片');
       return;
     }
 
     isBusy.value = true;
+    processedCount.value = 0;
+    tasks.assignAll(selectedImages.map((image) => FlipTask(source: image)));
     try {
-      final flipped = await _imageChannel.flipImage(
-        source: source,
-        direction: direction.value.value,
-      );
-      result.value = flipped;
-      await _historyRepository.recordOperationSuccess(
-        featureName: '图片翻转',
-        inputPath: source.path,
-        outputPath: flipped.outputPath,
-        parameters: <String, Object>{'direction': direction.value.value},
-      );
-      Get.snackbar('翻转完成', '图片已导出到应用缓存目录');
-    } on AppException catch (error) {
-      await _historyRepository.recordOperationFailure(
-        featureName: '图片翻转',
-        inputPath: source.path,
-        parameters: <String, Object>{'direction': direction.value.value},
-        errorMessage: error.message,
-      );
-      _showError(error.message);
+      for (var index = 0; index < selectedImages.length; index++) {
+        final source = selectedImages[index];
+        try {
+          final flipped = await _imageChannel.flipImage(
+            source: source,
+            direction: direction.value.value,
+          );
+          result.value = flipped;
+          tasks[index] = tasks[index].copyWith(
+            result: flipped,
+            isCompleted: true,
+          );
+          await _historyRepository.recordOperationSuccess(
+            featureName: '图片翻转',
+            inputPath: source.path,
+            outputPath: flipped.outputPath,
+            parameters: <String, Object>{'direction': direction.value.value},
+          );
+        } on AppException catch (error) {
+          tasks[index] = tasks[index].copyWith(
+            errorMessage: error.message,
+            isCompleted: true,
+          );
+          await _historyRepository.recordOperationFailure(
+            featureName: '图片翻转',
+            inputPath: source.path,
+            parameters: <String, Object>{'direction': direction.value.value},
+            errorMessage: error.message,
+          );
+        } finally {
+          processedCount.value = index + 1;
+        }
+      }
+      final successCount = tasks.where((task) => task.isSuccess).length;
+      if (successCount == selectedImages.length) {
+        Get.snackbar('翻转完成', '已成功翻转 $successCount 张图片');
+      } else {
+        Get.snackbar(
+          '批量翻转完成',
+          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+        );
+      }
     } finally {
       isBusy.value = false;
     }
+  }
+
+  double get progress {
+    final total = selectedImages.length;
+    if (total <= 0) {
+      return 0;
+    }
+    return processedCount.value / total;
   }
 
   String formatBytes(int bytes) {
