@@ -4,26 +4,38 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'tables/todos.dart';
+import 'tables/operation_history.dart';
+import 'tables/operation_logs.dart';
 import 'type/utc_date_time_converter.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Todos])
+@DriftDatabase(tables: [OperationHistory, OperationLogs])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
   int get schemaVersion => 1;
 
-  Future<List<Todo>> getAllTodos() => select(todos).get();
+  Future<List<OperationHistoryData>> getRecentHistory({int limit = 50}) {
+    if (limit <= 0) {
+      return Future.value(const []);
+    }
+    return (select(operationHistory)
+          ..orderBy([
+            (table) => OrderingTerm.desc(table.createdAt),
+          ])
+          ..limit(limit))
+        .get();
+  }
 
-  Future<int> createTodo(TodosCompanion todo) => into(todos).insert(todo);
+  Future<int> createHistory(OperationHistoryCompanion history) =>
+      into(operationHistory).insert(history);
 
-  Future<bool> updateTodo(Todo todo) => update(todos).replace(todo);
+  Future<int> createLog(OperationLogsCompanion log) =>
+      into(operationLogs).insert(log);
 
-  Future<int> deleteTodo(int id) =>
-      (delete(todos)..where((table) => table.id.equals(id))).go();
+  Future<int> clearHistory() => delete(operationHistory).go();
 }
 
 LazyDatabase _openConnection() {

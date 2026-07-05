@@ -8,7 +8,8 @@ void main() {
     await tester.pumpWidget(const ImageToolsApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('HomeView'), findsOneWidget);
-    expect(find.text('HomeView is working'), findsOneWidget);
+    expect(find.text('Image Toolkit'), findsOneWidget);
+    expect(find.text('本地离线图片工具'), findsOneWidget);
+    expect(find.text('图片压缩'), findsWidgets);
   });
 }
