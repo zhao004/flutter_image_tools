@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Movie
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
@@ -690,6 +691,7 @@ class MainActivity : FlutterActivity() {
         val backgroundColorText = call.argument<String>("backgroundColor") ?: "#FFFFFF"
         val borderWidth = call.argument<Int>("borderWidth") ?: 0
         val borderColorText = call.argument<String>("borderColor") ?: "#000000"
+        val cornerRadius = call.argument<Int>("cornerRadius") ?: 0
         if (paths.size < 2 || paths.size > 20) {
             result.error("invalid_args", "拼接图片数量必须在 2 到 20 张之间", null)
             return
@@ -698,7 +700,7 @@ class MainActivity : FlutterActivity() {
             result.error("invalid_args", "拼接模式无效", null)
             return
         }
-        if (columns !in 1..10 || spacing !in 0..100 || borderWidth !in 0..50) {
+        if (columns !in 1..10 || spacing !in 0..100 || borderWidth !in 0..50 || cornerRadius !in 0..200) {
             result.error("invalid_args", "拼接参数超出范围", null)
             return
         }
@@ -759,7 +761,23 @@ class MainActivity : FlutterActivity() {
             for (index in bitmaps.indices) {
                 val bitmap = bitmaps[index]
                 val position = layout.positions[index]
-                canvas.drawBitmap(bitmap, position.x.toFloat(), position.y.toFloat(), null)
+                val imageRect = RectF(
+                    position.x.toFloat(),
+                    position.y.toFloat(),
+                    (position.x + bitmap.width).toFloat(),
+                    (position.y + bitmap.height).toFloat(),
+                )
+                if (cornerRadius > 0) {
+                    val radius = cornerRadius.toFloat()
+                        .coerceAtMost(bitmap.width / 2f)
+                        .coerceAtMost(bitmap.height / 2f)
+                    val saveCount = canvas.save()
+                    canvas.clipRoundRectCompat(imageRect, radius)
+                    canvas.drawBitmap(bitmap, position.x.toFloat(), position.y.toFloat(), null)
+                    canvas.restoreToCount(saveCount)
+                } else {
+                    canvas.drawBitmap(bitmap, position.x.toFloat(), position.y.toFloat(), null)
+                }
                 if (borderWidth > 0) {
                     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = borderColor
@@ -767,15 +785,20 @@ class MainActivity : FlutterActivity() {
                         strokeWidth = borderWidth.toFloat()
                     }
                     val halfStroke = borderWidth / 2f
-                    canvas.drawRect(
-                        RectF(
-                            position.x + halfStroke,
-                            position.y + halfStroke,
-                            position.x + bitmap.width - halfStroke,
-                            position.y + bitmap.height - halfStroke,
-                        ),
-                        paint,
+                    val borderRect = RectF(
+                        position.x + halfStroke,
+                        position.y + halfStroke,
+                        position.x + bitmap.width - halfStroke,
+                        position.y + bitmap.height - halfStroke,
                     )
+                    if (cornerRadius > 0) {
+                        val radius = (cornerRadius - halfStroke).coerceAtLeast(0f)
+                            .coerceAtMost(borderRect.width() / 2f)
+                            .coerceAtMost(borderRect.height() / 2f)
+                        canvas.drawRoundRect(borderRect, radius, radius, paint)
+                    } else {
+                        canvas.drawRect(borderRect, paint)
+                    }
                 }
             }
 
@@ -799,6 +822,7 @@ class MainActivity : FlutterActivity() {
                         "backgroundColor" to backgroundColorText.uppercase(),
                         "borderWidth" to borderWidth,
                         "borderColor" to borderColorText.uppercase(),
+                        "cornerRadius" to cornerRadius,
                     ),
                 )
             } catch (error: Exception) {
@@ -819,6 +843,13 @@ class MainActivity : FlutterActivity() {
             return null
         }
         return Color.parseColor(normalized)
+    }
+
+    private fun Canvas.clipRoundRectCompat(rect: RectF, radius: Float) {
+        val path = Path().apply {
+            addRoundRect(rect, radius, radius, Path.Direction.CW)
+        }
+        clipPath(path)
     }
 
     private fun imagesToGif(call: MethodCall, result: MethodChannel.Result) {

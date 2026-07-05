@@ -430,6 +430,7 @@ class LocalImageChannel {
     required String backgroundColor,
     required int borderWidth,
     required String borderColor,
+    required int cornerRadius,
   }) async {
     if (sources.length < 2) {
       throw const AppException('请至少选择两张图片进行拼接');
@@ -449,6 +450,9 @@ class LocalImageChannel {
     }
     if (borderWidth < 0 || borderWidth > 50) {
       throw const AppException('边框宽度必须在 0 到 50 像素之间');
+    }
+    if (cornerRadius < 0 || cornerRadius > 200) {
+      throw const AppException('圆角半径必须在 0 到 200 像素之间');
     }
     final normalizedBackgroundColor = _normalizeHexColor(backgroundColor);
     if (normalizedBackgroundColor == null) {
@@ -473,6 +477,7 @@ class LocalImageChannel {
             'backgroundColor': normalizedBackgroundColor,
             'borderWidth': borderWidth,
             'borderColor': normalizedBorderColor,
+            'cornerRadius': cornerRadius,
           });
       if (result == null) {
         throw const AppException('拼接结果为空，请重试');
@@ -483,6 +488,7 @@ class LocalImageChannel {
         backgroundColor: normalizedBackgroundColor,
         borderWidth: borderWidth,
         borderColor: normalizedBorderColor,
+        cornerRadius: cornerRadius,
         map: result,
       );
       if (merged.outputPath.isEmpty) {

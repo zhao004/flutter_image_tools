@@ -15,6 +15,7 @@ class MergedImageFile {
     required this.backgroundColor,
     required this.borderWidth,
     required this.borderColor,
+    required this.cornerRadius,
   });
 
   final List<LocalImageFile> sources;
@@ -26,6 +27,7 @@ class MergedImageFile {
   final String backgroundColor;
   final int borderWidth;
   final String borderColor;
+  final int cornerRadius;
 
   factory MergedImageFile.fromMap({
     required List<LocalImageFile> sources,
@@ -33,6 +35,7 @@ class MergedImageFile {
     required String backgroundColor,
     required int borderWidth,
     required String borderColor,
+    required int cornerRadius,
     required Map<Object?, Object?> map,
   }) {
     return MergedImageFile(
@@ -45,6 +48,7 @@ class MergedImageFile {
       backgroundColor: map['backgroundColor'] as String? ?? backgroundColor,
       borderWidth: map['borderWidth'] as int? ?? borderWidth,
       borderColor: map['borderColor'] as String? ?? borderColor,
+      cornerRadius: map['cornerRadius'] as int? ?? cornerRadius,
     );
   }
 }

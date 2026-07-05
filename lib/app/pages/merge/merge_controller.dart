@@ -67,6 +67,7 @@ class MergeController extends GetxController {
   final columns = 2.obs;
   final spacing = 8.obs;
   final borderWidth = 0.obs;
+  final cornerRadius = 0.obs;
   final isBusy = false.obs;
 
   Future<void> pickImages() async {
@@ -118,6 +119,10 @@ class MergeController extends GetxController {
     borderWidth.value = value.round().clamp(0, 50);
   }
 
+  void updateCornerRadius(double value) {
+    cornerRadius.value = value.round().clamp(0, 200);
+  }
+
   Future<void> merge() async {
     if (isBusy.value) {
       return;
@@ -138,6 +143,7 @@ class MergeController extends GetxController {
         backgroundColor: backgroundColor.value.value,
         borderWidth: borderWidth.value,
         borderColor: borderColor.value.value,
+        cornerRadius: cornerRadius.value,
       );
       result.value = merged;
       await _historyRepository.recordOperationSuccess(
@@ -152,6 +158,7 @@ class MergeController extends GetxController {
           'backgroundColor': backgroundColor.value.value,
           'borderWidth': borderWidth.value,
           'borderColor': borderColor.value.value,
+          'cornerRadius': cornerRadius.value,
         },
       );
       Get.snackbar('拼接完成', '图片已导出到应用缓存目录');
@@ -167,6 +174,7 @@ class MergeController extends GetxController {
           'backgroundColor': backgroundColor.value.value,
           'borderWidth': borderWidth.value,
           'borderColor': borderColor.value.value,
+          'cornerRadius': cornerRadius.value,
         },
         errorMessage: error.message,
       );

@@ -180,6 +180,18 @@ class _LayoutCard extends StatelessWidget {
               const SizedBox(height: 12),
               const Text('图片会在对应行、列或网格单元内居中对齐。'),
               const SizedBox(height: 16),
+              Text('圆角半径：${controller.cornerRadius.value}px'),
+              Slider(
+                value: controller.cornerRadius.value.toDouble(),
+                min: 0,
+                max: 200,
+                divisions: 20,
+                label: '${controller.cornerRadius.value}px',
+                onChanged: controller.isBusy.value
+                    ? null
+                    : controller.updateCornerRadius,
+              ),
+              const SizedBox(height: 16),
               Text('边框宽度：${controller.borderWidth.value}px'),
               Slider(
                 value: controller.borderWidth.value.toDouble(),
@@ -244,6 +256,7 @@ class _ResultCard extends StatelessWidget {
               Text('输入数量：${result.sources.length} 张'),
               Text('布局模式：${result.mode}'),
               Text('背景颜色：${result.backgroundColor}'),
+              Text('圆角半径：${result.cornerRadius}px'),
               Text('边框：${result.borderWidth}px / ${result.borderColor}'),
               Text('输出尺寸：${result.width} × ${result.height} px'),
               Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
