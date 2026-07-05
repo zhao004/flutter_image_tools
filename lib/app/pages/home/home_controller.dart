@@ -100,6 +100,13 @@ class HomeController extends GetxController {
       route: Routes.watermark,
     ),
     const HomeToolItem(
+      title: '图片水印',
+      description: 'Logo、二维码和透明 PNG',
+      icon: 'imageWatermark',
+      availability: ToolAvailability.available,
+      route: Routes.imageWatermark,
+    ),
+    const HomeToolItem(
       title: '图片滤镜',
       description: '灰度、怀旧、反色和冷暖色',
       icon: 'filter',

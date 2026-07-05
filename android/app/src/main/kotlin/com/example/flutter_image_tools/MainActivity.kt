@@ -47,6 +47,7 @@ class MainActivity : FlutterActivity() {
             "resizeImage" -> resizeImage(call, result)
             "rotateImage" -> rotateImage(call, result)
             "addTextWatermark" -> addTextWatermark(call, result)
+            "addImageWatermark" -> addImageWatermark(call, result)
             else -> result.notImplemented()
         }
     }
@@ -725,6 +726,114 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun addImageWatermark(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val watermarkPath = call.argument<String>("watermarkPath")
+        val position = (call.argument<String>("position") ?: "bottomright").lowercase()
+        val opacity = call.argument<Int>("opacity") ?: 70
+        val scalePercent = call.argument<Int>("scalePercent") ?: 25
+        val rotationDegrees = call.argument<Int>("rotationDegrees") ?: 0
+        if (path.isNullOrBlank() || watermarkPath.isNullOrBlank()) {
+            result.error("file_not_found", "底图或水印图片路径为空", null)
+            return
+        }
+        if (position !in setOf("topleft", "topright", "bottomleft", "bottomright", "center", "tile")) {
+            result.error("invalid_args", "水印位置无效", null)
+            return
+        }
+        if (opacity !in 10..100 || scalePercent !in 5..100 || rotationDegrees !in -180..180) {
+            result.error("invalid_args", "图片水印参数超出范围", null)
+            return
+        }
+
+        val source = File(path)
+        val watermarkFile = File(watermarkPath)
+        if (!source.exists() || !watermarkFile.exists()) {
+            result.error("file_not_found", "底图或水印图片不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        val watermarkBitmap = BitmapFactory.decodeFile(watermarkFile.absolutePath)
+        if (bitmap == null || watermarkBitmap == null) {
+            bitmap?.recycle()
+            watermarkBitmap?.recycle()
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        val outputBitmap = try {
+            bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        } catch (error: Exception) {
+            bitmap.recycle()
+            watermarkBitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+
+        val scaledWatermark = try {
+            scaleWatermarkBitmap(watermarkBitmap, outputBitmap.width, outputBitmap.height, scalePercent)
+        } catch (error: Exception) {
+            outputBitmap.recycle()
+            bitmap.recycle()
+            watermarkBitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+        val transformedWatermark = try {
+            rotateWatermarkBitmap(scaledWatermark, rotationDegrees)
+        } catch (error: Exception) {
+            scaledWatermark.recycle()
+            outputBitmap.recycle()
+            bitmap.recycle()
+            watermarkBitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+        if (transformedWatermark !== scaledWatermark) {
+            scaledWatermark.recycle()
+        }
+
+        try {
+            val canvas = Canvas(outputBitmap)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                alpha = (opacity * 255 / 100).coerceIn(0, 255)
+            }
+            if (position == "tile") {
+                drawTiledImageWatermark(canvas, transformedWatermark, paint, outputBitmap.width, outputBitmap.height)
+            } else {
+                drawSingleImageWatermark(canvas, transformedWatermark, paint, outputBitmap.width, outputBitmap.height, position)
+            }
+
+            val outputDir = File(cacheDir, "image_watermarked_images").apply { mkdirs() }
+            val output = File(outputDir, "image_watermarked_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = outputBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "图片水印导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "position" to position,
+                    "opacity" to opacity,
+                    "scalePercent" to scalePercent,
+                    "rotationDegrees" to rotationDegrees,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            transformedWatermark.recycle()
+            outputBitmap.recycle()
+            bitmap.recycle()
+            watermarkBitmap.recycle()
+        }
+    }
+
     private fun splitGridImage(call: MethodCall, result: MethodChannel.Result) {
         val path = call.argument<String>("path")
         val gridSize = call.argument<Int>("gridSize") ?: 3
@@ -1039,6 +1148,75 @@ class MainActivity : FlutterActivity() {
             var x = if (row % 2 == 0) fontSize.toFloat() else stepX / 2f
             while (x < width + stepX) {
                 canvas.drawText(line, x, y, paint)
+                x += stepX
+            }
+            row += 1
+            y += stepY
+        }
+    }
+
+    private fun scaleWatermarkBitmap(
+        watermark: Bitmap,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        scalePercent: Int,
+    ): Bitmap {
+        val maxWidth = (sourceWidth * scalePercent / 100.0).toInt().coerceAtLeast(1)
+        val maxHeight = (sourceHeight * scalePercent / 100.0).toInt().coerceAtLeast(1)
+        val ratio = minOf(
+            maxWidth.toDouble() / watermark.width.toDouble(),
+            maxHeight.toDouble() / watermark.height.toDouble(),
+        ).coerceAtMost(1.0)
+        val targetWidth = (watermark.width * ratio).toInt().coerceAtLeast(1)
+        val targetHeight = (watermark.height * ratio).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(watermark, targetWidth, targetHeight, true)
+    }
+
+    private fun rotateWatermarkBitmap(watermark: Bitmap, rotationDegrees: Int): Bitmap {
+        if (rotationDegrees == 0) {
+            return watermark
+        }
+        val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+        return Bitmap.createBitmap(watermark, 0, 0, watermark.width, watermark.height, matrix, true)
+    }
+
+    private fun drawSingleImageWatermark(
+        canvas: Canvas,
+        watermark: Bitmap,
+        paint: Paint,
+        width: Int,
+        height: Int,
+        position: String,
+    ) {
+        val margin = (minOf(width, height) * 0.04f).coerceAtLeast(16f)
+        val x = when (position) {
+            "topright", "bottomright" -> width - watermark.width - margin
+            "center" -> (width - watermark.width) / 2f
+            else -> margin
+        }.coerceIn(0f, (width - watermark.width).coerceAtLeast(0).toFloat())
+        val y = when (position) {
+            "bottomleft", "bottomright" -> height - watermark.height - margin
+            "center" -> (height - watermark.height) / 2f
+            else -> margin
+        }.coerceIn(0f, (height - watermark.height).coerceAtLeast(0).toFloat())
+        canvas.drawBitmap(watermark, x, y, paint)
+    }
+
+    private fun drawTiledImageWatermark(
+        canvas: Canvas,
+        watermark: Bitmap,
+        paint: Paint,
+        width: Int,
+        height: Int,
+    ) {
+        val stepX = (watermark.width * 1.6f).coerceAtLeast(80f)
+        val stepY = (watermark.height * 1.6f).coerceAtLeast(80f)
+        var y = 0f
+        var row = 0
+        while (y < height + stepY) {
+            var x = if (row % 2 == 0) 0f else stepX / 2f
+            while (x < width + stepX) {
+                canvas.drawBitmap(watermark, x, y, paint)
                 x += stepX
             }
             row += 1

@@ -262,6 +262,7 @@ IconData _toolIconFor(String key) {
     'flip' => Icons.flip,
     'rotate' => Icons.rotate_90_degrees_ccw,
     'watermark' => Icons.branding_watermark_outlined,
+    'imageWatermark' => Icons.layers_outlined,
     'filter' => Icons.filter_vintage_outlined,
     'grid' => Icons.grid_view_outlined,
     'convert' => Icons.swap_horiz,

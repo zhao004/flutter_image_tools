@@ -7,6 +7,7 @@ import '../core/models/cropped_image_file.dart';
 import '../core/models/filtered_image_file.dart';
 import '../core/models/flipped_image_file.dart';
 import '../core/models/grid_image_file.dart';
+import '../core/models/image_watermarked_file.dart';
 import '../core/models/local_image_file.dart';
 import '../core/models/merged_image_file.dart';
 import '../core/models/resized_image_file.dart';
@@ -464,6 +465,76 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('添加文字水印失败，请重试', cause: error);
+    }
+  }
+
+  Future<ImageWatermarkedFile> addImageWatermark({
+    required LocalImageFile source,
+    required LocalImageFile watermark,
+    required String position,
+    required int opacity,
+    required int scalePercent,
+    required int rotationDegrees,
+  }) async {
+    if (source.path.trim().isEmpty || watermark.path.trim().isEmpty) {
+      throw const AppException('底图或水印图片路径为空');
+    }
+    final normalizedPosition = position.trim().toLowerCase();
+    const supportedPositions = {
+      'topleft',
+      'topright',
+      'bottomleft',
+      'bottomright',
+      'center',
+      'tile',
+    };
+    if (!supportedPositions.contains(normalizedPosition)) {
+      throw const AppException('水印位置无效');
+    }
+    if (opacity < 10 || opacity > 100) {
+      throw const AppException('透明度必须在 10 到 100 之间');
+    }
+    if (scalePercent < 5 || scalePercent > 100) {
+      throw const AppException('水印缩放必须在 5% 到 100% 之间');
+    }
+    if (rotationDegrees < -180 || rotationDegrees > 180) {
+      throw const AppException('旋转角度必须在 -180 到 180 之间');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'addImageWatermark',
+        <String, Object?>{
+          'path': source.path,
+          'watermarkPath': watermark.path,
+          'position': normalizedPosition,
+          'opacity': opacity,
+          'scalePercent': scalePercent,
+          'rotationDegrees': rotationDegrees,
+        },
+      );
+      if (result == null) {
+        throw const AppException('图片水印结果为空，请重试');
+      }
+      final watermarked = ImageWatermarkedFile.fromMap(
+        source: source,
+        watermark: watermark,
+        position: normalizedPosition,
+        opacity: opacity,
+        scalePercent: scalePercent,
+        rotationDegrees: rotationDegrees,
+        map: result,
+      );
+      if (watermarked.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return watermarked;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('添加图片水印失败，请重试', cause: error);
     }
   }
 

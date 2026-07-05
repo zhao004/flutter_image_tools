@@ -22,6 +22,8 @@ import '../pages/history/history_binding.dart';
 import '../pages/history/history_view.dart';
 import '../pages/home/home_binding.dart';
 import '../pages/home/home_view.dart';
+import '../pages/image_watermark/image_watermark_binding.dart';
+import '../pages/image_watermark/image_watermark_view.dart';
 import '../pages/merge/merge_binding.dart';
 import '../pages/merge/merge_view.dart';
 import '../pages/resize/resize_binding.dart';
@@ -90,6 +92,11 @@ class AppPages {
       name: _Paths.history,
       page: () => const HistoryView(),
       binding: HistoryBinding(),
+    ),
+    GetPage(
+      name: _Paths.imageWatermark,
+      page: () => const ImageWatermarkView(),
+      binding: ImageWatermarkBinding(),
     ),
     GetPage(
       name: _Paths.merge,
