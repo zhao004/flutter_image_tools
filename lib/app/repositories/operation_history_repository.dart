@@ -14,8 +14,24 @@ class OperationHistoryRepository {
 
   final AppDatabase _database;
 
-  Future<List<OperationHistoryData>> getRecentHistory({int limit = 50}) {
-    return _database.getRecentHistory(limit: limit);
+  Future<List<OperationHistoryData>> getRecentHistory({
+    int limit = 50,
+    String keyword = '',
+    String status = '',
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    return _database.getRecentHistory(
+      limit: limit,
+      keyword: keyword,
+      status: status,
+      startDate: startDate,
+      endDate: endDate,
+    );
+  }
+
+  Future<void> clearHistory() async {
+    await _database.clearHistory();
   }
 
   Future<void> recordCompressionSuccess({

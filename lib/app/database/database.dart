@@ -55,16 +55,48 @@ class AppDatabase extends _$AppDatabase {
     return into(appSettings).insertOnConflictUpdate(setting);
   }
 
-  Future<List<OperationHistoryData>> getRecentHistory({int limit = 50}) {
+  Future<List<OperationHistoryData>> getRecentHistory({
+    int limit = 50,
+    String keyword = '',
+    String status = '',
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
     if (limit <= 0) {
       return Future.value(const []);
     }
-    return (select(operationHistory)
-          ..orderBy([
-            (table) => OrderingTerm.desc(table.createdAt),
-          ])
-          ..limit(limit))
-        .get();
+    final normalizedKeyword = keyword.trim();
+    final normalizedStatus = status.trim();
+    final query = select(operationHistory)
+      ..orderBy([
+        (table) => OrderingTerm.desc(table.createdAt),
+      ])
+      ..limit(limit);
+
+    if (normalizedKeyword.isNotEmpty) {
+      query.where(
+        (table) =>
+            table.featureName.contains(normalizedKeyword) |
+            table.inputPath.contains(normalizedKeyword) |
+            table.parametersJson.contains(normalizedKeyword) |
+            table.outputPath.contains(normalizedKeyword) |
+            table.errorMessage.contains(normalizedKeyword),
+      );
+    }
+    if (normalizedStatus.isNotEmpty) {
+      query.where((table) => table.status.equals(normalizedStatus));
+    }
+    if (startDate != null) {
+      query.where(
+        (table) => table.createdAt.isBiggerOrEqualValue(startDate.toUtc()),
+      );
+    }
+    if (endDate != null) {
+      query.where(
+        (table) => table.createdAt.isSmallerOrEqualValue(endDate.toUtc()),
+      );
+    }
+    return query.get();
   }
 
   Future<int> createHistory(OperationHistoryCompanion history) =>
