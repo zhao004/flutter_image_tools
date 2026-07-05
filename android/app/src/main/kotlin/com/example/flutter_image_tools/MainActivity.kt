@@ -68,6 +68,7 @@ class MainActivity : FlutterActivity() {
             "removeExif" -> removeExif(call, result)
             "imagesToGif" -> imagesToGif(call, result)
             "exportGifFrames" -> exportGifFrames(call, result)
+            "compressGif" -> compressGif(call, result)
             "imagesToPdf" -> imagesToPdf(call, result)
             "exportPdfPageAsImage" -> exportPdfPageAsImage(call, result)
             "exportPdfAllPagesAsImages" -> exportPdfAllPagesAsImages(call, result)
@@ -921,6 +922,80 @@ class MainActivity : FlutterActivity() {
             )
         } catch (error: Exception) {
             result.error("export_failed", error.message, null)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun compressGif(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val frameStepMs = call.argument<Int>("frameStepMs") ?: 250
+        val scalePercent = call.argument<Int>("scalePercent") ?: 60
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "GIF 路径为空", null)
+            return
+        }
+        if (frameStepMs !in 50..1000 || scalePercent !in 25..100) {
+            result.error("invalid_args", "GIF 压缩参数超出范围", null)
+            return
+        }
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "GIF 文件不存在", null)
+            return
+        }
+
+        val movie = Movie.decodeFile(source.absolutePath)
+        if (movie == null || movie.width() <= 0 || movie.height() <= 0) {
+            result.error("invalid_image", "GIF 格式不支持或文件已损坏", null)
+            return
+        }
+        val durationMs = movie.duration().takeIf { it > 0 } ?: frameStepMs
+        val frameCount = ((durationMs + frameStepMs - 1) / frameStepMs)
+            .coerceAtLeast(1)
+            .coerceAtMost(120)
+        val targetWidth = (movie.width() * scalePercent / 100.0).toInt().coerceAtLeast(1)
+        val targetHeight = (movie.height() * scalePercent / 100.0).toInt().coerceAtLeast(1)
+        if (targetWidth.toLong() * targetHeight.toLong() > 12000000L) {
+            result.error("invalid_args", "GIF 输出尺寸过大，请降低缩放比例", null)
+            return
+        }
+
+        val frames = mutableListOf<Bitmap>()
+        try {
+            for (index in 0 until frameCount) {
+                val timeMs = (index * frameStepMs).coerceAtMost((durationMs - 1).coerceAtLeast(0))
+                movie.setTime(timeMs)
+                val frame = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(frame)
+                canvas.drawColor(Color.TRANSPARENT)
+                canvas.scale(
+                    targetWidth.toFloat() / movie.width().toFloat(),
+                    targetHeight.toFloat() / movie.height().toFloat(),
+                )
+                movie.draw(canvas, 0f, 0f)
+                frames.add(frame)
+            }
+            val outputDir = File(cacheDir, "gif_images").apply { mkdirs() }
+            val output = File(outputDir, "compressed_${System.currentTimeMillis()}.gif")
+            FileOutputStream(output).use { stream ->
+                writeAnimatedGif(frames, targetWidth, targetHeight, frameStepMs, stream)
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                    "originalSizeBytes" to source.length(),
+                    "frameCount" to frames.size,
+                    "frameStepMs" to frameStepMs,
+                    "scalePercent" to scalePercent,
+                    "width" to targetWidth,
+                    "height" to targetHeight,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            frames.forEach { it.recycle() }
         }
     }
 

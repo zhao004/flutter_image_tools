@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../../core/exceptions/app_exception.dart';
+import '../../core/models/compressed_gif_file.dart';
 import '../../core/models/gif_frames_export.dart';
 import '../../core/models/gif_image_file.dart';
 import '../../core/models/local_image_file.dart';
@@ -29,8 +30,11 @@ class GifController extends GetxController {
   final result = Rxn<GifImageFile>();
   final selectedGif = Rxn<LocalImageFile>();
   final framesExport = Rxn<GifFramesExport>();
+  final compressedGif = Rxn<CompressedGifFile>();
   final delayMs = 300.obs;
   final frameStepMs = 200.obs;
+  final compressFrameStepMs = 250.obs;
+  final compressScalePercent = 60.obs;
   final isBusy = false.obs;
 
   Future<void> pickImages() async {
@@ -69,6 +73,20 @@ class GifController extends GetxController {
     frameStepMs.value = value.round().clamp(
       LocalImageChannel.minGifFrameStepMs,
       LocalImageChannel.maxGifFrameStepMs,
+    );
+  }
+
+  void updateCompressFrameStep(double value) {
+    compressFrameStepMs.value = value.round().clamp(
+      LocalImageChannel.minGifFrameStepMs,
+      LocalImageChannel.maxGifFrameStepMs,
+    );
+  }
+
+  void updateCompressScale(double value) {
+    compressScalePercent.value = value.round().clamp(
+      LocalImageChannel.minGifScalePercent,
+      LocalImageChannel.maxGifScalePercent,
     );
   }
 
@@ -126,6 +144,7 @@ class GifController extends GetxController {
       }
       selectedGif.value = image;
       framesExport.value = null;
+      compressedGif.value = null;
       await _recentFilesRepository.recordImage(image);
     } on AppException catch (error) {
       _showError(error.message);
@@ -175,6 +194,52 @@ class GifController extends GetxController {
     }
   }
 
+  Future<void> compressSelectedGif() async {
+    if (isBusy.value) {
+      return;
+    }
+    final gif = selectedGif.value;
+    if (gif == null) {
+      _showError('请先选择 GIF 图片');
+      return;
+    }
+
+    isBusy.value = true;
+    try {
+      final compressed = await _imageChannel.compressGif(
+        source: gif,
+        frameStepMs: compressFrameStepMs.value,
+        scalePercent: compressScalePercent.value,
+      );
+      compressedGif.value = compressed;
+      await _historyRepository.recordOperationSuccess(
+        featureName: 'GIF 压缩',
+        inputPath: gif.path,
+        outputPath: compressed.outputPath,
+        parameters: <String, Object>{
+          'frameCount': compressed.frameCount,
+          'frameStepMs': compressed.frameStepMs,
+          'scalePercent': compressed.scalePercent,
+          'savedSizeBytes': compressed.savedSizeBytes,
+        },
+      );
+      Get.snackbar('GIF 压缩完成', '压缩 GIF 已导出到应用缓存目录');
+    } on AppException catch (error) {
+      await _historyRepository.recordOperationFailure(
+        featureName: 'GIF 压缩',
+        inputPath: gif.path,
+        parameters: <String, Object>{
+          'frameStepMs': compressFrameStepMs.value,
+          'scalePercent': compressScalePercent.value,
+        },
+        errorMessage: error.message,
+      );
+      _showError(error.message);
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
   int get totalSizeBytes =>
       selectedImages.fold<int>(0, (sum, image) => sum + image.sizeBytes);
 
@@ -192,6 +257,10 @@ class GifController extends GetxController {
     }
     final mib = kib / unit;
     return '${mib.toStringAsFixed(1)} MB';
+  }
+
+  String formatPercent(double value) {
+    return '${(value * 100).toStringAsFixed(1)}%';
   }
 
   void _showError(String message) {

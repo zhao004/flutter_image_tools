@@ -1,3 +1,4 @@
+import 'package:flutter_image_tools/app/core/models/compressed_gif_file.dart';
 import 'package:flutter_image_tools/app/core/models/gif_frames_export.dart';
 import 'package:flutter_image_tools/app/core/models/gif_image_file.dart';
 import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
@@ -145,6 +146,78 @@ void main() {
       expect(export.frameCount, 1);
       expect(export.frameStepMs, 250);
       expect(export.isComplete, isTrue);
+    });
+  });
+
+  group('CompressedGifFile', () {
+    test('解析 GIF 压缩结果并计算节省比例', () {
+      const source = LocalImageFile(
+        path: '/tmp/source.gif',
+        name: 'source.gif',
+        sizeBytes: 10000,
+        mimeType: 'image/gif',
+        width: 640,
+        height: 480,
+      );
+
+      final compressed = CompressedGifFile.fromMap(
+        source: source,
+        frameStepMs: 250,
+        scalePercent: 60,
+        map: const <Object?, Object?>{
+          'outputPath': '/tmp/compressed.gif',
+          'outputSizeBytes': 4000,
+          'originalSizeBytes': 10000,
+          'frameCount': 4,
+          'frameStepMs': 250,
+          'scalePercent': 60,
+          'width': 384,
+          'height': 288,
+        },
+      );
+
+      expect(compressed.source, source);
+      expect(compressed.outputPath, '/tmp/compressed.gif');
+      expect(compressed.outputSizeBytes, 4000);
+      expect(compressed.originalSizeBytes, 10000);
+      expect(compressed.frameCount, 4);
+      expect(compressed.frameStepMs, 250);
+      expect(compressed.scalePercent, 60);
+      expect(compressed.width, 384);
+      expect(compressed.height, 288);
+      expect(compressed.savedSizeBytes, 6000);
+      expect(compressed.savedRatio, 0.6);
+      expect(compressed.hasValidOutput, isTrue);
+    });
+
+    test('缺少原始大小时使用源文件大小兜底', () {
+      const source = LocalImageFile(
+        path: '/tmp/source.gif',
+        name: 'source.gif',
+        sizeBytes: 5000,
+        mimeType: 'image/gif',
+        width: 320,
+        height: 240,
+      );
+
+      final compressed = CompressedGifFile.fromMap(
+        source: source,
+        frameStepMs: 300,
+        scalePercent: 50,
+        map: const <Object?, Object?>{
+          'outputPath': '/tmp/compressed.gif',
+          'outputSizeBytes': 6000,
+          'frameCount': 2,
+          'width': 160,
+          'height': 120,
+        },
+      );
+
+      expect(compressed.originalSizeBytes, 5000);
+      expect(compressed.savedSizeBytes, 0);
+      expect(compressed.savedRatio, 0);
+      expect(compressed.frameStepMs, 300);
+      expect(compressed.scalePercent, 50);
     });
   });
 }

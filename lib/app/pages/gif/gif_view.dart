@@ -42,10 +42,124 @@ class GifView extends GetView<GifController> {
             _FrameExportCard(controller: controller),
             const SizedBox(height: 16),
             _FrameExportResultCard(controller: controller),
+            const SizedBox(height: 24),
+            _CompressCard(controller: controller),
+            const SizedBox(height: 16),
+            _CompressedResultCard(controller: controller),
           ],
         ),
       ),
     );
+  }
+}
+
+class _CompressCard extends StatelessWidget {
+  const _CompressCard({required this.controller});
+
+  final GifController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Obx(() {
+          final gif = controller.selectedGif.value;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('GIF 压缩', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              if (gif == null)
+                const Text('复用上方选择的 GIF，通过降低尺寸和采样频率减少文件大小。')
+              else ...[
+                Text(gif.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Text('原始大小：${controller.formatBytes(gif.sizeBytes)}'),
+              ],
+              const SizedBox(height: 16),
+              Text('缩放比例：${controller.compressScalePercent.value}%'),
+              Slider(
+                value: controller.compressScalePercent.value.toDouble(),
+                min: LocalImageChannelLimits.minGifScalePercent.toDouble(),
+                max: LocalImageChannelLimits.maxGifScalePercent.toDouble(),
+                divisions: 15,
+                label: '${controller.compressScalePercent.value}%',
+                onChanged: controller.isBusy.value
+                    ? null
+                    : controller.updateCompressScale,
+              ),
+              const SizedBox(height: 12),
+              Text('采样间隔：${controller.compressFrameStepMs.value} ms'),
+              Slider(
+                value: controller.compressFrameStepMs.value.toDouble(),
+                min: LocalImageChannelLimits.minGifFrameStepMs.toDouble(),
+                max: LocalImageChannelLimits.maxGifFrameStepMs.toDouble(),
+                divisions: 19,
+                label: '${controller.compressFrameStepMs.value} ms',
+                onChanged: controller.isBusy.value
+                    ? null
+                    : controller.updateCompressFrameStep,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: controller.isBusy.value
+                    ? null
+                    : controller.compressSelectedGif,
+                icon: controller.isBusy.value
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.compress),
+                label: Text(controller.isBusy.value ? '压缩中' : '压缩 GIF'),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _CompressedResultCard extends StatelessWidget {
+  const _CompressedResultCard({required this.controller});
+
+  final GifController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final result = controller.compressedGif.value;
+      if (result == null) {
+        return const SizedBox.shrink();
+      }
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('压缩结果', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text('帧数：${result.frameCount} 帧'),
+              Text('尺寸：${result.width} × ${result.height} px'),
+              Text('缩放比例：${result.scalePercent}%'),
+              Text('采样间隔：${result.frameStepMs} ms'),
+              Text('原始大小：${controller.formatBytes(result.originalSizeBytes)}'),
+              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text('节省空间：${controller.formatPercent(result.savedRatio)}'),
+              const SizedBox(height: 8),
+              Text(
+                result.outputPath,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 
@@ -305,4 +419,6 @@ class LocalImageChannelLimits {
   static const int maxGifDelayMs = 2000;
   static const int minGifFrameStepMs = 50;
   static const int maxGifFrameStepMs = 1000;
+  static const int minGifScalePercent = 25;
+  static const int maxGifScalePercent = 100;
 }

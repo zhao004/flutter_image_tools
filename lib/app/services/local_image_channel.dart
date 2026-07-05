@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../core/exceptions/app_exception.dart';
 import '../core/models/annotated_image_file.dart';
 import '../core/models/barcode_scan_result.dart';
+import '../core/models/compressed_gif_file.dart';
 import '../core/models/compressed_image_file.dart';
 import '../core/models/converted_image_file.dart';
 import '../core/models/cropped_image_file.dart';
@@ -42,6 +43,8 @@ class LocalImageChannel {
   static const int maxGifDelayMs = 2000;
   static const int minGifFrameStepMs = 50;
   static const int maxGifFrameStepMs = 1000;
+  static const int minGifScalePercent = 25;
+  static const int maxGifScalePercent = 100;
   static const int minGridSize = 2;
   static const int maxGridSize = 5;
   static const Set<String> supportedFilters = {
@@ -884,6 +887,53 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('GIF 拆帧失败，请重试', cause: error);
+    }
+  }
+
+  Future<CompressedGifFile> compressGif({
+    required LocalImageFile source,
+    required int frameStepMs,
+    required int scalePercent,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('GIF 路径为空，无法压缩');
+    }
+    if (frameStepMs < minGifFrameStepMs || frameStepMs > maxGifFrameStepMs) {
+      throw const AppException('采样间隔必须在 50 到 1000 毫秒之间');
+    }
+    if (scalePercent < minGifScalePercent ||
+        scalePercent > maxGifScalePercent) {
+      throw const AppException('缩放比例必须在 25% 到 100% 之间');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'compressGif',
+        <String, Object?>{
+          'path': source.path,
+          'frameStepMs': frameStepMs,
+          'scalePercent': scalePercent,
+        },
+      );
+      if (result == null) {
+        throw const AppException('GIF 压缩结果为空，请重试');
+      }
+      final compressed = CompressedGifFile.fromMap(
+        source: source,
+        frameStepMs: frameStepMs,
+        scalePercent: scalePercent,
+        map: result,
+      );
+      if (!compressed.hasValidOutput) {
+        throw const AppException('GIF 压缩输出异常，请重试');
+      }
+      return compressed;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('GIF 压缩失败，请重试', cause: error);
     }
   }
 
