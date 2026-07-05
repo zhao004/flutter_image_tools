@@ -431,6 +431,7 @@ class LocalImageChannel {
     required int borderWidth,
     required String borderColor,
     required int cornerRadius,
+    required String scaleMode,
   }) async {
     if (sources.length < 2) {
       throw const AppException('请至少选择两张图片进行拼接');
@@ -441,6 +442,14 @@ class LocalImageChannel {
     final normalizedMode = mode.trim().toLowerCase();
     if (!{'horizontal', 'vertical', 'grid'}.contains(normalizedMode)) {
       throw const AppException('拼接模式无效');
+    }
+    final normalizedScaleMode = scaleMode.trim().toLowerCase();
+    if (!{
+      'original',
+      'same_width',
+      'same_height',
+    }.contains(normalizedScaleMode)) {
+      throw const AppException('缩放模式无效');
     }
     if (columns < 1 || columns > 10) {
       throw const AppException('网格列数必须在 1 到 10 之间');
@@ -478,6 +487,7 @@ class LocalImageChannel {
             'borderWidth': borderWidth,
             'borderColor': normalizedBorderColor,
             'cornerRadius': cornerRadius,
+            'scaleMode': normalizedScaleMode,
           });
       if (result == null) {
         throw const AppException('拼接结果为空，请重试');
@@ -489,6 +499,7 @@ class LocalImageChannel {
         borderWidth: borderWidth,
         borderColor: normalizedBorderColor,
         cornerRadius: cornerRadius,
+        scaleMode: normalizedScaleMode,
         map: result,
       );
       if (merged.outputPath.isEmpty) {

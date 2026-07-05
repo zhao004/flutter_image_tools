@@ -22,6 +22,7 @@ void main() {
         borderWidth: 0,
         borderColor: '#000000',
         cornerRadius: 0,
+        scaleMode: 'original',
         map: const <Object?, Object?>{
           'outputPath': '/tmp/merged.jpg',
           'outputSizeBytes': 8192,
@@ -32,6 +33,7 @@ void main() {
           'borderWidth': 4,
           'borderColor': '#FFFFFF',
           'cornerRadius': 24,
+          'scaleMode': 'same_height',
         },
       );
 
@@ -45,10 +47,11 @@ void main() {
       expect(merged.borderWidth, 4);
       expect(merged.borderColor, '#FFFFFF');
       expect(merged.cornerRadius, 24);
+      expect(merged.scaleMode, 'same_height');
       expect(() => merged.sources.add(source), throwsUnsupportedError);
     });
 
-    test('通道缺少背景、边框和圆角时使用请求参数兜底', () {
+    test('通道缺少背景、边框、圆角和缩放模式时使用请求参数兜底', () {
       const source = LocalImageFile(
         path: '/tmp/source.jpg',
         name: 'source.jpg',
@@ -65,6 +68,7 @@ void main() {
         borderWidth: 2,
         borderColor: '#808080',
         cornerRadius: 12,
+        scaleMode: 'same_width',
         map: const <Object?, Object?>{'outputPath': '/tmp/merged.jpg'},
       );
 
@@ -73,6 +77,7 @@ void main() {
       expect(merged.borderWidth, 2);
       expect(merged.borderColor, '#808080');
       expect(merged.cornerRadius, 12);
+      expect(merged.scaleMode, 'same_width');
     });
   });
 }

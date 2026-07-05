@@ -42,6 +42,17 @@ enum MergeBorderColor {
   final String value;
 }
 
+enum MergeScaleMode {
+  original(label: '原始尺寸', value: 'original'),
+  sameHeight(label: '统一高度', value: 'same_height'),
+  sameWidth(label: '统一宽度', value: 'same_width');
+
+  const MergeScaleMode({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
 /// 图片拼接控制器，管理批量选图、布局模式、网格列数、间距和拼接结果。
 ///
 /// 异常策略：Dart 侧限制图片数量和布局参数，Android 侧再校验文件与输出
@@ -68,6 +79,7 @@ class MergeController extends GetxController {
   final spacing = 8.obs;
   final borderWidth = 0.obs;
   final cornerRadius = 0.obs;
+  final scaleMode = MergeScaleMode.original.obs;
   final isBusy = false.obs;
 
   Future<void> pickImages() async {
@@ -107,6 +119,10 @@ class MergeController extends GetxController {
     borderColor.value = value;
   }
 
+  void setScaleMode(MergeScaleMode value) {
+    scaleMode.value = value;
+  }
+
   void updateColumns(double value) {
     columns.value = value.round().clamp(1, 10);
   }
@@ -144,6 +160,7 @@ class MergeController extends GetxController {
         borderWidth: borderWidth.value,
         borderColor: borderColor.value.value,
         cornerRadius: cornerRadius.value,
+        scaleMode: scaleMode.value.value,
       );
       result.value = merged;
       await _historyRepository.recordOperationSuccess(
@@ -159,6 +176,7 @@ class MergeController extends GetxController {
           'borderWidth': borderWidth.value,
           'borderColor': borderColor.value.value,
           'cornerRadius': cornerRadius.value,
+          'scaleMode': scaleMode.value.value,
         },
       );
       Get.snackbar('拼接完成', '图片已导出到应用缓存目录');
@@ -175,6 +193,7 @@ class MergeController extends GetxController {
           'borderWidth': borderWidth.value,
           'borderColor': borderColor.value.value,
           'cornerRadius': cornerRadius.value,
+          'scaleMode': scaleMode.value.value,
         },
         errorMessage: error.message,
       );

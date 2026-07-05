@@ -688,6 +688,7 @@ class MainActivity : FlutterActivity() {
         val mode = (call.argument<String>("mode") ?: "horizontal").lowercase()
         val columns = call.argument<Int>("columns") ?: 2
         val spacing = call.argument<Int>("spacing") ?: 8
+        val scaleMode = (call.argument<String>("scaleMode") ?: "original").lowercase()
         val backgroundColorText = call.argument<String>("backgroundColor") ?: "#FFFFFF"
         val borderWidth = call.argument<Int>("borderWidth") ?: 0
         val borderColorText = call.argument<String>("borderColor") ?: "#000000"
@@ -698,6 +699,10 @@ class MainActivity : FlutterActivity() {
         }
         if (mode !in setOf("horizontal", "vertical", "grid")) {
             result.error("invalid_args", "拼接模式无效", null)
+            return
+        }
+        if (scaleMode !in setOf("original", "same_width", "same_height")) {
+            result.error("invalid_args", "缩放模式无效", null)
             return
         }
         if (columns !in 1..10 || spacing !in 0..100 || borderWidth !in 0..50 || cornerRadius !in 0..200) {
@@ -738,15 +743,18 @@ class MainActivity : FlutterActivity() {
                 bitmaps.add(bitmap)
             }
 
-            val layout = calculateMergeLayout(bitmaps, mode, columns, spacing)
+            val scaledBitmaps = scaleBitmapsForMerge(bitmaps, scaleMode)
+            val layout = calculateMergeLayout(scaledBitmaps, mode, columns, spacing)
             if (layout.width <= 0 || layout.height <= 0) {
                 result.error("invalid_args", "拼接输出尺寸无效", null)
+                recycleGeneratedBitmaps(scaledBitmaps, bitmaps)
                 bitmaps.forEach { it.recycle() }
                 return
             }
             val pixelCount = layout.width.toLong() * layout.height.toLong()
             if (layout.width > 20000 || layout.height > 20000 || pixelCount > 36000000L) {
                 result.error("invalid_args", "拼接输出过大，请减少图片数量或尺寸", null)
+                recycleGeneratedBitmaps(scaledBitmaps, bitmaps)
                 bitmaps.forEach { it.recycle() }
                 return
             }
@@ -758,8 +766,8 @@ class MainActivity : FlutterActivity() {
             )
             val canvas = Canvas(mergedBitmap)
             canvas.drawColor(backgroundColor)
-            for (index in bitmaps.indices) {
-                val bitmap = bitmaps[index]
+            for (index in scaledBitmaps.indices) {
+                val bitmap = scaledBitmaps[index]
                 val position = layout.positions[index]
                 val imageRect = RectF(
                     position.x.toFloat(),
@@ -819,6 +827,7 @@ class MainActivity : FlutterActivity() {
                         "width" to layout.width,
                         "height" to layout.height,
                         "mode" to mode,
+                        "scaleMode" to scaleMode,
                         "backgroundColor" to backgroundColorText.uppercase(),
                         "borderWidth" to borderWidth,
                         "borderColor" to borderColorText.uppercase(),
@@ -829,6 +838,7 @@ class MainActivity : FlutterActivity() {
                 result.error("export_failed", error.message, null)
             } finally {
                 mergedBitmap.recycle()
+                recycleGeneratedBitmaps(scaledBitmaps, bitmaps)
                 bitmaps.forEach { it.recycle() }
             }
         } catch (error: Exception) {
@@ -1921,6 +1931,35 @@ class MainActivity : FlutterActivity() {
             "grid" -> calculateGridLayout(bitmaps, columns, spacing)
             else -> calculateHorizontalLayout(bitmaps, spacing)
         }
+    }
+
+    private fun scaleBitmapsForMerge(bitmaps: List<Bitmap>, scaleMode: String): List<Bitmap> {
+        if (scaleMode == "original") {
+            return bitmaps
+        }
+
+        val targetWidth = bitmaps.minOf { it.width }.coerceAtLeast(1)
+        val targetHeight = bitmaps.minOf { it.height }.coerceAtLeast(1)
+        return bitmaps.map { bitmap ->
+            val scale = when (scaleMode) {
+                "same_width" -> targetWidth.toDouble() / bitmap.width
+                "same_height" -> targetHeight.toDouble() / bitmap.height
+                else -> 1.0
+            }
+            val outputWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
+            val outputHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+            if (outputWidth == bitmap.width && outputHeight == bitmap.height) {
+                bitmap
+            } else {
+                Bitmap.createScaledBitmap(bitmap, outputWidth, outputHeight, true)
+            }
+        }
+    }
+
+    private fun recycleGeneratedBitmaps(bitmaps: List<Bitmap>, originalBitmaps: List<Bitmap>) {
+        bitmaps
+            .filterIndexed { index, bitmap -> index >= originalBitmaps.size || bitmap !== originalBitmaps[index] }
+            .forEach { it.recycle() }
     }
 
     private fun calculateHorizontalLayout(bitmaps: List<Bitmap>, spacing: Int): MergeLayout {

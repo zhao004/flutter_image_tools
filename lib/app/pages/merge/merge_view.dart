@@ -178,7 +178,22 @@ class _LayoutCard extends StatelessWidget {
                     .toList(growable: false),
               ),
               const SizedBox(height: 12),
-              const Text('图片会在对应行、列或网格单元内居中对齐。'),
+              const Text('自动缩放'),
+              const SizedBox(height: 8),
+              SegmentedButton<MergeScaleMode>(
+                segments: MergeScaleMode.values
+                    .map(
+                      (item) =>
+                          ButtonSegment(value: item, label: Text(item.label)),
+                    )
+                    .toList(growable: false),
+                selected: {controller.scaleMode.value},
+                onSelectionChanged: controller.isBusy.value
+                    ? null
+                    : (values) => controller.setScaleMode(values.first),
+              ),
+              const SizedBox(height: 12),
+              const Text('图片会按缩放策略处理后，在对应行、列或网格单元内居中对齐。'),
               const SizedBox(height: 16),
               Text('圆角半径：${controller.cornerRadius.value}px'),
               Slider(
@@ -255,6 +270,7 @@ class _ResultCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text('输入数量：${result.sources.length} 张'),
               Text('布局模式：${result.mode}'),
+              Text('缩放模式：${result.scaleMode}'),
               Text('背景颜色：${result.backgroundColor}'),
               Text('圆角半径：${result.cornerRadius}px'),
               Text('边框：${result.borderWidth}px / ${result.borderColor}'),
