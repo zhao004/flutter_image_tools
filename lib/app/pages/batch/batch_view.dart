@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
 /// 取消都只影响未开始任务，正在处理的单个本地任务会自然结束后再停队列。
@@ -229,6 +229,51 @@ class _OperationCard extends StatelessWidget {
                       .toList(growable: false),
                 ),
               ],
+              if (controller.operation.value ==
+                  BatchOperation.imageWatermark) ...[
+                const SizedBox(height: 16),
+                const Text('水印图片'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        controller.imageWatermark.value?.name ?? '尚未选择水印图片',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: controller.isRunning.value
+                          ? null
+                          : controller.pickImageWatermark,
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      label: const Text('选择水印'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('水印位置'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: BatchWatermarkPosition.values
+                      .map(
+                        (item) => ChoiceChip(
+                          label: Text(item.label),
+                          selected:
+                              controller.imageWatermarkPosition.value == item,
+                          onSelected: controller.isRunning.value
+                              ? null
+                              : (_) =>
+                                    controller.setImageWatermarkPosition(item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ],
           ),
         ),
@@ -360,6 +405,41 @@ class _SettingsCard extends StatelessWidget {
                   onChanged: controller.isRunning.value
                       ? null
                       : controller.updateWatermarkOpacity,
+                ),
+              ] else if (controller.operation.value ==
+                  BatchOperation.imageWatermark) ...[
+                Text('透明度：${controller.imageWatermarkOpacity.value}%'),
+                Slider(
+                  value: controller.imageWatermarkOpacity.value.toDouble(),
+                  min: 10,
+                  max: 100,
+                  divisions: 18,
+                  label: '${controller.imageWatermarkOpacity.value}%',
+                  onChanged: controller.isRunning.value
+                      ? null
+                      : controller.updateImageWatermarkOpacity,
+                ),
+                Text('缩放：${controller.imageWatermarkScale.value}%'),
+                Slider(
+                  value: controller.imageWatermarkScale.value.toDouble(),
+                  min: 5,
+                  max: 100,
+                  divisions: 19,
+                  label: '${controller.imageWatermarkScale.value}%',
+                  onChanged: controller.isRunning.value
+                      ? null
+                      : controller.updateImageWatermarkScale,
+                ),
+                Text('旋转：${controller.imageWatermarkRotation.value}°'),
+                Slider(
+                  value: controller.imageWatermarkRotation.value.toDouble(),
+                  min: -180,
+                  max: 180,
+                  divisions: 72,
+                  label: '${controller.imageWatermarkRotation.value}°',
+                  onChanged: controller.isRunning.value
+                      ? null
+                      : controller.updateImageWatermarkRotation,
                 ),
               ] else ...[
                 Text('质量：${controller.quality.value}%'),

@@ -13,7 +13,8 @@ enum BatchOperation {
   rotate(label: '批量旋转', featureName: '批量旋转'),
   flip(label: '批量翻转', featureName: '批量翻转'),
   resize(label: '尺寸调整', featureName: '批量尺寸调整'),
-  textWatermark(label: '文字水印', featureName: '批量文字水印');
+  textWatermark(label: '文字水印', featureName: '批量文字水印'),
+  imageWatermark(label: '图片水印', featureName: '批量图片水印');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -173,6 +174,11 @@ class BatchController extends GetxController {
   final watermarkColor = BatchWatermarkColor.white.obs;
   final watermarkFontSize = 36.obs;
   final watermarkOpacity = 70.obs;
+  final imageWatermark = Rxn<LocalImageFile>();
+  final imageWatermarkPosition = BatchWatermarkPosition.bottomRight.obs;
+  final imageWatermarkOpacity = 70.obs;
+  final imageWatermarkScale = 25.obs;
+  final imageWatermarkRotation = 0.obs;
   final degrees = 90.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
@@ -211,6 +217,24 @@ class BatchController extends GetxController {
       for (final image in images) {
         await _recentFilesRepository.recordImage(image);
       }
+    } on AppException catch (error) {
+      _showError(error.message);
+    } catch (_) {
+      _showError('记录最近文件失败，请重试');
+    }
+  }
+
+  Future<void> pickImageWatermark() async {
+    if (isRunning.value) {
+      return;
+    }
+    try {
+      final image = await _imageChannel.pickSingleImage();
+      if (image == null) {
+        return;
+      }
+      imageWatermark.value = image;
+      await _recentFilesRepository.recordImage(image);
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
@@ -325,6 +349,34 @@ class BatchController extends GetxController {
     watermarkOpacity.value = value.round().clamp(10, 100);
   }
 
+  void setImageWatermarkPosition(BatchWatermarkPosition value) {
+    if (isRunning.value) {
+      return;
+    }
+    imageWatermarkPosition.value = value;
+  }
+
+  void updateImageWatermarkOpacity(double value) {
+    if (isRunning.value) {
+      return;
+    }
+    imageWatermarkOpacity.value = value.round().clamp(10, 100);
+  }
+
+  void updateImageWatermarkScale(double value) {
+    if (isRunning.value) {
+      return;
+    }
+    imageWatermarkScale.value = value.round().clamp(5, 100);
+  }
+
+  void updateImageWatermarkRotation(double value) {
+    if (isRunning.value) {
+      return;
+    }
+    imageWatermarkRotation.value = value.round().clamp(-180, 180);
+  }
+
   Future<void> startQueue() async {
     if (isRunning.value) {
       return;
@@ -343,6 +395,10 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.textWatermark &&
         !_hasValidWatermarkSettings()) {
+      return;
+    }
+    if (operation.value == BatchOperation.imageWatermark &&
+        !_hasValidImageWatermarkSettings()) {
       return;
     }
     _resetTasksForCurrentSelection();
@@ -454,6 +510,8 @@ class BatchController extends GetxController {
           await _processResizeTask(index, task.source);
         case BatchOperation.textWatermark:
           await _processTextWatermarkTask(index, task.source);
+        case BatchOperation.imageWatermark:
+          await _processImageWatermarkTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -601,6 +659,37 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processImageWatermarkTask(
+    int index,
+    LocalImageFile source,
+  ) async {
+    final watermark = imageWatermark.value;
+    if (watermark == null) {
+      throw const AppException('请先选择水印图片');
+    }
+    final watermarked = await _imageChannel.addImageWatermark(
+      source: source,
+      watermark: watermark,
+      position: imageWatermarkPosition.value.value,
+      opacity: imageWatermarkOpacity.value,
+      scalePercent: imageWatermarkScale.value,
+      rotationDegrees: imageWatermarkRotation.value,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: watermarked.outputPath,
+      outputSizeBytes: watermarked.outputSizeBytes,
+      resultLabel: imageWatermarkPosition.value.label,
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: watermarked.outputPath,
+      parameters: _historyParameters,
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -692,6 +781,14 @@ class BatchController extends GetxController {
           'opacity': watermarkOpacity.value,
           'color': watermarkColor.value.value,
         });
+      case BatchOperation.imageWatermark:
+        parameters.addAll(<String, Object>{
+          'watermarkPath': imageWatermark.value?.path ?? '',
+          'position': imageWatermarkPosition.value.value,
+          'opacity': imageWatermarkOpacity.value,
+          'scalePercent': imageWatermarkScale.value,
+          'rotationDegrees': imageWatermarkRotation.value,
+        });
     }
     return parameters;
   }
@@ -726,6 +823,9 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.textWatermark) {
       return '文字水印会按当前文本、位置、颜色、字号和透明度批量导出新图片。';
+    }
+    if (operation.value == BatchOperation.imageWatermark) {
+      return '图片水印会用同一张水印图按当前位置、透明度、缩放和旋转参数批量导出。';
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
@@ -796,6 +896,28 @@ class BatchController extends GetxController {
     }
     if (watermarkOpacity.value < 10 || watermarkOpacity.value > 100) {
       _showError('透明度必须在 10 到 100 之间');
+      return false;
+    }
+    return true;
+  }
+
+  bool _hasValidImageWatermarkSettings() {
+    final watermark = imageWatermark.value;
+    if (watermark == null) {
+      _showError('请先选择水印图片');
+      return false;
+    }
+    if (imageWatermarkOpacity.value < 10 || imageWatermarkOpacity.value > 100) {
+      _showError('透明度必须在 10 到 100 之间');
+      return false;
+    }
+    if (imageWatermarkScale.value < 5 || imageWatermarkScale.value > 100) {
+      _showError('水印缩放必须在 5% 到 100% 之间');
+      return false;
+    }
+    if (imageWatermarkRotation.value < -180 ||
+        imageWatermarkRotation.value > 180) {
+      _showError('旋转角度必须在 -180 到 180 之间');
       return false;
     }
     return true;
