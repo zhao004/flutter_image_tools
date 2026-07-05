@@ -268,6 +268,7 @@ IconData _toolIconFor(String key) {
     'pdf' => Icons.picture_as_pdf_outlined,
     'qrcode' => Icons.qr_code,
     'base64' => Icons.code,
+    'color' => Icons.colorize_outlined,
     _ => Icons.image_outlined,
   };
 }

@@ -139,6 +139,13 @@ class HomeController extends GetxController {
       availability: ToolAvailability.available,
       route: Routes.base64,
     ),
+    const HomeToolItem(
+      title: '颜色提取',
+      description: '点击取色并复制 RGB/HEX/HSV',
+      icon: 'color',
+      availability: ToolAvailability.available,
+      route: Routes.colorPicker,
+    ),
   ];
 
   List<HomeToolItem> get filteredTools {

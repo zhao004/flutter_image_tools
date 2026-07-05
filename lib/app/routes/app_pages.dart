@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 
 import '../pages/base64/base64_binding.dart';
 import '../pages/base64/base64_view.dart';
+import '../pages/color_picker/color_picker_binding.dart';
+import '../pages/color_picker/color_picker_view.dart';
 import '../pages/compress/compress_binding.dart';
 import '../pages/compress/compress_view.dart';
 import '../pages/convert/convert_binding.dart';
@@ -41,6 +43,11 @@ class AppPages {
       name: _Paths.base64,
       page: () => const Base64View(),
       binding: Base64Binding(),
+    ),
+    GetPage(
+      name: _Paths.colorPicker,
+      page: () => const ColorPickerView(),
+      binding: ColorPickerBinding(),
     ),
     GetPage(
       name: _Paths.home,
