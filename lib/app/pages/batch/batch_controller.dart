@@ -10,7 +10,8 @@ import '../../services/local_image_channel.dart';
 enum BatchOperation {
   compress(label: '批量压缩', featureName: '批量压缩'),
   convert(label: '格式转换', featureName: '批量格式转换'),
-  rotate(label: '批量旋转', featureName: '批量旋转');
+  rotate(label: '批量旋转', featureName: '批量旋转'),
+  flip(label: '批量翻转', featureName: '批量翻转');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -25,6 +26,16 @@ enum BatchConvertFormat {
   bmp(label: 'BMP', value: 'bmp');
 
   const BatchConvertFormat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+enum BatchFlipDirection {
+  horizontal(label: '水平翻转', value: 'horizontal'),
+  vertical(label: '垂直翻转', value: 'vertical');
+
+  const BatchFlipDirection({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -111,6 +122,7 @@ class BatchController extends GetxController {
   final tasks = <BatchImageTask>[].obs;
   final operation = BatchOperation.compress.obs;
   final convertFormat = BatchConvertFormat.jpg.obs;
+  final flipDirection = BatchFlipDirection.horizontal.obs;
   final degrees = 90.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
@@ -176,6 +188,13 @@ class BatchController extends GetxController {
       return;
     }
     convertFormat.value = value;
+  }
+
+  void setFlipDirection(BatchFlipDirection value) {
+    if (isRunning.value) {
+      return;
+    }
+    flipDirection.value = value;
   }
 
   void setDegrees(int value) {
@@ -300,6 +319,8 @@ class BatchController extends GetxController {
           await _processConvertTask(index, task.source);
         case BatchOperation.rotate:
           await _processRotateTask(index, task.source);
+        case BatchOperation.flip:
+          await _processFlipTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -373,6 +394,26 @@ class BatchController extends GetxController {
       featureName: operation.value.featureName,
       inputPath: source.path,
       outputPath: rotated.outputPath,
+      parameters: _historyParameters,
+    );
+  }
+
+  Future<void> _processFlipTask(int index, LocalImageFile source) async {
+    final flipped = await _imageChannel.flipImage(
+      source: source,
+      direction: flipDirection.value.value,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: flipped.outputPath,
+      outputSizeBytes: flipped.outputSizeBytes,
+      resultLabel: flipDirection.value.label,
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: flipped.outputPath,
       parameters: _historyParameters,
     );
   }
@@ -451,6 +492,8 @@ class BatchController extends GetxController {
         parameters['format'] = convertFormat.value.value;
       case BatchOperation.rotate:
         parameters['degrees'] = degrees.value;
+      case BatchOperation.flip:
+        parameters['direction'] = flipDirection.value.value;
     }
     return parameters;
   }
@@ -461,6 +504,9 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.rotate) {
       return '旋转会按当前角度导出新图片，不会覆盖原文件。';
+    }
+    if (operation.value == BatchOperation.flip) {
+      return '翻转会按当前方向导出新图片，不会覆盖原文件。';
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
