@@ -150,9 +150,10 @@ class HomeController extends GetxController {
     ),
     const HomeToolItem(
       title: '二维码',
-      description: '生成和识别二维码',
+      description: '本地生成二维码 PNG',
       icon: 'qrcode',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.qrcode,
     ),
     const HomeToolItem(
       title: 'Base64',
