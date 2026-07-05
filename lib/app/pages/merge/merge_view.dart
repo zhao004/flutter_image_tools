@@ -143,6 +143,10 @@ class _LayoutCard extends StatelessWidget {
                       : controller.updateColumns,
                 ),
               ],
+              if (controller.mode.value == MergeMode.long) ...[
+                const SizedBox(height: 12),
+                const Text('长图模式会按选择顺序纵向拼接，并默认统一图片宽度。'),
+              ],
               const SizedBox(height: 16),
               Text('图片间距：${controller.spacing.value}px'),
               Slider(

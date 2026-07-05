@@ -10,7 +10,8 @@ import '../../services/local_image_channel.dart';
 enum MergeMode {
   horizontal(label: '横向拼接', value: 'horizontal'),
   vertical(label: '纵向拼接', value: 'vertical'),
-  grid(label: '网格拼接', value: 'grid');
+  grid(label: '网格拼接', value: 'grid'),
+  long(label: '长图拼接', value: 'long');
 
   const MergeMode({required this.label, required this.value});
 
@@ -109,6 +110,9 @@ class MergeController extends GetxController {
 
   void setMode(MergeMode value) {
     mode.value = value;
+    if (value == MergeMode.long) {
+      scaleMode.value = MergeScaleMode.sameWidth;
+    }
   }
 
   void setBackgroundColor(MergeBackgroundColor value) {

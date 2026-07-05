@@ -79,5 +79,35 @@ void main() {
       expect(merged.cornerRadius, 12);
       expect(merged.scaleMode, 'same_width');
     });
+
+    test('长图模式保留平台回传模式', () {
+      const source = LocalImageFile(
+        path: '/tmp/source.jpg',
+        name: 'source.jpg',
+        sizeBytes: 4096,
+        mimeType: 'image/jpeg',
+        width: 640,
+        height: 480,
+      );
+
+      final merged = MergedImageFile.fromMap(
+        sources: const [source, source],
+        mode: 'long',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 0,
+        borderColor: '#000000',
+        cornerRadius: 0,
+        scaleMode: 'same_width',
+        map: const <Object?, Object?>{
+          'outputPath': '/tmp/long.jpg',
+          'mode': 'long',
+          'scaleMode': 'same_width',
+        },
+      );
+
+      expect(merged.outputPath, '/tmp/long.jpg');
+      expect(merged.mode, 'long');
+      expect(merged.scaleMode, 'same_width');
+    });
   });
 }

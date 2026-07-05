@@ -440,7 +440,7 @@ class LocalImageChannel {
       throw const AppException('单次最多拼接 20 张图片');
     }
     final normalizedMode = mode.trim().toLowerCase();
-    if (!{'horizontal', 'vertical', 'grid'}.contains(normalizedMode)) {
+    if (!{'horizontal', 'vertical', 'grid', 'long'}.contains(normalizedMode)) {
       throw const AppException('拼接模式无效');
     }
     final normalizedScaleMode = scaleMode.trim().toLowerCase();

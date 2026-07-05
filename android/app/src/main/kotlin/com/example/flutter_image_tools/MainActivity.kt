@@ -697,7 +697,7 @@ class MainActivity : FlutterActivity() {
             result.error("invalid_args", "拼接图片数量必须在 2 到 20 张之间", null)
             return
         }
-        if (mode !in setOf("horizontal", "vertical", "grid")) {
+        if (mode !in setOf("horizontal", "vertical", "grid", "long")) {
             result.error("invalid_args", "拼接模式无效", null)
             return
         }
@@ -1928,6 +1928,7 @@ class MainActivity : FlutterActivity() {
     ): MergeLayout {
         return when (mode) {
             "vertical" -> calculateVerticalLayout(bitmaps, spacing)
+            "long" -> calculateVerticalLayout(bitmaps, spacing)
             "grid" -> calculateGridLayout(bitmaps, columns, spacing)
             else -> calculateHorizontalLayout(bitmaps, spacing)
         }
