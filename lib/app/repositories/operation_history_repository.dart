@@ -10,7 +10,7 @@ import '../database/database.dart';
 /// 小于等于 0 时返回空列表，避免无意义数据库查询。
 class OperationHistoryRepository {
   OperationHistoryRepository({required AppDatabase database})
-      : _database = database;
+    : _database = database;
 
   final AppDatabase _database;
 
@@ -32,6 +32,10 @@ class OperationHistoryRepository {
 
   Future<void> clearHistory() async {
     await _database.clearHistory();
+  }
+
+  Future<int> deleteHistoryItem(int id) {
+    return _database.deleteHistoryItem(id);
   }
 
   Future<void> recordCompressionSuccess({

@@ -32,7 +32,7 @@ enum HistoryDateFilter {
 /// 清理历史前由页面确认，Controller 只执行明确命令。
 class HistoryController extends GetxController {
   HistoryController({required OperationHistoryRepository repository})
-      : _repository = repository;
+    : _repository = repository;
 
   final OperationHistoryRepository _repository;
 
@@ -83,6 +83,19 @@ class HistoryController extends GetxController {
     try {
       await _repository.clearHistory();
       items.clear();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> deleteHistoryItem(OperationHistoryData item) async {
+    isLoading.value = true;
+    try {
+      await _repository.deleteHistoryItem(item.id);
+      items.removeWhere((history) => history.id == item.id);
+      Get.snackbar('删除完成', '该条历史记录已删除');
+    } catch (_) {
+      Get.snackbar('删除失败', '历史记录删除失败，请稍后重试');
     } finally {
       isLoading.value = false;
     }

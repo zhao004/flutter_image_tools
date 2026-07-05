@@ -148,6 +148,15 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> clearLogs() => delete(operationLogs).go();
 
+  Future<int> deleteHistoryItem(int id) {
+    if (id <= 0) {
+      return Future.value(0);
+    }
+    return (delete(
+      operationHistory,
+    )..where((table) => table.id.equals(id))).go();
+  }
+
   Future<int> clearHistory() => delete(operationHistory).go();
 
   Future<int> upsertRecentFile(RecentFilesCompanion file) {

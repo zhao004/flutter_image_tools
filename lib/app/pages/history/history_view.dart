@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../database/database.dart';
 import 'history_controller.dart';
 
 /// 历史记录页，展示本机图片处理记录。
@@ -59,30 +60,43 @@ class HistoryView extends GetView<HistoryController> {
                   );
                 }
                 return Column(
-                  children: controller.items.map((item) {
-                    final isSuccess = item.status == 'success';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Card(
-                        child: ListTile(
-                          leading: Icon(
-                            isSuccess
-                                ? Icons.check_circle_outline
-                                : Icons.error_outline,
+                  children: controller.items
+                      .map((item) {
+                        final isSuccess = item.status == 'success';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Card(
+                            child: ListTile(
+                              leading: Icon(
+                                isSuccess
+                                    ? Icons.check_circle_outline
+                                    : Icons.error_outline,
+                              ),
+                              title: Text(item.featureName),
+                              subtitle: Text(
+                                item.outputPath ??
+                                    item.errorMessage ??
+                                    item.inputPath,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(isSuccess ? '成功' : '失败'),
+                                  IconButton(
+                                    tooltip: '删除记录',
+                                    onPressed: () =>
+                                        _confirmDeleteHistory(context, item),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          title: Text(item.featureName),
-                          subtitle: Text(
-                            item.outputPath ??
-                                item.errorMessage ??
-                                item.inputPath,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: Text(isSuccess ? '成功' : '失败'),
-                        ),
-                      ),
-                    );
-                  }).toList(growable: false),
+                        );
+                      })
+                      .toList(growable: false),
                 );
               }),
             ],
@@ -112,6 +126,32 @@ class HistoryView extends GetView<HistoryController> {
     );
     if (confirmed == true) {
       await controller.clearHistory();
+    }
+  }
+
+  Future<void> _confirmDeleteHistory(
+    BuildContext context,
+    OperationHistoryData item,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除历史记录'),
+        content: Text('确定删除“${item.featureName}”这条记录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await controller.deleteHistoryItem(item);
     }
   }
 }
