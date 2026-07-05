@@ -8,6 +8,35 @@ import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
+class CompressionTask {
+  const CompressionTask({
+    required this.source,
+    this.result,
+    this.errorMessage,
+    this.isCompleted = false,
+  });
+
+  final LocalImageFile source;
+  final CompressedImageFile? result;
+  final String? errorMessage;
+  final bool isCompleted;
+
+  bool get isSuccess => isCompleted && result != null;
+
+  CompressionTask copyWith({
+    CompressedImageFile? result,
+    String? errorMessage,
+    bool? isCompleted,
+  }) {
+    return CompressionTask(
+      source: source,
+      result: result ?? this.result,
+      errorMessage: errorMessage ?? this.errorMessage,
+      isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
+}
+
 /// 图片压缩控制器，管理选择、质量参数、执行状态和结果展示。
 ///
 /// 异常策略：所有用户可恢复错误显示 Snackbar，并在已有输入文件时写入失败
@@ -30,6 +59,9 @@ class CompressController extends GetxController {
 
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<CompressedImageFile>();
+  final selectedImages = <LocalImageFile>[].obs;
+  final tasks = <CompressionTask>[].obs;
+  final processedCount = 0.obs;
   final quality = 80.obs;
   final isBusy = false.obs;
 
@@ -57,8 +89,35 @@ class CompressController extends GetxController {
         return;
       }
       selectedImage.value = image;
+      selectedImages.assignAll([image]);
+      tasks.clear();
+      processedCount.value = 0;
       result.value = null;
       await _recentFilesRepository.recordImage(image);
+    } on AppException catch (error) {
+      _showError(error.message);
+    } catch (_) {
+      _showError('记录最近文件失败，请重试');
+    }
+  }
+
+  Future<void> pickImages() async {
+    if (isBusy.value) {
+      return;
+    }
+    try {
+      final images = await _imageChannel.pickMultipleImages();
+      if (images.isEmpty) {
+        return;
+      }
+      selectedImages.assignAll(images);
+      selectedImage.value = images.first;
+      result.value = null;
+      processedCount.value = 0;
+      tasks.assignAll(images.map((image) => CompressionTask(source: image)));
+      for (final image in images) {
+        await _recentFilesRepository.recordImage(image);
+      }
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
@@ -74,35 +133,74 @@ class CompressController extends GetxController {
     if (isBusy.value) {
       return;
     }
-    final source = selectedImage.value;
-    if (source == null) {
-      _showError('请先选择一张图片');
+    if (selectedImages.isEmpty) {
+      final source = selectedImage.value;
+      if (source != null) {
+        selectedImages.assignAll([source]);
+      }
+    }
+    if (selectedImages.isEmpty) {
+      _showError('请先选择图片');
       return;
     }
 
     isBusy.value = true;
+    processedCount.value = 0;
+    tasks.assignAll(
+      selectedImages.map((image) => CompressionTask(source: image)),
+    );
     try {
-      final compressed = await _imageChannel.compressImage(
-        source: source,
-        quality: quality.value,
-      );
-      result.value = compressed;
-      await _historyRepository.recordCompressionSuccess(
-        inputPath: source.path,
-        outputPath: compressed.outputPath,
-        quality: quality.value,
-      );
-      Get.snackbar('压缩完成', '图片已导出到应用缓存目录');
-    } on AppException catch (error) {
-      await _historyRepository.recordCompressionFailure(
-        inputPath: source.path,
-        quality: quality.value,
-        errorMessage: error.message,
-      );
-      _showError(error.message);
+      for (var index = 0; index < selectedImages.length; index++) {
+        final source = selectedImages[index];
+        try {
+          final compressed = await _imageChannel.compressImage(
+            source: source,
+            quality: quality.value,
+          );
+          result.value = compressed;
+          tasks[index] = tasks[index].copyWith(
+            result: compressed,
+            isCompleted: true,
+          );
+          await _historyRepository.recordCompressionSuccess(
+            inputPath: source.path,
+            outputPath: compressed.outputPath,
+            quality: quality.value,
+          );
+        } on AppException catch (error) {
+          tasks[index] = tasks[index].copyWith(
+            errorMessage: error.message,
+            isCompleted: true,
+          );
+          await _historyRepository.recordCompressionFailure(
+            inputPath: source.path,
+            quality: quality.value,
+            errorMessage: error.message,
+          );
+        } finally {
+          processedCount.value = index + 1;
+        }
+      }
+      final successCount = tasks.where((task) => task.isSuccess).length;
+      if (successCount == selectedImages.length) {
+        Get.snackbar('压缩完成', '已成功压缩 $successCount 张图片');
+      } else {
+        Get.snackbar(
+          '批量压缩完成',
+          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+        );
+      }
     } finally {
       isBusy.value = false;
     }
+  }
+
+  double get progress {
+    final total = selectedImages.length;
+    if (total <= 0) {
+      return 0;
+    }
+    return processedCount.value / total;
   }
 
   String formatBytes(int bytes) {

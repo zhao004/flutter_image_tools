@@ -17,7 +17,9 @@ import java.util.UUID
 class MainActivity : FlutterActivity() {
     private val channelName = "image_toolkit/local_image"
     private val pickImageRequestCode = 1042
+    private val pickMultipleImagesRequestCode = 1043
     private var pendingPickResult: MethodChannel.Result? = null
+    private var isMultipleSelection = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -28,6 +30,7 @@ class MainActivity : FlutterActivity() {
     private fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "pickSingleImage" -> pickSingleImage(result)
+            "pickMultipleImages" -> pickMultipleImages(result)
             "compressImage" -> compressImage(call, result)
             else -> result.notImplemented()
         }
@@ -51,12 +54,36 @@ class MainActivity : FlutterActivity() {
         }
 
         pendingPickResult = result
+        isMultipleSelection = false
         startActivityForResult(chooser, pickImageRequestCode)
+    }
+
+    private fun pickMultipleImages(result: MethodChannel.Result) {
+        if (pendingPickResult != null) {
+            result.error("busy", "已有图片选择任务正在进行", null)
+            return
+        }
+
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(intent, "选择多张图片")
+        if (chooser.resolveActivity(packageManager) == null) {
+            result.error("activity_missing", "当前设备没有可用的图片选择器", null)
+            return
+        }
+
+        pendingPickResult = result
+        isMultipleSelection = true
+        startActivityForResult(chooser, pickMultipleImagesRequestCode)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != pickImageRequestCode) {
+        if (requestCode != pickImageRequestCode && requestCode != pickMultipleImagesRequestCode) {
             return
         }
 
@@ -69,7 +96,20 @@ class MainActivity : FlutterActivity() {
 
         val uri = data?.data
         if (uri == null) {
-            result.error("file_not_found", "未获取到图片地址", null)
+            val clipData = data?.clipData
+            if (isMultipleSelection && clipData != null && clipData.itemCount > 0) {
+                try {
+                    val files = mutableListOf<Map<String, Any>>()
+                    for (index in 0 until clipData.itemCount) {
+                        files.add(copySelectedImage(clipData.getItemAt(index).uri))
+                    }
+                    result.success(files)
+                } catch (error: Exception) {
+                    result.error("file_not_found", error.message, null)
+                }
+            } else {
+                result.error("file_not_found", "未获取到图片地址", null)
+            }
             return
         }
 
@@ -83,9 +123,24 @@ class MainActivity : FlutterActivity() {
         }
 
         try {
-            result.success(copySelectedImage(uri))
+            if (isMultipleSelection) {
+                val files = mutableListOf<Map<String, Any>>()
+                data?.clipData?.let { clipData ->
+                    for (index in 0 until clipData.itemCount) {
+                        files.add(copySelectedImage(clipData.getItemAt(index).uri))
+                    }
+                }
+                if (files.isEmpty()) {
+                    files.add(copySelectedImage(uri))
+                }
+                result.success(files)
+            } else {
+                result.success(copySelectedImage(uri))
+            }
         } catch (error: Exception) {
             result.error("file_not_found", error.message, null)
+        } finally {
+            isMultipleSelection = false
         }
     }
 

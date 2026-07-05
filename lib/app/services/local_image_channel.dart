@@ -39,6 +39,31 @@ class LocalImageChannel {
     }
   }
 
+  Future<List<LocalImageFile>> pickMultipleImages() async {
+    try {
+      final result = await _channel.invokeListMethod<Object?>(
+        'pickMultipleImages',
+      );
+      if (result == null || result.isEmpty) {
+        return const [];
+      }
+      final files = <LocalImageFile>[];
+      for (final item in result) {
+        if (item is Map<Object?, Object?>) {
+          final file = LocalImageFile.fromMap(item);
+          if (file.path.isNotEmpty) {
+            files.add(file);
+          }
+        }
+      }
+      return files;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } catch (error) {
+      throw AppException('批量选择图片失败，请重试', cause: error);
+    }
+  }
+
   Future<CompressedImageFile> compressImage({
     required LocalImageFile source,
     required int quality,
