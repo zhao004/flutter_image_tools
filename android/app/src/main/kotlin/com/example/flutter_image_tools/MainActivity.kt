@@ -10,9 +10,11 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
+import android.graphics.pdf.PdfRenderer
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -27,6 +29,7 @@ class MainActivity : FlutterActivity() {
     private val channelName = "image_toolkit/local_image"
     private val pickImageRequestCode = 1042
     private val pickMultipleImagesRequestCode = 1043
+    private val pickPdfRequestCode = 1044
     private var pendingPickResult: MethodChannel.Result? = null
     private var isMultipleSelection = false
 
@@ -40,6 +43,7 @@ class MainActivity : FlutterActivity() {
         when (call.method) {
             "pickSingleImage" -> pickSingleImage(result)
             "pickMultipleImages" -> pickMultipleImages(result)
+            "pickSinglePdf" -> pickSinglePdf(result)
             "compressImage" -> compressImage(call, result)
             "convertImage" -> convertImage(call, result)
             "cropImage" -> cropImage(call, result)
@@ -54,6 +58,7 @@ class MainActivity : FlutterActivity() {
             "readExif" -> readExif(call, result)
             "removeExif" -> removeExif(call, result)
             "imagesToPdf" -> imagesToPdf(call, result)
+            "exportPdfPageAsImage" -> exportPdfPageAsImage(call, result)
             "annotateImage" -> annotateImage(call, result)
             else -> result.notImplemented()
         }
@@ -104,9 +109,35 @@ class MainActivity : FlutterActivity() {
         startActivityForResult(chooser, pickMultipleImagesRequestCode)
     }
 
+    private fun pickSinglePdf(result: MethodChannel.Result) {
+        if (pendingPickResult != null) {
+            result.error("busy", "已有文件选择任务正在进行", null)
+            return
+        }
+
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/pdf"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(intent, "选择 PDF")
+        if (chooser.resolveActivity(packageManager) == null) {
+            result.error("activity_missing", "当前设备没有可用的文件选择器", null)
+            return
+        }
+
+        pendingPickResult = result
+        isMultipleSelection = false
+        startActivityForResult(chooser, pickPdfRequestCode)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != pickImageRequestCode && requestCode != pickMultipleImagesRequestCode) {
+        if (
+            requestCode != pickImageRequestCode &&
+            requestCode != pickMultipleImagesRequestCode &&
+            requestCode != pickPdfRequestCode
+        ) {
             return
         }
 
@@ -118,6 +149,27 @@ class MainActivity : FlutterActivity() {
         }
 
         val uri = data?.data
+        if (requestCode == pickPdfRequestCode) {
+            if (uri == null) {
+                result.error("file_not_found", "未获取到 PDF 地址", null)
+                return
+            }
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            } catch (_: SecurityException) {
+                // 某些系统选择器不支持持久授权，当前会话仍可通过流复制文件。
+            }
+            try {
+                result.success(copySelectedPdf(uri))
+            } catch (error: Exception) {
+                result.error("file_not_found", error.message, null)
+            }
+            return
+        }
+
         if (uri == null) {
             val clipData = data?.clipData
             if (isMultipleSelection && clipData != null && clipData.itemCount > 0) {
@@ -187,6 +239,26 @@ class MainActivity : FlutterActivity() {
             "mimeType" to info.mimeType,
             "width" to readImageWidth(output),
             "height" to readImageHeight(output),
+        )
+    }
+
+    private fun copySelectedPdf(uri: Uri): Map<String, Any> {
+        val info = queryFileInfo(uri, "未命名.pdf", "application/pdf")
+        val inputDir = File(cacheDir, "selected_pdfs").apply { mkdirs() }
+        val output = File(inputDir, "${UUID.randomUUID()}.pdf")
+
+        contentResolver.openInputStream(uri).use { input ->
+            if (input == null) {
+                throw IllegalStateException("无法读取 PDF 内容")
+            }
+            FileOutputStream(output).use { outputStream -> input.copyTo(outputStream) }
+        }
+
+        return mapOf(
+            "path" to output.absolutePath,
+            "name" to info.name,
+            "sizeBytes" to output.length(),
+            "mimeType" to info.mimeType,
         )
     }
 
@@ -723,6 +795,81 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun exportPdfPageAsImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val pageNumber = call.argument<Int>("pageNumber") ?: 1
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "PDF 路径为空", null)
+            return
+        }
+        if (pageNumber < 1) {
+            result.error("invalid_args", "页码必须大于 0", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "PDF 文件不存在", null)
+            return
+        }
+
+        try {
+            ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+                PdfRenderer(descriptor).use { renderer ->
+                    val pageCount = renderer.pageCount
+                    if (pageCount <= 0) {
+                        result.error("invalid_pdf", "PDF 没有可导出的页面", null)
+                        return
+                    }
+                    if (pageNumber > pageCount) {
+                        result.error("invalid_args", "页码超出 PDF 总页数", null)
+                        return
+                    }
+                    renderer.openPage(pageNumber - 1).use { page ->
+                        val scale = 2
+                        val width = (page.width * scale).coerceAtLeast(1)
+                        val height = (page.height * scale).coerceAtLeast(1)
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        try {
+                            bitmap.eraseColor(Color.WHITE)
+                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            val outputDir = File(cacheDir, "pdf_page_images").apply { mkdirs() }
+                            val output = File(
+                                outputDir,
+                                "pdf_page_${pageNumber}_${System.currentTimeMillis()}.png",
+                            )
+                            FileOutputStream(output).use { stream ->
+                                val success = bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                                if (!success) {
+                                    result.error("export_failed", "PDF 页面图片导出失败", null)
+                                    return
+                                }
+                            }
+                            result.success(
+                                mapOf(
+                                    "outputPath" to output.absolutePath,
+                                    "outputSizeBytes" to output.length(),
+                                    "pageNumber" to pageNumber,
+                                    "pageCount" to pageCount,
+                                    "width" to width,
+                                    "height" to height,
+                                ),
+                            )
+                        } finally {
+                            bitmap.recycle()
+                        }
+                    }
+                }
+            }
+        } catch (error: SecurityException) {
+            result.error("file_not_found", error.message, null)
+        } catch (error: IllegalArgumentException) {
+            result.error("invalid_pdf", error.message, null)
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        }
+    }
+
     private fun annotateImage(call: MethodCall, result: MethodChannel.Result) {
         val path = call.argument<String>("path")
         val mode = (call.argument<String>("mode") ?: "brush").lowercase()
@@ -1216,16 +1363,9 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun queryImageInfo(uri: Uri): ImageInfo {
-        var name = "selected_image"
-        var mimeType = contentResolver.getType(uri) ?: "image/*"
-        contentResolver.query(uri, null, null, null, null).use { cursor ->
-            if (cursor != null && cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (nameIndex >= 0) {
-                    name = cursor.getString(nameIndex) ?: name
-                }
-            }
-        }
+        val info = queryFileInfo(uri, "selected_image", "image/*")
+        var name = info.name
+        var mimeType = info.mimeType
 
         if (mimeType == "image/*") {
             mimeType = when (name.substringAfterLast('.', "").lowercase()) {
@@ -1234,6 +1374,20 @@ class MainActivity : FlutterActivity() {
                 "webp" -> "image/webp"
                 "bmp" -> "image/bmp"
                 else -> mimeType
+            }
+        }
+        return ImageInfo(name = name, mimeType = mimeType)
+    }
+
+    private fun queryFileInfo(uri: Uri, fallbackName: String, fallbackMimeType: String): ImageInfo {
+        var name = fallbackName
+        val mimeType = contentResolver.getType(uri) ?: fallbackMimeType
+        contentResolver.query(uri, null, null, null, null).use { cursor ->
+            if (cursor != null && cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0) {
+                    name = cursor.getString(nameIndex) ?: name
+                }
             }
         }
         return ImageInfo(name = name, mimeType = mimeType)

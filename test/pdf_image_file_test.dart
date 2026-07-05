@@ -1,5 +1,7 @@
 import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
+import 'package:flutter_image_tools/app/core/models/pdf_document_file.dart';
 import 'package:flutter_image_tools/app/core/models/pdf_image_file.dart';
+import 'package:flutter_image_tools/app/core/models/pdf_page_image_file.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -66,6 +68,62 @@ void main() {
       expect(pdf.pageCount, 2);
       expect(pdf.pageSize, 'a4');
       expect(pdf.orientation, 'portrait');
+    });
+  });
+
+  group('PdfDocumentFile', () {
+    test('解析 PDF 文件选择结果并使用安全默认值', () {
+      final pdf = PdfDocumentFile.fromMap(const <Object?, Object?>{
+        'path': '/tmp/source.pdf',
+        'name': 'source.pdf',
+        'sizeBytes': 4096,
+      });
+
+      expect(pdf.path, '/tmp/source.pdf');
+      expect(pdf.name, 'source.pdf');
+      expect(pdf.sizeBytes, 4096);
+      expect(pdf.mimeType, 'application/pdf');
+    });
+  });
+
+  group('PdfPageImageFile', () {
+    test('解析 PDF 页面导出图片结果并保留页码信息', () {
+      final image = PdfPageImageFile.fromMap(
+        sourcePath: '/tmp/source.pdf',
+        sourceName: 'source.pdf',
+        requestedPageNumber: 2,
+        map: const <Object?, Object?>{
+          'outputPath': '/tmp/page_2.png',
+          'outputSizeBytes': 8192,
+          'pageNumber': 2,
+          'pageCount': 5,
+          'width': 1200,
+          'height': 1600,
+        },
+      );
+
+      expect(image.sourcePath, '/tmp/source.pdf');
+      expect(image.sourceName, 'source.pdf');
+      expect(image.outputPath, '/tmp/page_2.png');
+      expect(image.outputSizeBytes, 8192);
+      expect(image.pageNumber, 2);
+      expect(image.pageCount, 5);
+      expect(image.width, 1200);
+      expect(image.height, 1600);
+      expect(image.hasValidDimensions, isTrue);
+    });
+
+    test('通道缺少页码时使用请求页码兜底', () {
+      final image = PdfPageImageFile.fromMap(
+        sourcePath: '/tmp/source.pdf',
+        sourceName: 'source.pdf',
+        requestedPageNumber: 3,
+        map: const <Object?, Object?>{'outputPath': '/tmp/page_3.png'},
+      );
+
+      expect(image.pageNumber, 3);
+      expect(image.pageCount, 0);
+      expect(image.hasValidDimensions, isFalse);
     });
   });
 }

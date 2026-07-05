@@ -1,8 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../core/exceptions/app_exception.dart';
 import '../../core/models/local_image_file.dart';
+import '../../core/models/pdf_document_file.dart';
 import '../../core/models/pdf_image_file.dart';
+import '../../core/models/pdf_page_image_file.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
@@ -27,10 +30,10 @@ enum PdfOrientation {
   final String value;
 }
 
-/// PDF 工具控制器，负责批量选图并生成本地 PDF 文件。
+/// PDF 工具控制器，负责图片转 PDF 和 PDF 指定页面导出图片。
 ///
 /// 异常策略：Dart 层限制图片数量和页面参数，Android 层负责文件存在性、
-/// 图片解码和 PDF 写入校验；失败写入历史记录，便于追踪具体输入组合。
+/// 图片解码、PDF 读取和文件写入校验；失败写入历史记录，便于追踪输入组合。
 class PdfController extends GetxController {
   PdfController({
     required LocalImageChannel imageChannel,
@@ -46,9 +49,18 @@ class PdfController extends GetxController {
 
   final selectedImages = <LocalImageFile>[].obs;
   final result = Rxn<PdfImageFile>();
+  final selectedPdf = Rxn<PdfDocumentFile>();
+  final pageImageResult = Rxn<PdfPageImageFile>();
   final pageSize = PdfPageSize.a4.obs;
   final orientation = PdfOrientation.portrait.obs;
   final isBusy = false.obs;
+  final pageNumberController = TextEditingController(text: '1');
+
+  @override
+  void onClose() {
+    pageNumberController.dispose();
+    super.onClose();
+  }
 
   Future<void> pickImages() async {
     if (isBusy.value) {
@@ -72,6 +84,27 @@ class PdfController extends GetxController {
       _showError(error.message);
     } catch (_) {
       _showError('记录最近文件失败，请重试');
+    }
+  }
+
+  Future<void> pickPdf() async {
+    if (isBusy.value) {
+      return;
+    }
+    try {
+      final pdf = await _imageChannel.pickSinglePdf();
+      if (pdf == null) {
+        return;
+      }
+      selectedPdf.value = pdf;
+      pageImageResult.value = null;
+      if (pageNumberController.text.trim().isEmpty) {
+        pageNumberController.text = '1';
+      }
+    } on AppException catch (error) {
+      _showError(error.message);
+    } catch (_) {
+      _showError('选择 PDF 失败，请重试');
     }
   }
 
@@ -113,6 +146,51 @@ class PdfController extends GetxController {
         featureName: '图片转 PDF',
         inputPath: inputPath,
         parameters: _historyParameters(),
+        errorMessage: error.message,
+      );
+      _showError(error.message);
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
+  Future<void> exportPdfPage() async {
+    if (isBusy.value) {
+      return;
+    }
+    final pdf = selectedPdf.value;
+    if (pdf == null) {
+      _showError('请先选择 PDF 文件');
+      return;
+    }
+    final pageNumber = int.tryParse(pageNumberController.text.trim());
+    if (pageNumber == null || pageNumber < 1) {
+      _showError('页码必须是大于 0 的整数');
+      return;
+    }
+
+    isBusy.value = true;
+    try {
+      final image = await _imageChannel.exportPdfPageAsImage(
+        source: pdf,
+        pageNumber: pageNumber,
+      );
+      pageImageResult.value = image;
+      await _historyRepository.recordOperationSuccess(
+        featureName: 'PDF 转图片',
+        inputPath: pdf.path,
+        outputPath: image.outputPath,
+        parameters: <String, Object>{
+          'pageNumber': image.pageNumber,
+          'pageCount': image.pageCount,
+        },
+      );
+      Get.snackbar('页面已导出', 'PDF 第 ${image.pageNumber} 页已导出为 PNG');
+    } on AppException catch (error) {
+      await _historyRepository.recordOperationFailure(
+        featureName: 'PDF 转图片',
+        inputPath: pdf.path,
+        parameters: <String, Object>{'pageNumber': pageNumber},
         errorMessage: error.message,
       );
       _showError(error.message);

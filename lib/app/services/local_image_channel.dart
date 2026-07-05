@@ -13,7 +13,9 @@ import '../core/models/grid_image_file.dart';
 import '../core/models/image_watermarked_file.dart';
 import '../core/models/local_image_file.dart';
 import '../core/models/merged_image_file.dart';
+import '../core/models/pdf_document_file.dart';
 import '../core/models/pdf_image_file.dart';
+import '../core/models/pdf_page_image_file.dart';
 import '../core/models/resized_image_file.dart';
 import '../core/models/rotated_image_file.dart';
 import '../core/models/watermarked_image_file.dart';
@@ -103,6 +105,28 @@ class LocalImageChannel {
       throw AppException(_messageForCode(error.code), cause: error);
     } catch (error) {
       throw AppException('批量选择图片失败，请重试', cause: error);
+    }
+  }
+
+  Future<PdfDocumentFile?> pickSinglePdf() async {
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'pickSinglePdf',
+      );
+      if (result == null) {
+        return null;
+      }
+      final file = PdfDocumentFile.fromMap(result);
+      if (file.path.isEmpty) {
+        throw const AppException('PDF 路径为空，请重新选择文件');
+      }
+      return file;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('选择 PDF 失败，请重试', cause: error);
     }
   }
 
@@ -738,6 +762,47 @@ class LocalImageChannel {
     }
   }
 
+  Future<PdfPageImageFile> exportPdfPageAsImage({
+    required PdfDocumentFile source,
+    required int pageNumber,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('PDF 路径为空，无法导出图片');
+    }
+    if (pageNumber < 1) {
+      throw const AppException('PDF 页码必须大于 0');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'exportPdfPageAsImage',
+        <String, Object?>{'path': source.path, 'pageNumber': pageNumber},
+      );
+      if (result == null) {
+        throw const AppException('PDF 页面导出结果为空，请重试');
+      }
+      final image = PdfPageImageFile.fromMap(
+        sourcePath: source.path,
+        sourceName: source.name,
+        requestedPageNumber: pageNumber,
+        map: result,
+      );
+      if (image.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      if (!image.hasValidDimensions) {
+        throw const AppException('导出图片尺寸异常，请重试');
+      }
+      return image;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('PDF 页面导出图片失败，请重试', cause: error);
+    }
+  }
+
   Future<AnnotatedImageFile> annotateImage({
     required LocalImageFile source,
     required String mode,
@@ -797,6 +862,7 @@ class LocalImageChannel {
     return switch (code) {
       'file_not_found' => '图片文件不存在，请重新选择',
       'invalid_image' => '图片格式不支持或文件已损坏',
+      'invalid_pdf' => 'PDF 文件无效或已损坏',
       'invalid_args' => '图片处理参数无效，请检查后重试',
       'export_failed' => '导出图片失败，请检查存储空间',
       'activity_missing' => '当前设备没有可用的图片选择器',

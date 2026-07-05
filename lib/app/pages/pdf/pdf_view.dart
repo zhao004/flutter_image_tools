@@ -3,10 +3,10 @@ import 'package:get/get.dart';
 
 import 'pdf_controller.dart';
 
-/// PDF 工具页，支持多张图片离线生成 PDF。
+/// PDF 工具页，支持多张图片离线生成 PDF，也支持指定 PDF 页面导出 PNG。
 ///
-/// 构建设计：每张图片对应一个 PDF 页面，页面规格和方向统一设置；当前版本
-/// 先保证图片转 PDF 稳定闭环，PDF 转图片和指定页面导出后续扩展。
+/// 构建设计：图片转 PDF 与 PDF 转图片分为独立卡片，避免两个流程的输入
+/// 状态互相影响；导出页码在 Dart 层先做整数校验，真实页数由 Android 校验。
 class PdfView extends GetView<PdfController> {
   const PdfView({super.key});
 
@@ -38,10 +38,114 @@ class PdfView extends GetView<PdfController> {
             ),
             const SizedBox(height: 16),
             _ResultCard(controller: controller),
+            const SizedBox(height: 24),
+            _PdfPageExportCard(controller: controller),
+            const SizedBox(height: 16),
+            _PageImageResultCard(controller: controller),
           ],
         ),
       ),
     );
+  }
+}
+
+class _PdfPageExportCard extends StatelessWidget {
+  const _PdfPageExportCard({required this.controller});
+
+  final PdfController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Obx(() {
+          final pdf = controller.selectedPdf.value;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('PDF 转图片', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              if (pdf == null)
+                const Text('请选择一个 PDF 文件，并输入要导出的页码。')
+              else ...[
+                Text(pdf.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Text('文件大小：${controller.formatBytes(pdf.sizeBytes)}'),
+              ],
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: controller.isBusy.value ? null : controller.pickPdf,
+                icon: const Icon(Icons.upload_file_outlined),
+                label: Text(pdf == null ? '选择 PDF' : '重新选择 PDF'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller.pageNumberController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: '导出页码',
+                  helperText: '页码从 1 开始，超出页数会提示错误。',
+                  border: OutlineInputBorder(),
+                ),
+                enabled: !controller.isBusy.value,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: controller.isBusy.value
+                    ? null
+                    : controller.exportPdfPage,
+                icon: controller.isBusy.value
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.image_outlined),
+                label: Text(controller.isBusy.value ? '导出中' : '导出页面 PNG'),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _PageImageResultCard extends StatelessWidget {
+  const _PageImageResultCard({required this.controller});
+
+  final PdfController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final result = controller.pageImageResult.value;
+      if (result == null) {
+        return const SizedBox.shrink();
+      }
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('页面图片结果', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text('源文件：${result.sourceName}'),
+              Text('页码：${result.pageNumber} / ${result.pageCount}'),
+              Text('尺寸：${result.width} × ${result.height}'),
+              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              const SizedBox(height: 8),
+              Text(
+                result.outputPath,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 
