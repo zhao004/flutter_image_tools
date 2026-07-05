@@ -107,6 +107,13 @@ class HomeController extends GetxController {
       route: Routes.filter,
     ),
     const HomeToolItem(
+      title: '九宫格切图',
+      description: '2×2 到 5×5 编号切片',
+      icon: 'grid',
+      availability: ToolAvailability.available,
+      route: Routes.grid,
+    ),
+    const HomeToolItem(
       title: '格式转换',
       description: 'PNG、JPG、WebP、BMP',
       icon: 'convert',

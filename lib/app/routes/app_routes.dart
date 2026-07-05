@@ -10,6 +10,7 @@ abstract class Routes {
   static const crop = _Paths.crop;
   static const filter = _Paths.filter;
   static const flip = _Paths.flip;
+  static const grid = _Paths.grid;
   static const history = _Paths.history;
   static const merge = _Paths.merge;
   static const resize = _Paths.resize;
@@ -27,6 +28,7 @@ abstract class _Paths {
   static const crop = '/crop';
   static const filter = '/filter';
   static const flip = '/flip';
+  static const grid = '/grid';
   static const history = '/history';
   static const merge = '/merge';
   static const resize = '/resize';

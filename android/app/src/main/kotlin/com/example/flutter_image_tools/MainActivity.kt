@@ -43,6 +43,7 @@ class MainActivity : FlutterActivity() {
             "applyFilter" -> applyFilter(call, result)
             "flipImage" -> flipImage(call, result)
             "mergeImages" -> mergeImages(call, result)
+            "splitGridImage" -> splitGridImage(call, result)
             "resizeImage" -> resizeImage(call, result)
             "rotateImage" -> rotateImage(call, result)
             "addTextWatermark" -> addTextWatermark(call, result)
@@ -720,6 +721,98 @@ class MainActivity : FlutterActivity() {
             result.error("export_failed", error.message, null)
         } finally {
             outputBitmap.recycle()
+            bitmap.recycle()
+        }
+    }
+
+    private fun splitGridImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val gridSize = call.argument<Int>("gridSize") ?: 3
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (gridSize !in 2..5) {
+            result.error("invalid_args", "网格大小必须在 2 到 5 之间", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+        if (bitmap.width < gridSize || bitmap.height < gridSize) {
+            bitmap.recycle()
+            result.error("invalid_args", "图片宽高不能小于网格数量", null)
+            return
+        }
+
+        val outputPaths = mutableListOf<String>()
+        try {
+            val outputDir = File(
+                File(cacheDir, "grid_images").apply { mkdirs() },
+                "grid_${System.currentTimeMillis()}",
+            ).apply { mkdirs() }
+            var totalSizeBytes = 0L
+            var pieceIndex = 1
+            for (row in 0 until gridSize) {
+                val top = bitmap.height * row / gridSize
+                val bottom = bitmap.height * (row + 1) / gridSize
+                for (column in 0 until gridSize) {
+                    val left = bitmap.width * column / gridSize
+                    val right = bitmap.width * (column + 1) / gridSize
+                    val pieceWidth = right - left
+                    val pieceHeight = bottom - top
+                    val pieceBitmap = Bitmap.createBitmap(
+                        bitmap,
+                        left,
+                        top,
+                        pieceWidth,
+                        pieceHeight,
+                    )
+                    try {
+                        val output = File(
+                            outputDir,
+                            "piece_${pieceIndex.toString().padStart(2, '0')}.jpg",
+                        )
+                        FileOutputStream(output).use { stream ->
+                            val success = pieceBitmap.compress(
+                                Bitmap.CompressFormat.JPEG,
+                                95,
+                                stream,
+                            )
+                            if (!success) {
+                                result.error("export_failed", "图片切片导出失败", null)
+                                return
+                            }
+                        }
+                        outputPaths.add(output.absolutePath)
+                        totalSizeBytes += output.length()
+                        pieceIndex += 1
+                    } finally {
+                        pieceBitmap.recycle()
+                    }
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputDirectory" to outputDir.absolutePath,
+                    "outputPaths" to outputPaths,
+                    "outputSizeBytes" to totalSizeBytes,
+                    "gridSize" to gridSize,
+                    "pieceCount" to outputPaths.size,
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
             bitmap.recycle()
         }
     }

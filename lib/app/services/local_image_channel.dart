@@ -6,6 +6,7 @@ import '../core/models/converted_image_file.dart';
 import '../core/models/cropped_image_file.dart';
 import '../core/models/filtered_image_file.dart';
 import '../core/models/flipped_image_file.dart';
+import '../core/models/grid_image_file.dart';
 import '../core/models/local_image_file.dart';
 import '../core/models/merged_image_file.dart';
 import '../core/models/resized_image_file.dart';
@@ -24,6 +25,8 @@ class LocalImageChannel {
   static const String _channelName = 'image_toolkit/local_image';
   static const int maxResizeDimension = 10000;
   static const int maxMergeImages = 20;
+  static const int minGridSize = 2;
+  static const int maxGridSize = 5;
   static const Set<String> supportedFilters = {
     'grayscale',
     'monochrome',
@@ -499,6 +502,46 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('应用图片滤镜失败，请重试', cause: error);
+    }
+  }
+
+  Future<GridImageFile> splitGridImage({
+    required LocalImageFile source,
+    required int gridSize,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法切图');
+    }
+    if (gridSize < minGridSize || gridSize > maxGridSize) {
+      throw const AppException('网格大小必须在 2 到 5 之间');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'splitGridImage',
+        <String, Object?>{'path': source.path, 'gridSize': gridSize},
+      );
+      if (result == null) {
+        throw const AppException('切图结果为空，请重试');
+      }
+      final gridImage = GridImageFile.fromMap(
+        source: source,
+        gridSize: gridSize,
+        map: result,
+      );
+      if (gridImage.outputDirectory.isEmpty || gridImage.outputPaths.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      if (gridImage.pieceCount != gridSize * gridSize) {
+        throw const AppException('切片数量异常，请重试');
+      }
+      return gridImage;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('九宫格切图失败，请重试', cause: error);
     }
   }
 

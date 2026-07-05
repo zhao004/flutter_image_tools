@@ -177,7 +177,7 @@ class _HeaderCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '图片只在手机本地处理，不上传服务器；第一阶段已开放图片压缩闭环。',
+              '图片只在手机本地处理，不上传服务器；已开放压缩、裁剪、拼接、滤镜等本地处理能力。',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onPrimaryContainer,
               ),
@@ -263,6 +263,7 @@ IconData _toolIconFor(String key) {
     'rotate' => Icons.rotate_90_degrees_ccw,
     'watermark' => Icons.branding_watermark_outlined,
     'filter' => Icons.filter_vintage_outlined,
+    'grid' => Icons.grid_view_outlined,
     'convert' => Icons.swap_horiz,
     'pdf' => Icons.picture_as_pdf_outlined,
     'qrcode' => Icons.qr_code,
