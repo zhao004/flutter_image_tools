@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Movie
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
@@ -66,6 +67,7 @@ class MainActivity : FlutterActivity() {
             "readExif" -> readExif(call, result)
             "removeExif" -> removeExif(call, result)
             "imagesToGif" -> imagesToGif(call, result)
+            "exportGifFrames" -> exportGifFrames(call, result)
             "imagesToPdf" -> imagesToPdf(call, result)
             "exportPdfPageAsImage" -> exportPdfPageAsImage(call, result)
             "exportPdfAllPagesAsImages" -> exportPdfAllPagesAsImages(call, result)
@@ -840,6 +842,85 @@ class MainActivity : FlutterActivity() {
             result.error("export_failed", error.message, null)
         } finally {
             frames.forEach { it.recycle() }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun exportGifFrames(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val frameStepMs = call.argument<Int>("frameStepMs") ?: 200
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "GIF 路径为空", null)
+            return
+        }
+        if (frameStepMs !in 50..1000) {
+            result.error("invalid_args", "拆帧间隔必须在 50 到 1000 毫秒之间", null)
+            return
+        }
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "GIF 文件不存在", null)
+            return
+        }
+
+        val movie = Movie.decodeFile(source.absolutePath)
+        if (movie == null || movie.width() <= 0 || movie.height() <= 0) {
+            result.error("invalid_image", "GIF 格式不支持或文件已损坏", null)
+            return
+        }
+
+        val durationMs = movie.duration().takeIf { it > 0 } ?: frameStepMs
+        val frameCount = ((durationMs + frameStepMs - 1) / frameStepMs)
+            .coerceAtLeast(1)
+            .coerceAtMost(120)
+        val outputDir = File(
+            cacheDir,
+            "gif_frames/frames_${System.currentTimeMillis()}",
+        ).apply { mkdirs() }
+        val outputPaths = mutableListOf<String>()
+        var totalOutputSizeBytes = 0L
+
+        try {
+            for (index in 0 until frameCount) {
+                val timeMs = (index * frameStepMs).coerceAtMost((durationMs - 1).coerceAtLeast(0))
+                movie.setTime(timeMs)
+                val bitmap = Bitmap.createBitmap(
+                    movie.width(),
+                    movie.height(),
+                    Bitmap.Config.ARGB_8888,
+                )
+                try {
+                    val canvas = Canvas(bitmap)
+                    canvas.drawColor(Color.TRANSPARENT)
+                    movie.draw(canvas, 0f, 0f)
+                    val output = File(outputDir, "frame_${index + 1}.png")
+                    FileOutputStream(output).use { stream ->
+                        val success = bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                        if (!success) {
+                            result.error("export_failed", "GIF 帧导出失败", null)
+                            return
+                        }
+                    }
+                    outputPaths.add(output.absolutePath)
+                    totalOutputSizeBytes += output.length()
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputDirectory" to outputDir.absolutePath,
+                    "outputPaths" to outputPaths,
+                    "totalOutputSizeBytes" to totalOutputSizeBytes,
+                    "frameCount" to outputPaths.size,
+                    "durationMs" to durationMs,
+                    "frameStepMs" to frameStepMs,
+                    "width" to movie.width(),
+                    "height" to movie.height(),
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
         }
     }
 

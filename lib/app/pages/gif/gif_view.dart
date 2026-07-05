@@ -38,10 +38,130 @@ class GifView extends GetView<GifController> {
             ),
             const SizedBox(height: 16),
             _ResultCard(controller: controller),
+            const SizedBox(height: 24),
+            _FrameExportCard(controller: controller),
+            const SizedBox(height: 16),
+            _FrameExportResultCard(controller: controller),
           ],
         ),
       ),
     );
+  }
+}
+
+class _FrameExportCard extends StatelessWidget {
+  const _FrameExportCard({required this.controller});
+
+  final GifController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Obx(() {
+          final gif = controller.selectedGif.value;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('GIF 拆帧', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              if (gif == null)
+                const Text('请选择 GIF 图片，按固定时间间隔导出 PNG 帧图片。')
+              else ...[
+                Text(gif.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Text('文件大小：${controller.formatBytes(gif.sizeBytes)}'),
+              ],
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: controller.isBusy.value ? null : controller.pickGif,
+                icon: const Icon(Icons.upload_file_outlined),
+                label: Text(gif == null ? '选择 GIF' : '重新选择 GIF'),
+              ),
+              const SizedBox(height: 16),
+              Text('拆帧间隔：${controller.frameStepMs.value} ms'),
+              Slider(
+                value: controller.frameStepMs.value.toDouble(),
+                min: LocalImageChannelLimits.minGifFrameStepMs.toDouble(),
+                max: LocalImageChannelLimits.maxGifFrameStepMs.toDouble(),
+                divisions: 19,
+                label: '${controller.frameStepMs.value} ms',
+                onChanged: controller.isBusy.value
+                    ? null
+                    : controller.updateFrameStep,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: controller.isBusy.value
+                    ? null
+                    : controller.exportFrames,
+                icon: controller.isBusy.value
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.burst_mode_outlined),
+                label: Text(controller.isBusy.value ? '导出中' : '导出帧图片'),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _FrameExportResultCard extends StatelessWidget {
+  const _FrameExportResultCard({required this.controller});
+
+  final GifController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final result = controller.framesExport.value;
+      if (result == null) {
+        return const SizedBox.shrink();
+      }
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('拆帧结果', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text('帧数：${result.frameCount} 张'),
+              Text('动画时长：${result.durationMs} ms'),
+              Text('拆帧间隔：${result.frameStepMs} ms'),
+              Text('尺寸：${result.width} × ${result.height} px'),
+              Text(
+                '总大小：${controller.formatBytes(result.totalOutputSizeBytes)}',
+              ),
+              const SizedBox(height: 8),
+              Text(
+                result.outputDirectory,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              ...result.outputPaths
+                  .take(3)
+                  .map(
+                    (path) => Text(
+                      path,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              if (result.outputPaths.length > 3)
+                Text('还有 ${result.outputPaths.length - 3} 个文件'),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 
@@ -183,4 +303,6 @@ class LocalImageChannelLimits {
 
   static const int minGifDelayMs = 50;
   static const int maxGifDelayMs = 2000;
+  static const int minGifFrameStepMs = 50;
+  static const int maxGifFrameStepMs = 1000;
 }

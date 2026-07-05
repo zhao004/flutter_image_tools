@@ -10,6 +10,7 @@ import '../core/models/exif_cleaned_image_file.dart';
 import '../core/models/exif_info.dart';
 import '../core/models/filtered_image_file.dart';
 import '../core/models/flipped_image_file.dart';
+import '../core/models/gif_frames_export.dart';
 import '../core/models/gif_image_file.dart';
 import '../core/models/grid_image_file.dart';
 import '../core/models/image_watermarked_file.dart';
@@ -39,6 +40,8 @@ class LocalImageChannel {
   static const int maxGifImages = 30;
   static const int minGifDelayMs = 50;
   static const int maxGifDelayMs = 2000;
+  static const int minGifFrameStepMs = 50;
+  static const int maxGifFrameStepMs = 1000;
   static const int minGridSize = 2;
   static const int maxGridSize = 5;
   static const Set<String> supportedFilters = {
@@ -844,6 +847,43 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('生成 GIF 失败，请重试', cause: error);
+    }
+  }
+
+  Future<GifFramesExport> exportGifFrames({
+    required LocalImageFile source,
+    required int frameStepMs,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('GIF 路径为空，无法拆帧');
+    }
+    if (frameStepMs < minGifFrameStepMs || frameStepMs > maxGifFrameStepMs) {
+      throw const AppException('拆帧间隔必须在 50 到 1000 毫秒之间');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'exportGifFrames',
+        <String, Object?>{'path': source.path, 'frameStepMs': frameStepMs},
+      );
+      if (result == null) {
+        throw const AppException('GIF 拆帧结果为空，请重试');
+      }
+      final export = GifFramesExport.fromMap(
+        source: source,
+        frameStepMs: frameStepMs,
+        map: result,
+      );
+      if (!export.isComplete) {
+        throw const AppException('GIF 拆帧数量异常，请重试');
+      }
+      return export;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('GIF 拆帧失败，请重试', cause: error);
     }
   }
 

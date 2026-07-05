@@ -1,3 +1,4 @@
+import 'package:flutter_image_tools/app/core/models/gif_frames_export.dart';
 import 'package:flutter_image_tools/app/core/models/gif_image_file.dart';
 import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -74,6 +75,76 @@ void main() {
       expect(gif.frameCount, 2);
       expect(gif.delayMs, 500);
       expect(gif.hasValidDimensions, isFalse);
+    });
+  });
+
+  group('GifFramesExport', () {
+    test('解析 GIF 拆帧结果并冻结输出路径', () {
+      const source = LocalImageFile(
+        path: '/tmp/source.gif',
+        name: 'source.gif',
+        sizeBytes: 4096,
+        mimeType: 'image/gif',
+        width: 320,
+        height: 240,
+      );
+
+      final export = GifFramesExport.fromMap(
+        source: source,
+        frameStepMs: 200,
+        map: const <Object?, Object?>{
+          'outputDirectory': '/tmp/gif_frames',
+          'outputPaths': [
+            '/tmp/gif_frames/frame_1.png',
+            '/tmp/gif_frames/frame_2.png',
+          ],
+          'totalOutputSizeBytes': 8192,
+          'frameCount': 2,
+          'durationMs': 400,
+          'frameStepMs': 200,
+          'width': 320,
+          'height': 240,
+        },
+      );
+
+      expect(export.source, source);
+      expect(export.outputDirectory, '/tmp/gif_frames');
+      expect(export.outputPaths, hasLength(2));
+      expect(export.totalOutputSizeBytes, 8192);
+      expect(export.frameCount, 2);
+      expect(export.durationMs, 400);
+      expect(export.frameStepMs, 200);
+      expect(export.isComplete, isTrue);
+      expect(
+        () => export.outputPaths.add('/tmp/gif_frames/frame_3.png'),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('缺少帧数时使用输出路径数量兜底', () {
+      const source = LocalImageFile(
+        path: '/tmp/source.gif',
+        name: 'source.gif',
+        sizeBytes: 4096,
+        mimeType: 'image/gif',
+        width: 320,
+        height: 240,
+      );
+
+      final export = GifFramesExport.fromMap(
+        source: source,
+        frameStepMs: 250,
+        map: const <Object?, Object?>{
+          'outputDirectory': '/tmp/gif_frames',
+          'outputPaths': ['/tmp/gif_frames/frame_1.png'],
+          'width': 320,
+          'height': 240,
+        },
+      );
+
+      expect(export.frameCount, 1);
+      expect(export.frameStepMs, 250);
+      expect(export.isComplete, isTrue);
     });
   });
 }
