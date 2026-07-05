@@ -6,6 +6,7 @@ import '../core/models/converted_image_file.dart';
 import '../core/models/cropped_image_file.dart';
 import '../core/models/flipped_image_file.dart';
 import '../core/models/local_image_file.dart';
+import '../core/models/merged_image_file.dart';
 import '../core/models/resized_image_file.dart';
 import '../core/models/rotated_image_file.dart';
 
@@ -20,6 +21,7 @@ class LocalImageChannel {
 
   static const String _channelName = 'image_toolkit/local_image';
   static const int maxResizeDimension = 10000;
+  static const int maxMergeImages = 20;
   static const Set<String> supportedConvertFormats = {
     'jpg',
     'png',
@@ -320,6 +322,64 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('裁剪图片失败，请重试', cause: error);
+    }
+  }
+
+  Future<MergedImageFile> mergeImages({
+    required List<LocalImageFile> sources,
+    required String mode,
+    required int columns,
+    required int spacing,
+  }) async {
+    if (sources.length < 2) {
+      throw const AppException('请至少选择两张图片进行拼接');
+    }
+    if (sources.length > maxMergeImages) {
+      throw const AppException('单次最多拼接 20 张图片');
+    }
+    final normalizedMode = mode.trim().toLowerCase();
+    if (!{'horizontal', 'vertical', 'grid'}.contains(normalizedMode)) {
+      throw const AppException('拼接模式无效');
+    }
+    if (columns < 1 || columns > 10) {
+      throw const AppException('网格列数必须在 1 到 10 之间');
+    }
+    if (spacing < 0 || spacing > 100) {
+      throw const AppException('图片间距必须在 0 到 100 像素之间');
+    }
+    final paths = sources.map((image) => image.path.trim()).toList();
+    if (paths.any((path) => path.isEmpty)) {
+      throw const AppException('图片路径为空，无法拼接');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'mergeImages',
+        <String, Object?>{
+          'paths': paths,
+          'mode': normalizedMode,
+          'columns': columns,
+          'spacing': spacing,
+        },
+      );
+      if (result == null) {
+        throw const AppException('拼接结果为空，请重试');
+      }
+      final merged = MergedImageFile.fromMap(
+        sources: sources,
+        mode: normalizedMode,
+        map: result,
+      );
+      if (merged.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return merged;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('拼接图片失败，请重试', cause: error);
     }
   }
 

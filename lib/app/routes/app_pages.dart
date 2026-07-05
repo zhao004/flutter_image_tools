@@ -14,6 +14,8 @@ import '../pages/history/history_binding.dart';
 import '../pages/history/history_view.dart';
 import '../pages/home/home_binding.dart';
 import '../pages/home/home_view.dart';
+import '../pages/merge/merge_binding.dart';
+import '../pages/merge/merge_view.dart';
 import '../pages/resize/resize_binding.dart';
 import '../pages/resize/resize_view.dart';
 import '../pages/rotate/rotate_binding.dart';
@@ -58,6 +60,11 @@ class AppPages {
       name: _Paths.history,
       page: () => const HistoryView(),
       binding: HistoryBinding(),
+    ),
+    GetPage(
+      name: _Paths.merge,
+      page: () => const MergeView(),
+      binding: MergeBinding(),
     ),
     GetPage(
       name: _Paths.flip,

@@ -10,6 +10,7 @@ abstract class Routes {
   static const crop = _Paths.crop;
   static const flip = _Paths.flip;
   static const history = _Paths.history;
+  static const merge = _Paths.merge;
   static const resize = _Paths.resize;
   static const rotate = _Paths.rotate;
   static const settings = _Paths.settings;
@@ -24,6 +25,7 @@ abstract class _Paths {
   static const crop = '/crop';
   static const flip = '/flip';
   static const history = '/history';
+  static const merge = '/merge';
   static const resize = '/resize';
   static const rotate = '/rotate';
   static const settings = '/settings';

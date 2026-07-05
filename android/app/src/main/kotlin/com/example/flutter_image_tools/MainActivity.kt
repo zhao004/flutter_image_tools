@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.net.Uri
@@ -39,6 +40,7 @@ class MainActivity : FlutterActivity() {
             "convertImage" -> convertImage(call, result)
             "cropImage" -> cropImage(call, result)
             "flipImage" -> flipImage(call, result)
+            "mergeImages" -> mergeImages(call, result)
             "resizeImage" -> resizeImage(call, result)
             "rotateImage" -> rotateImage(call, result)
             else -> result.notImplemented()
@@ -540,6 +542,104 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun mergeImages(call: MethodCall, result: MethodChannel.Result) {
+        val paths = call.argument<List<String>>("paths") ?: emptyList()
+        val mode = (call.argument<String>("mode") ?: "horizontal").lowercase()
+        val columns = call.argument<Int>("columns") ?: 2
+        val spacing = call.argument<Int>("spacing") ?: 8
+        if (paths.size < 2 || paths.size > 20) {
+            result.error("invalid_args", "拼接图片数量必须在 2 到 20 张之间", null)
+            return
+        }
+        if (mode !in setOf("horizontal", "vertical", "grid")) {
+            result.error("invalid_args", "拼接模式无效", null)
+            return
+        }
+        if (columns !in 1..10 || spacing !in 0..100) {
+            result.error("invalid_args", "拼接参数超出范围", null)
+            return
+        }
+
+        val bitmaps = mutableListOf<Bitmap>()
+        try {
+            for (path in paths) {
+                if (path.isBlank()) {
+                    result.error("file_not_found", "图片路径为空", null)
+                    bitmaps.forEach { it.recycle() }
+                    return
+                }
+                val source = File(path)
+                if (!source.exists()) {
+                    result.error("file_not_found", "图片文件不存在", null)
+                    bitmaps.forEach { it.recycle() }
+                    return
+                }
+                val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+                if (bitmap == null) {
+                    result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+                    bitmaps.forEach { it.recycle() }
+                    return
+                }
+                bitmaps.add(bitmap)
+            }
+
+            val layout = calculateMergeLayout(bitmaps, mode, columns, spacing)
+            if (layout.width <= 0 || layout.height <= 0) {
+                result.error("invalid_args", "拼接输出尺寸无效", null)
+                bitmaps.forEach { it.recycle() }
+                return
+            }
+            val pixelCount = layout.width.toLong() * layout.height.toLong()
+            if (layout.width > 20000 || layout.height > 20000 || pixelCount > 36000000L) {
+                result.error("invalid_args", "拼接输出过大，请减少图片数量或尺寸", null)
+                bitmaps.forEach { it.recycle() }
+                return
+            }
+
+            val mergedBitmap = Bitmap.createBitmap(
+                layout.width,
+                layout.height,
+                Bitmap.Config.ARGB_8888,
+            )
+            val canvas = Canvas(mergedBitmap)
+            canvas.drawColor(Color.WHITE)
+            for (index in bitmaps.indices) {
+                val bitmap = bitmaps[index]
+                val position = layout.positions[index]
+                canvas.drawBitmap(bitmap, position.x.toFloat(), position.y.toFloat(), null)
+            }
+
+            try {
+                val outputDir = File(cacheDir, "merged_images").apply { mkdirs() }
+                val output = File(outputDir, "merged_${System.currentTimeMillis()}.jpg")
+                FileOutputStream(output).use { stream ->
+                    val success = mergedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                    if (!success) {
+                        result.error("export_failed", "图片拼接导出失败", null)
+                        return
+                    }
+                }
+                result.success(
+                    mapOf(
+                        "outputPath" to output.absolutePath,
+                        "outputSizeBytes" to output.length(),
+                        "width" to layout.width,
+                        "height" to layout.height,
+                        "mode" to mode,
+                    ),
+                )
+            } catch (error: Exception) {
+                result.error("export_failed", error.message, null)
+            } finally {
+                mergedBitmap.recycle()
+                bitmaps.forEach { it.recycle() }
+            }
+        } catch (error: Exception) {
+            bitmaps.forEach { it.recycle() }
+            result.error("export_failed", error.message, null)
+        }
+    }
+
     private fun queryImageInfo(uri: Uri): ImageInfo {
         var name = "selected_image"
         var mimeType = contentResolver.getType(uri) ?: "image/*"
@@ -572,6 +672,66 @@ class MainActivity : FlutterActivity() {
             "image/bmp" -> "bmp"
             else -> "img"
         }
+    }
+
+    private fun calculateMergeLayout(
+        bitmaps: List<Bitmap>,
+        mode: String,
+        columns: Int,
+        spacing: Int,
+    ): MergeLayout {
+        return when (mode) {
+            "vertical" -> calculateVerticalLayout(bitmaps, spacing)
+            "grid" -> calculateGridLayout(bitmaps, columns, spacing)
+            else -> calculateHorizontalLayout(bitmaps, spacing)
+        }
+    }
+
+    private fun calculateHorizontalLayout(bitmaps: List<Bitmap>, spacing: Int): MergeLayout {
+        val width = bitmaps.sumOf { it.width } + spacing * (bitmaps.size - 1)
+        val height = bitmaps.maxOf { it.height }
+        val positions = mutableListOf<BitmapPosition>()
+        var x = 0
+        for (bitmap in bitmaps) {
+            positions.add(BitmapPosition(x, (height - bitmap.height) / 2))
+            x += bitmap.width + spacing
+        }
+        return MergeLayout(width = width, height = height, positions = positions)
+    }
+
+    private fun calculateVerticalLayout(bitmaps: List<Bitmap>, spacing: Int): MergeLayout {
+        val width = bitmaps.maxOf { it.width }
+        val height = bitmaps.sumOf { it.height } + spacing * (bitmaps.size - 1)
+        val positions = mutableListOf<BitmapPosition>()
+        var y = 0
+        for (bitmap in bitmaps) {
+            positions.add(BitmapPosition((width - bitmap.width) / 2, y))
+            y += bitmap.height + spacing
+        }
+        return MergeLayout(width = width, height = height, positions = positions)
+    }
+
+    private fun calculateGridLayout(
+        bitmaps: List<Bitmap>,
+        columns: Int,
+        spacing: Int,
+    ): MergeLayout {
+        val columnCount = columns.coerceIn(1, bitmaps.size)
+        val rowCount = (bitmaps.size + columnCount - 1) / columnCount
+        val cellWidth = bitmaps.maxOf { it.width }
+        val cellHeight = bitmaps.maxOf { it.height }
+        val width = cellWidth * columnCount + spacing * (columnCount - 1)
+        val height = cellHeight * rowCount + spacing * (rowCount - 1)
+        val positions = mutableListOf<BitmapPosition>()
+        for (index in bitmaps.indices) {
+            val bitmap = bitmaps[index]
+            val row = index / columnCount
+            val column = index % columnCount
+            val x = column * (cellWidth + spacing) + (cellWidth - bitmap.width) / 2
+            val y = row * (cellHeight + spacing) + (cellHeight - bitmap.height) / 2
+            positions.add(BitmapPosition(x, y))
+        }
+        return MergeLayout(width = width, height = height, positions = positions)
     }
 
     private fun compressFormatFor(format: String): Bitmap.CompressFormat? {
@@ -663,4 +823,10 @@ class MainActivity : FlutterActivity() {
     }
 
     private data class ImageInfo(val name: String, val mimeType: String)
+    private data class BitmapPosition(val x: Int, val y: Int)
+    private data class MergeLayout(
+        val width: Int,
+        val height: Int,
+        val positions: List<BitmapPosition>,
+    )
 }

@@ -68,7 +68,8 @@ class HomeController extends GetxController {
       title: '图片拼接',
       description: '横向、纵向和网格拼接',
       icon: 'merge',
-      availability: ToolAvailability.planned,
+      availability: ToolAvailability.available,
+      route: Routes.merge,
     ),
     const HomeToolItem(
       title: '尺寸调整',
