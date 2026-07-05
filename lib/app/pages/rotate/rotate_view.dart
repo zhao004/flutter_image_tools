@@ -5,8 +5,8 @@ import 'rotate_controller.dart';
 
 /// 图片旋转页，支持 90°、180° 和自定义角度本地旋转。
 ///
-/// 构建设计：旋转作为独立单图任务，先保障结果可导出和可追踪；批量旋转
-/// 后续可复用压缩页的队列模型扩展。
+/// 构建设计：单图和批量共用同一角度参数；批量任务顺序执行并展示进度，
+/// 避免多张大图并发处理造成内存抖动。
 class RotateView extends GetView<RotateController> {
   const RotateView({super.key});
 
@@ -21,6 +21,8 @@ class RotateView extends GetView<RotateController> {
             _ImageCard(controller: controller),
             const SizedBox(height: 16),
             _AngleCard(controller: controller),
+            const SizedBox(height: 16),
+            _ProgressCard(controller: controller),
             const SizedBox(height: 16),
             Obx(
               () => FilledButton.icon(
@@ -54,26 +56,63 @@ class _ImageCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Obx(() {
+          final images = controller.selectedImages;
           final image = controller.selectedImage.value;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
-              if (image == null)
-                const Text('请选择一张 JPG、PNG、WebP 或 BMP 图片进行本地旋转。')
-              else ...[
+              if (images.isEmpty)
+                const Text('请选择 JPG、PNG、WebP 或 BMP 图片进行本地旋转。')
+              else if (images.length == 1 && image != null) ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(controller.formatBytes(image.sizeBytes)),
+              ] else ...[
+                Text('已选择 ${images.length} 张图片'),
+                const SizedBox(height: 4),
+                Text(
+                  '总大小：${controller.formatBytes(images.fold<int>(0, (sum, item) => sum + item.sizeBytes))}',
+                ),
               ],
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed:
-                    controller.isBusy.value ? null : controller.pickImage,
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: Text(image == null ? '选择图片' : '重新选择'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.pickImage,
+                    icon: const Icon(Icons.add_photo_alternate_outlined),
+                    label: Text(image == null ? '选择单张' : '重新选择单张'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.pickImages,
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('批量选择'),
+                  ),
+                ],
               ),
+              if (images.length > 1) ...[
+                const SizedBox(height: 12),
+                ...images
+                    .take(5)
+                    .map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                if (images.length > 5) Text('还有 ${images.length - 5} 张图片'),
+              ],
             ],
           );
         }),
@@ -136,6 +175,63 @@ class _AngleCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.controller});
+
+  final RotateController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.tasks.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      final total = controller.selectedImages.length;
+      final processed = controller.processedCount.value;
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('批量进度', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(value: controller.progress),
+              const SizedBox(height: 8),
+              Text('已处理 $processed / $total 张'),
+              const SizedBox(height: 12),
+              ...controller.tasks.map((task) {
+                final status = task.isCompleted
+                    ? task.isSuccess
+                          ? '成功'
+                          : '失败'
+                    : '等待';
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    task.isCompleted
+                        ? task.isSuccess
+                              ? Icons.check_circle_outline
+                              : Icons.error_outline
+                        : Icons.hourglass_empty,
+                  ),
+                  title: Text(
+                    task.source.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(task.errorMessage ?? status),
+                );
+              }),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 
