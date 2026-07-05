@@ -8,6 +8,35 @@ import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
+class WatermarkTask {
+  const WatermarkTask({
+    required this.source,
+    this.result,
+    this.errorMessage,
+    this.isCompleted = false,
+  });
+
+  final LocalImageFile source;
+  final WatermarkedImageFile? result;
+  final String? errorMessage;
+  final bool isCompleted;
+
+  bool get isSuccess => isCompleted && result != null;
+
+  WatermarkTask copyWith({
+    WatermarkedImageFile? result,
+    String? errorMessage,
+    bool? isCompleted,
+  }) {
+    return WatermarkTask(
+      source: source,
+      result: result ?? this.result,
+      errorMessage: errorMessage ?? this.errorMessage,
+      isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
+}
+
 enum WatermarkPosition {
   topLeft(label: '左上', value: 'topLeft'),
   topRight(label: '右上', value: 'topRight'),
@@ -37,7 +66,8 @@ enum WatermarkColor {
 /// 文字水印控制器，管理选图、水印文字、位置、颜色、字号和透明度。
 ///
 /// 异常策略：文本长度、字号和透明度在 Dart 侧校验，原生端负责最终绘制和
-/// 文件导出；失败任务写入历史记录，便于定位具体水印参数。
+/// 文件导出；失败任务写入历史记录，便于定位具体水印参数；批量水印顺序执行，
+/// 避免多张大图同时绘制导致内存峰值过高。
 class WatermarkController extends GetxController {
   WatermarkController({
     required LocalImageChannel imageChannel,
@@ -53,6 +83,9 @@ class WatermarkController extends GetxController {
 
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<WatermarkedImageFile>();
+  final selectedImages = <LocalImageFile>[].obs;
+  final tasks = <WatermarkTask>[].obs;
+  final processedCount = 0.obs;
   final position = WatermarkPosition.bottomRight.obs;
   final color = WatermarkColor.white.obs;
   final fontSize = 36.obs;
@@ -76,8 +109,35 @@ class WatermarkController extends GetxController {
         return;
       }
       selectedImage.value = image;
+      selectedImages.assignAll([image]);
       result.value = null;
+      tasks.clear();
+      processedCount.value = 0;
       await _recentFilesRepository.recordImage(image);
+    } on AppException catch (error) {
+      _showError(error.message);
+    } catch (_) {
+      _showError('记录最近文件失败，请重试');
+    }
+  }
+
+  Future<void> pickImages() async {
+    if (isBusy.value) {
+      return;
+    }
+    try {
+      final images = await _imageChannel.pickMultipleImages();
+      if (images.isEmpty) {
+        return;
+      }
+      selectedImages.assignAll(images);
+      selectedImage.value = images.first;
+      result.value = null;
+      processedCount.value = 0;
+      tasks.assignAll(images.map((image) => WatermarkTask(source: image)));
+      for (final image in images) {
+        await _recentFilesRepository.recordImage(image);
+      }
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
@@ -105,9 +165,14 @@ class WatermarkController extends GetxController {
     if (isBusy.value) {
       return;
     }
-    final source = selectedImage.value;
-    if (source == null) {
-      _showError('请先选择一张图片');
+    if (selectedImages.isEmpty) {
+      final source = selectedImage.value;
+      if (source != null) {
+        selectedImages.assignAll([source]);
+      }
+    }
+    if (selectedImages.isEmpty) {
+      _showError('请先选择图片');
       return;
     }
     final text = textController.text.trim();
@@ -121,46 +186,78 @@ class WatermarkController extends GetxController {
     }
 
     isBusy.value = true;
+    processedCount.value = 0;
+    tasks.assignAll(
+      selectedImages.map((image) => WatermarkTask(source: image)),
+    );
     try {
-      final watermarked = await _imageChannel.addTextWatermark(
-        source: source,
-        text: text,
-        position: position.value.value,
-        fontSize: fontSize.value,
-        opacity: opacity.value,
-        color: color.value.value,
-      );
-      result.value = watermarked;
-      await _historyRepository.recordOperationSuccess(
-        featureName: '文字水印',
-        inputPath: source.path,
-        outputPath: watermarked.outputPath,
-        parameters: <String, Object>{
-          'text': text,
-          'position': position.value.value,
-          'fontSize': fontSize.value,
-          'opacity': opacity.value,
-          'color': color.value.value,
-        },
-      );
-      Get.snackbar('水印完成', '图片已导出到应用缓存目录');
-    } on AppException catch (error) {
-      await _historyRepository.recordOperationFailure(
-        featureName: '文字水印',
-        inputPath: source.path,
-        parameters: <String, Object>{
-          'text': text,
-          'position': position.value.value,
-          'fontSize': fontSize.value,
-          'opacity': opacity.value,
-          'color': color.value.value,
-        },
-        errorMessage: error.message,
-      );
-      _showError(error.message);
+      for (var index = 0; index < selectedImages.length; index++) {
+        final source = selectedImages[index];
+        try {
+          final watermarked = await _imageChannel.addTextWatermark(
+            source: source,
+            text: text,
+            position: position.value.value,
+            fontSize: fontSize.value,
+            opacity: opacity.value,
+            color: color.value.value,
+          );
+          result.value = watermarked;
+          tasks[index] = tasks[index].copyWith(
+            result: watermarked,
+            isCompleted: true,
+          );
+          await _historyRepository.recordOperationSuccess(
+            featureName: '文字水印',
+            inputPath: source.path,
+            outputPath: watermarked.outputPath,
+            parameters: _historyParameters(text),
+          );
+        } on AppException catch (error) {
+          tasks[index] = tasks[index].copyWith(
+            errorMessage: error.message,
+            isCompleted: true,
+          );
+          await _historyRepository.recordOperationFailure(
+            featureName: '文字水印',
+            inputPath: source.path,
+            parameters: _historyParameters(text),
+            errorMessage: error.message,
+          );
+        } finally {
+          processedCount.value = index + 1;
+        }
+      }
+      final successCount = tasks.where((task) => task.isSuccess).length;
+      if (successCount == selectedImages.length) {
+        Get.snackbar('水印完成', '已成功添加 $successCount 张图片');
+      } else {
+        Get.snackbar(
+          '批量水印完成',
+          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+        );
+      }
     } finally {
       isBusy.value = false;
     }
+  }
+
+  double get progress {
+    final total = selectedImages.length;
+    if (total <= 0) {
+      return 0;
+    }
+    return processedCount.value / total;
+  }
+
+  Map<String, Object> _historyParameters(String text) {
+    return <String, Object>{
+      'text': text,
+      'position': position.value.value,
+      'fontSize': fontSize.value,
+      'opacity': opacity.value,
+      'color': color.value.value,
+    };
   }
 
   String formatBytes(int bytes) {
