@@ -26,6 +26,8 @@ import '../pages/home/home_binding.dart';
 import '../pages/home/home_view.dart';
 import '../pages/image_watermark/image_watermark_binding.dart';
 import '../pages/image_watermark/image_watermark_view.dart';
+import '../pages/logs/logs_binding.dart';
+import '../pages/logs/logs_view.dart';
 import '../pages/merge/merge_binding.dart';
 import '../pages/merge/merge_view.dart';
 import '../pages/resize/resize_binding.dart';
@@ -104,6 +106,11 @@ class AppPages {
       name: _Paths.imageWatermark,
       page: () => const ImageWatermarkView(),
       binding: ImageWatermarkBinding(),
+    ),
+    GetPage(
+      name: _Paths.logs,
+      page: () => const LogsView(),
+      binding: LogsBinding(),
     ),
     GetPage(
       name: _Paths.merge,

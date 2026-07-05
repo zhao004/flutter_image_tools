@@ -147,6 +147,16 @@ class SettingsView extends GetView<SettingsController> {
                 onTap: () => Get.toNamed(Routes.cache),
               ),
             ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.article_outlined),
+                title: const Text('日志管理'),
+                subtitle: const Text('查看任务耗时、状态和错误信息'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Get.toNamed(Routes.logs),
+              ),
+            ),
           ],
         ),
       ),

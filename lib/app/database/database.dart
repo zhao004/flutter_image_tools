@@ -25,7 +25,7 @@ part 'database.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
   int get schemaVersion => 2;
@@ -103,6 +103,50 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> createLog(OperationLogsCompanion log) =>
       into(operationLogs).insert(log);
+
+  Future<List<OperationLog>> getRecentLogs({
+    int limit = 100,
+    String keyword = '',
+    String status = '',
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    if (limit <= 0) {
+      return Future.value(const []);
+    }
+    final normalizedKeyword = keyword.trim();
+    final normalizedStatus = status.trim();
+    final query = select(operationLogs)
+      ..orderBy([(table) => OrderingTerm.desc(table.startedAt)])
+      ..limit(limit);
+
+    if (normalizedKeyword.isNotEmpty) {
+      query.where(
+        (table) =>
+            table.featureName.contains(normalizedKeyword) |
+            table.inputPath.contains(normalizedKeyword) |
+            table.parametersJson.contains(normalizedKeyword) |
+            table.outputPath.contains(normalizedKeyword) |
+            table.errorMessage.contains(normalizedKeyword),
+      );
+    }
+    if (normalizedStatus.isNotEmpty) {
+      query.where((table) => table.status.equals(normalizedStatus));
+    }
+    if (startDate != null) {
+      query.where(
+        (table) => table.startedAt.isBiggerOrEqualValue(startDate.toUtc()),
+      );
+    }
+    if (endDate != null) {
+      query.where(
+        (table) => table.startedAt.isSmallerOrEqualValue(endDate.toUtc()),
+      );
+    }
+    return query.get();
+  }
+
+  Future<int> clearLogs() => delete(operationLogs).go();
 
   Future<int> clearHistory() => delete(operationHistory).go();
 

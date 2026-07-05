@@ -5,6 +5,7 @@ import '../repositories/app_settings_repository.dart';
 import '../repositories/cache_repository.dart';
 import '../repositories/favorite_templates_repository.dart';
 import '../repositories/operation_history_repository.dart';
+import '../repositories/operation_logs_repository.dart';
 import '../repositories/recent_files_repository.dart';
 import '../services/local_image_channel.dart';
 
@@ -19,6 +20,10 @@ class InitialBinding extends Bindings {
     Get.lazyPut<LocalImageChannel>(() => LocalImageChannel(), fenix: true);
     Get.lazyPut<OperationHistoryRepository>(
       () => OperationHistoryRepository(database: Get.find<AppDatabase>()),
+      fenix: true,
+    );
+    Get.lazyPut<OperationLogsRepository>(
+      () => OperationLogsRepository(database: Get.find<AppDatabase>()),
       fenix: true,
     );
     Get.lazyPut<AppSettingsRepository>(

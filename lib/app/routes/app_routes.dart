@@ -16,6 +16,7 @@ abstract class Routes {
   static const grid = _Paths.grid;
   static const history = _Paths.history;
   static const imageWatermark = _Paths.imageWatermark;
+  static const logs = _Paths.logs;
   static const merge = _Paths.merge;
   static const resize = _Paths.resize;
   static const rotate = _Paths.rotate;
@@ -38,6 +39,7 @@ abstract class _Paths {
   static const grid = '/grid';
   static const history = '/history';
   static const imageWatermark = '/image-watermark';
+  static const logs = '/logs';
   static const merge = '/merge';
   static const resize = '/resize';
   static const rotate = '/rotate';
