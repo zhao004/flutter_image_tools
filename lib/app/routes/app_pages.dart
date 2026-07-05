@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 
 import '../pages/compress/compress_binding.dart';
 import '../pages/compress/compress_view.dart';
+import '../pages/flip/flip_binding.dart';
+import '../pages/flip/flip_view.dart';
 import '../pages/history/history_binding.dart';
 import '../pages/history/history_view.dart';
 import '../pages/home/home_binding.dart';
@@ -33,6 +35,11 @@ class AppPages {
       name: _Paths.history,
       page: () => const HistoryView(),
       binding: HistoryBinding(),
+    ),
+    GetPage(
+      name: _Paths.flip,
+      page: () => const FlipView(),
+      binding: FlipBinding(),
     ),
     GetPage(
       name: _Paths.rotate,

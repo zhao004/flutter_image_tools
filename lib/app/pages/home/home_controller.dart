@@ -76,6 +76,13 @@ class HomeController extends GetxController {
       availability: ToolAvailability.planned,
     ),
     const HomeToolItem(
+      title: '图片翻转',
+      description: '水平或垂直翻转',
+      icon: 'flip',
+      availability: ToolAvailability.available,
+      route: Routes.flip,
+    ),
+    const HomeToolItem(
       title: '图片旋转',
       description: '90 度、180 度或任意角度',
       icon: 'rotate',

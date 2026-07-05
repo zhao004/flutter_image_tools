@@ -259,6 +259,7 @@ IconData _toolIconFor(String key) {
     'crop' => Icons.crop,
     'merge' => Icons.view_column_outlined,
     'resize' => Icons.aspect_ratio,
+    'flip' => Icons.flip,
     'rotate' => Icons.rotate_90_degrees_ccw,
     'watermark' => Icons.branding_watermark_outlined,
     'convert' => Icons.swap_horiz,

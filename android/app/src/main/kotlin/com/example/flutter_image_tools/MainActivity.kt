@@ -33,6 +33,7 @@ class MainActivity : FlutterActivity() {
             "pickSingleImage" -> pickSingleImage(result)
             "pickMultipleImages" -> pickMultipleImages(result)
             "compressImage" -> compressImage(call, result)
+            "flipImage" -> flipImage(call, result)
             "rotateImage" -> rotateImage(call, result)
             else -> result.notImplemented()
         }
@@ -270,6 +271,65 @@ class MainActivity : FlutterActivity() {
             result.error("export_failed", error.message, null)
         } finally {
             rotatedBitmap.recycle()
+            bitmap.recycle()
+        }
+    }
+
+    private fun flipImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val direction = call.argument<String>("direction") ?: "horizontal"
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        if (direction != "horizontal" && direction != "vertical") {
+            result.error("invalid_args", "翻转方向必须为水平或垂直", null)
+            return
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        val scaleX = if (direction == "horizontal") -1f else 1f
+        val scaleY = if (direction == "vertical") -1f else 1f
+        val matrix = Matrix().apply { preScale(scaleX, scaleY) }
+        val flippedBitmap = try {
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        } catch (error: Exception) {
+            bitmap.recycle()
+            result.error("export_failed", error.message, null)
+            return
+        }
+
+        try {
+            val outputDir = File(cacheDir, "flipped_images").apply { mkdirs() }
+            val output = File(outputDir, "flipped_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(output).use { stream ->
+                val success = flippedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                if (!success) {
+                    result.error("export_failed", "图片翻转导出失败", null)
+                    return
+                }
+            }
+            result.success(
+                mapOf(
+                    "outputPath" to output.absolutePath,
+                    "outputSizeBytes" to output.length(),
+                ),
+            )
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            flippedBitmap.recycle()
             bitmap.recycle()
         }
     }

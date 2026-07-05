@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 
 import '../core/exceptions/app_exception.dart';
 import '../core/models/compressed_image_file.dart';
+import '../core/models/flipped_image_file.dart';
 import '../core/models/local_image_file.dart';
 import '../core/models/rotated_image_file.dart';
 
@@ -141,6 +142,48 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('旋转图片失败，请重试', cause: error);
+    }
+  }
+
+  Future<FlippedImageFile> flipImage({
+    required LocalImageFile source,
+    required String direction,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法翻转');
+    }
+    final normalizedDirection = direction.trim().toLowerCase();
+    final supportedDirections = {'horizontal', 'vertical'};
+    if (!supportedDirections.contains(normalizedDirection)) {
+      throw const AppException('翻转方向必须为水平或垂直');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'flipImage',
+        <String, Object?>{
+          'path': source.path,
+          'direction': normalizedDirection,
+        },
+      );
+      if (result == null) {
+        throw const AppException('翻转结果为空，请重试');
+      }
+      final flipped = FlippedImageFile.fromMap(
+        source: source,
+        direction: normalizedDirection,
+        map: result,
+      );
+      if (flipped.outputPath.isEmpty) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return flipped;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('翻转图片失败，请重试', cause: error);
     }
   }
 
