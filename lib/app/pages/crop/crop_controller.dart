@@ -8,6 +8,35 @@ import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
+class CropTask {
+  const CropTask({
+    required this.source,
+    this.result,
+    this.errorMessage,
+    this.isCompleted = false,
+  });
+
+  final LocalImageFile source;
+  final CroppedImageFile? result;
+  final String? errorMessage;
+  final bool isCompleted;
+
+  bool get isSuccess => isCompleted && result != null;
+
+  CropTask copyWith({
+    CroppedImageFile? result,
+    String? errorMessage,
+    bool? isCompleted,
+  }) {
+    return CropTask(
+      source: source,
+      result: result ?? this.result,
+      errorMessage: errorMessage ?? this.errorMessage,
+      isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
+}
+
 enum CropPreset {
   square(label: '正方形', ratioText: '1:1', aspectRatio: 1),
   landscape16x9(label: '横版', ratioText: '16:9', aspectRatio: 16 / 9),
@@ -29,7 +58,8 @@ enum CropPreset {
 /// 图片裁剪控制器，管理选图、比例预设、自定义比例和裁剪结果。
 ///
 /// 异常策略：当前阶段采用居中裁剪，先保证常用比例稳定导出；自定义比例
-/// 在 Dart 侧限制范围，避免无效或极端比例触发原生 Bitmap 异常。
+/// 在 Dart 侧限制范围，避免无效或极端比例触发原生 Bitmap 异常；批量裁剪
+/// 顺序执行，降低多张大图同时处理导致的内存峰值。
 class CropController extends GetxController {
   CropController({
     required LocalImageChannel imageChannel,
@@ -45,6 +75,9 @@ class CropController extends GetxController {
 
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<CroppedImageFile>();
+  final selectedImages = <LocalImageFile>[].obs;
+  final tasks = <CropTask>[].obs;
+  final processedCount = 0.obs;
   final preset = CropPreset.square.obs;
   final isBusy = false.obs;
   final customWidthController = TextEditingController(text: '1');
@@ -67,8 +100,35 @@ class CropController extends GetxController {
         return;
       }
       selectedImage.value = image;
+      selectedImages.assignAll([image]);
       result.value = null;
+      tasks.clear();
+      processedCount.value = 0;
       await _recentFilesRepository.recordImage(image);
+    } on AppException catch (error) {
+      _showError(error.message);
+    } catch (_) {
+      _showError('记录最近文件失败，请重试');
+    }
+  }
+
+  Future<void> pickImages() async {
+    if (isBusy.value) {
+      return;
+    }
+    try {
+      final images = await _imageChannel.pickMultipleImages();
+      if (images.isEmpty) {
+        return;
+      }
+      selectedImages.assignAll(images);
+      selectedImage.value = images.first;
+      result.value = null;
+      processedCount.value = 0;
+      tasks.assignAll(images.map((image) => CropTask(source: image)));
+      for (final image in images) {
+        await _recentFilesRepository.recordImage(image);
+      }
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
@@ -84,9 +144,14 @@ class CropController extends GetxController {
     if (isBusy.value) {
       return;
     }
-    final source = selectedImage.value;
-    if (source == null) {
-      _showError('请先选择一张图片');
+    if (selectedImages.isEmpty) {
+      final source = selectedImage.value;
+      if (source != null) {
+        selectedImages.assignAll([source]);
+      }
+    }
+    if (selectedImages.isEmpty) {
+      _showError('请先选择图片');
       return;
     }
     final aspectRatio = _readAspectRatio();
@@ -95,36 +160,62 @@ class CropController extends GetxController {
     }
 
     isBusy.value = true;
+    processedCount.value = 0;
+    tasks.assignAll(selectedImages.map((image) => CropTask(source: image)));
     try {
-      final cropped = await _imageChannel.cropImage(
-        source: source,
-        aspectRatio: aspectRatio,
-      );
-      result.value = cropped;
-      await _historyRepository.recordOperationSuccess(
-        featureName: '图片裁剪',
-        inputPath: source.path,
-        outputPath: cropped.outputPath,
-        parameters: <String, Object>{
-          'preset': preset.value.name,
-          'aspectRatio': aspectRatio,
-        },
-      );
-      Get.snackbar('裁剪完成', '图片已导出到应用缓存目录');
-    } on AppException catch (error) {
-      await _historyRepository.recordOperationFailure(
-        featureName: '图片裁剪',
-        inputPath: source.path,
-        parameters: <String, Object>{
-          'preset': preset.value.name,
-          'aspectRatio': aspectRatio,
-        },
-        errorMessage: error.message,
-      );
-      _showError(error.message);
+      for (var index = 0; index < selectedImages.length; index++) {
+        final source = selectedImages[index];
+        try {
+          final cropped = await _imageChannel.cropImage(
+            source: source,
+            aspectRatio: aspectRatio,
+          );
+          result.value = cropped;
+          tasks[index] = tasks[index].copyWith(
+            result: cropped,
+            isCompleted: true,
+          );
+          await _historyRepository.recordOperationSuccess(
+            featureName: '图片裁剪',
+            inputPath: source.path,
+            outputPath: cropped.outputPath,
+            parameters: _historyParameters(aspectRatio),
+          );
+        } on AppException catch (error) {
+          tasks[index] = tasks[index].copyWith(
+            errorMessage: error.message,
+            isCompleted: true,
+          );
+          await _historyRepository.recordOperationFailure(
+            featureName: '图片裁剪',
+            inputPath: source.path,
+            parameters: _historyParameters(aspectRatio),
+            errorMessage: error.message,
+          );
+        } finally {
+          processedCount.value = index + 1;
+        }
+      }
+      final successCount = tasks.where((task) => task.isSuccess).length;
+      if (successCount == selectedImages.length) {
+        Get.snackbar('裁剪完成', '已成功裁剪 $successCount 张图片');
+      } else {
+        Get.snackbar(
+          '批量裁剪完成',
+          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+        );
+      }
     } finally {
       isBusy.value = false;
     }
+  }
+
+  double get progress {
+    final total = selectedImages.length;
+    if (total <= 0) {
+      return 0;
+    }
+    return processedCount.value / total;
   }
 
   String formatBytes(int bytes) {
@@ -181,6 +272,13 @@ class CropController extends GetxController {
       return null;
     }
     return ratio;
+  }
+
+  Map<String, Object> _historyParameters(double aspectRatio) {
+    return <String, Object>{
+      'preset': preset.value.name,
+      'aspectRatio': aspectRatio,
+    };
   }
 
   void _showError(String message) {
