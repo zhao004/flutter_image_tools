@@ -16,6 +16,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.NotFoundException
+import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.common.HybridBinarizer
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -45,6 +51,7 @@ class MainActivity : FlutterActivity() {
             "pickSingleImage" -> pickSingleImage(result)
             "pickMultipleImages" -> pickMultipleImages(result)
             "pickSinglePdf" -> pickSinglePdf(result)
+            "scanBarcodeFromImage" -> scanBarcodeFromImage(call, result)
             "compressImage" -> compressImage(call, result)
             "convertImage" -> convertImage(call, result)
             "cropImage" -> cropImage(call, result)
@@ -263,6 +270,49 @@ class MainActivity : FlutterActivity() {
             "sizeBytes" to output.length(),
             "mimeType" to info.mimeType,
         )
+    }
+
+    private fun scanBarcodeFromImage(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        if (path.isNullOrBlank()) {
+            result.error("file_not_found", "图片路径为空", null)
+            return
+        }
+        val source = File(path)
+        if (!source.exists()) {
+            result.error("file_not_found", "图片文件不存在", null)
+            return
+        }
+
+        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
+        if (bitmap == null) {
+            result.error("invalid_image", "图片格式不支持或文件已损坏", null)
+            return
+        }
+
+        try {
+            val pixels = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            val luminance = RGBLuminanceSource(bitmap.width, bitmap.height, pixels)
+            val binaryBitmap = BinaryBitmap(HybridBinarizer(luminance))
+            val reader = MultiFormatReader().apply {
+                setHints(mapOf(DecodeHintType.TRY_HARDER to true))
+            }
+            val decoded = reader.decodeWithState(binaryBitmap)
+            result.success(
+                mapOf(
+                    "text" to decoded.text,
+                    "format" to decoded.barcodeFormat.name,
+                    "rawBytesLength" to (decoded.rawBytes?.size ?: 0),
+                ),
+            )
+        } catch (_: NotFoundException) {
+            result.error("not_found", "未识别到二维码或条形码内容", null)
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     private fun compressImage(call: MethodCall, result: MethodChannel.Result) {

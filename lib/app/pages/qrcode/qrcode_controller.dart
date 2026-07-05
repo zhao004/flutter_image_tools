@@ -2,29 +2,44 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/exceptions/app_exception.dart';
+import '../../core/models/barcode_scan_result.dart';
+import '../../core/models/local_image_file.dart';
 import '../../core/models/qr_code_image_file.dart';
 import '../../core/utils/qr_code_generator.dart';
 import '../../repositories/operation_history_repository.dart';
+import '../../repositories/recent_files_repository.dart';
+import '../../services/local_image_channel.dart';
 
 /// 二维码控制器，负责本地生成 QR Code PNG 并记录历史。
 ///
 /// 异常策略：先校验文本和字节长度，二维码矩阵与 PNG 编码全部在 Dart 本地
 /// 完成；导出失败写入历史记录，方便用户回溯具体输入。
 class QrcodeController extends GetxController {
-  QrcodeController({required OperationHistoryRepository historyRepository})
-    : _historyRepository = historyRepository;
+  QrcodeController({
+    required LocalImageChannel imageChannel,
+    required OperationHistoryRepository historyRepository,
+    required RecentFilesRepository recentFilesRepository,
+  }) : _imageChannel = imageChannel,
+       _historyRepository = historyRepository,
+       _recentFilesRepository = recentFilesRepository;
 
   static const int maxContentBytes = QrCodeGenerator.maxContentBytes;
   static const int renderScale = 12;
   static const int quietZone = 4;
 
+  final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
+  final RecentFilesRepository _recentFilesRepository;
 
   final inputController = TextEditingController(text: 'https://example.com');
   final result = Rxn<QrCodeImageFile>();
+  final selectedImage = Rxn<LocalImageFile>();
+  final scanResult = Rxn<BarcodeScanResult>();
   final isBusy = false.obs;
 
   @override
@@ -96,6 +111,72 @@ class QrcodeController extends GetxController {
     } finally {
       isBusy.value = false;
     }
+  }
+
+  Future<void> pickAndScanImage() async {
+    if (isBusy.value) {
+      return;
+    }
+
+    isBusy.value = true;
+    LocalImageFile? image;
+    try {
+      image = await _imageChannel.pickSingleImage();
+      if (image == null) {
+        return;
+      }
+      selectedImage.value = image;
+      scanResult.value = null;
+      await _recentFilesRepository.recordImage(image);
+      final scan = await _imageChannel.scanBarcodeFromImage(source: image);
+      scanResult.value = scan;
+      await _historyRepository.recordOperationSuccess(
+        featureName: '二维码识别',
+        inputPath: image.path,
+        outputPath: image.path,
+        parameters: <String, Object>{
+          'format': scan.format,
+          'length': scan.text.length,
+          'rawBytesLength': scan.rawBytesLength,
+        },
+      );
+      Get.snackbar('识别完成', '已识别 ${scan.format} 内容');
+    } on AppException catch (error) {
+      if (image != null) {
+        await _historyRepository.recordOperationFailure(
+          featureName: '二维码识别',
+          inputPath: image.path,
+          parameters: const <String, Object>{'mode': 'scan_image'},
+          errorMessage: error.message,
+        );
+      }
+      _showError(error.message);
+    } catch (_) {
+      if (image != null) {
+        await _historyRepository.recordOperationFailure(
+          featureName: '二维码识别',
+          inputPath: image.path,
+          parameters: const <String, Object>{'mode': 'scan_image'},
+          errorMessage: '二维码识别失败',
+        );
+      }
+      _showError('二维码识别失败，请重试');
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
+  Future<void> copyScanText() async {
+    final text = scanResult.value?.text.trim() ?? '';
+    if (text.isEmpty) {
+      _showError('识别内容为空，无法复制');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: text));
+    Get.snackbar(
+      '已复制',
+      text.length > 60 ? '${text.substring(0, 60)}...' : text,
+    );
   }
 
   String formatBytes(int bytes) {

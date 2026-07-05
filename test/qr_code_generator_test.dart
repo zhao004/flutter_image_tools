@@ -1,3 +1,5 @@
+import 'package:flutter_image_tools/app/core/models/barcode_scan_result.dart';
+import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
 import 'package:flutter_image_tools/app/core/models/qr_code_image_file.dart';
 import 'package:flutter_image_tools/app/core/utils/qr_code_generator.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +41,53 @@ void main() {
       );
 
       expect(file.hasValidOutput, isTrue);
+    });
+  });
+
+  group('BarcodeScanResult', () {
+    test('解析本地扫码结果并保留源图片', () {
+      const source = LocalImageFile(
+        path: '/tmp/code.png',
+        name: 'code.png',
+        sizeBytes: 2048,
+        mimeType: 'image/png',
+        width: 320,
+        height: 320,
+      );
+
+      final result = BarcodeScanResult.fromMap(
+        source: source,
+        map: const <Object?, Object?>{
+          'text': 'https://example.com',
+          'format': 'QR_CODE',
+          'rawBytesLength': 19,
+        },
+      );
+
+      expect(result.source, source);
+      expect(result.text, 'https://example.com');
+      expect(result.format, 'QR_CODE');
+      expect(result.rawBytesLength, 19);
+      expect(result.hasText, isTrue);
+    });
+
+    test('缺少格式时使用 unknown 兜底', () {
+      const source = LocalImageFile(
+        path: '/tmp/code.png',
+        name: 'code.png',
+        sizeBytes: 2048,
+        mimeType: 'image/png',
+        width: 320,
+        height: 320,
+      );
+
+      final result = BarcodeScanResult.fromMap(
+        source: source,
+        map: const <Object?, Object?>{},
+      );
+
+      expect(result.format, 'unknown');
+      expect(result.hasText, isFalse);
     });
   });
 }

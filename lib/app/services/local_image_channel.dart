@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 
 import '../core/exceptions/app_exception.dart';
 import '../core/models/annotated_image_file.dart';
+import '../core/models/barcode_scan_result.dart';
 import '../core/models/compressed_image_file.dart';
 import '../core/models/converted_image_file.dart';
 import '../core/models/cropped_image_file.dart';
@@ -132,6 +133,35 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('选择 PDF 失败，请重试', cause: error);
+    }
+  }
+
+  Future<BarcodeScanResult> scanBarcodeFromImage({
+    required LocalImageFile source,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法识别二维码');
+    }
+
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'scanBarcodeFromImage',
+        <String, Object?>{'path': source.path},
+      );
+      if (result == null) {
+        throw const AppException('识别结果为空，请重试');
+      }
+      final scan = BarcodeScanResult.fromMap(source: source, map: result);
+      if (!scan.hasText) {
+        throw const AppException('未识别到二维码或条形码内容');
+      }
+      return scan;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('识别二维码失败，请重试', cause: error);
     }
   }
 
@@ -954,6 +984,7 @@ class LocalImageChannel {
       'file_not_found' => '图片文件不存在，请重新选择',
       'invalid_image' => '图片格式不支持或文件已损坏',
       'invalid_pdf' => 'PDF 文件无效或已损坏',
+      'not_found' => '未识别到二维码或条形码内容',
       'invalid_args' => '图片处理参数无效，请检查后重试',
       'export_failed' => '导出图片失败，请检查存储空间',
       'activity_missing' => '当前设备没有可用的图片选择器',

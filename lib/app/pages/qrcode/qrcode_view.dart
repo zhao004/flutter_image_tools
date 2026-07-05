@@ -8,7 +8,7 @@ import 'qrcode_controller.dart';
 /// 二维码工具页，支持文本和链接本地生成 QR Code PNG。
 ///
 /// 构建设计：输入、生成动作和结果预览放在同一流程内；当前版本先完成生成
-/// 闭环，识别和条形码能力后续接入原生扫描或本地解码器。
+/// 与识别闭环，识别过程通过 Android 本地解码器完成，不上传图片。
 class QrcodeView extends GetView<QrcodeController> {
   const QrcodeView({super.key});
 
@@ -23,10 +23,99 @@ class QrcodeView extends GetView<QrcodeController> {
             _GenerateCard(controller: controller),
             const SizedBox(height: 16),
             _ResultCard(controller: controller),
+            const SizedBox(height: 24),
+            _ScanCard(controller: controller),
+            const SizedBox(height: 16),
+            _ScanResultCard(controller: controller),
           ],
         ),
       ),
     );
+  }
+}
+
+class _ScanCard extends StatelessWidget {
+  const _ScanCard({required this.controller});
+
+  final QrcodeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Obx(() {
+          final image = controller.selectedImage.value;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('识别二维码/条形码', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              if (image == null)
+                const Text('请选择包含二维码或条形码的图片，识别过程完全在本地完成。')
+              else ...[
+                Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Text('尺寸：${image.width} × ${image.height} px'),
+              ],
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: controller.isBusy.value
+                    ? null
+                    : controller.pickAndScanImage,
+                icon: controller.isBusy.value
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.document_scanner_outlined),
+                label: Text(image == null ? '选择并识别' : '重新选择并识别'),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _ScanResultCard extends StatelessWidget {
+  const _ScanResultCard({required this.controller});
+
+  final QrcodeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final result = controller.scanResult.value;
+      if (result == null) {
+        return const SizedBox.shrink();
+      }
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('识别结果', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text('格式：${result.format}'),
+              Text('内容长度：${result.text.length} 字符'),
+              if (result.rawBytesLength > 0)
+                Text('原始字节：${result.rawBytesLength}'),
+              const SizedBox(height: 8),
+              SelectableText(result.text),
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: controller.copyScanText,
+                icon: const Icon(Icons.copy_outlined),
+                label: const Text('复制内容'),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 
