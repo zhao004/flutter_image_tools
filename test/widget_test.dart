@@ -14,6 +14,8 @@ import 'package:flutter_image_tools/app/pages/color_picker/color_picker_controll
 import 'package:flutter_image_tools/app/pages/color_picker/color_picker_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_view.dart';
+import 'package:flutter_image_tools/app/pages/grid/grid_controller.dart';
+import 'package:flutter_image_tools/app/pages/grid/grid_view.dart' as grid_page;
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
@@ -299,6 +301,44 @@ void main() {
       find.text('The preview appears here after an image loads.'),
       findsOneWidget,
     );
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文九宫格切图页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、网格和操作按钮文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      GridController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const grid_page.GridView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Grid Split'), findsOneWidget);
+    expect(find.text('Select Image'), findsWidgets);
+    expect(
+      find.text(
+        'Select a JPG, PNG, WebP, or BMP image to generate grid slices.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Grid Size'), findsOneWidget);
+    expect(find.text('3 × 3'), findsOneWidget);
+    expect(find.text('Generate Slices'), findsOneWidget);
 
     await database.close();
     Get.reset();

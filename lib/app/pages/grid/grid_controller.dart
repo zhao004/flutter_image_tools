@@ -44,14 +44,14 @@ class GridController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('grid.error.recentFileFailed'.tr);
     }
   }
 
   void setGridSize(int value) {
     if (value < LocalImageChannel.minGridSize ||
         value > LocalImageChannel.maxGridSize) {
-      _showError('网格大小必须在 2 到 5 之间');
+      _showError('grid.error.invalidSize'.tr);
       return;
     }
     gridSize.value = value;
@@ -63,7 +63,7 @@ class GridController extends GetxController {
     }
     final source = selectedImage.value;
     if (source == null) {
-      _showError('请先选择一张图片');
+      _showError('grid.error.pickImageFirst'.tr);
       return;
     }
 
@@ -76,7 +76,7 @@ class GridController extends GetxController {
       );
       result.value = gridImage;
       await _historyRepository.recordOperationSuccess(
-        featureName: '九宫格切图',
+        featureName: 'grid.featureName'.tr,
         inputPath: source.path,
         outputPath: gridImage.outputDirectory,
         parameters: <String, Object>{
@@ -84,10 +84,15 @@ class GridController extends GetxController {
           'pieceCount': gridImage.pieceCount,
         },
       );
-      Get.snackbar('切图完成', '已生成 ${gridImage.pieceCount} 张切片');
+      Get.snackbar(
+        'grid.split.success.title'.tr,
+        'grid.split.success.message'.trParams({
+          'count': '${gridImage.pieceCount}',
+        }),
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: '九宫格切图',
+        featureName: 'grid.featureName'.tr,
         inputPath: source.path,
         parameters: <String, Object>{'gridSize': currentGridSize},
         errorMessage: error.message,
@@ -100,7 +105,7 @@ class GridController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -116,12 +121,12 @@ class GridController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'grid.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('grid.error.title'.tr, message);
   }
 }
