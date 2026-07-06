@@ -30,6 +30,13 @@ Use Flutter’s built-in `flutter_test` framework. Place tests in `test/` and na
 widget tests for UI behavior and unit tests for model, routing, and database logic when behavior changes. Run
 `flutter test` before submitting changes; run `flutter analyze` when touching app architecture or generated-code inputs.
 
+## Development Practices
+
+- After modifying Flutter/Dart source code, if a Flutter debug session is already running and supports hot reload,
+  automatically run hot reload before the final handoff.
+- After changes, run at least one relevant validation command such as `flutter analyze`, `flutter test`, or a build
+  command before submitting work.
+
 ## Commit & Pull Request Guidelines
 
 This checkout does not include Git history, so use Conventional Commits for consistency, for example
