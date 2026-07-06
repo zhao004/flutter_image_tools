@@ -32,6 +32,7 @@ class CropView extends GetView<CropController> {
         onPickImage: controller.pickImage,
         onExport: controller.crop,
         previewBorderRadius: 12,
+        lockPreviewScroll: controller.isDraggingCropFrame.value,
         imageMeta: image == null
             ? null
             : '${controller.formatDimensions(image)} · ${controller.currentRatioText()}',
@@ -114,6 +115,7 @@ class _CropOverlay extends StatelessWidget {
                 height: frameHeight,
                 child: _DraggableCropFrame(
                   enabled: !controller.isBusy.value,
+                  onDragStart: () => controller.setCropFrameDragging(true),
                   onDrag: (delta) {
                     if (stageWidth <= 0 || stageHeight <= 0) {
                       return;
@@ -129,6 +131,7 @@ class _CropOverlay extends StatelessWidget {
                       frameHeightRatio: frameRatios.height,
                     );
                   },
+                  onDragEnd: () => controller.setCropFrameDragging(false),
                 ),
               ),
             ],
@@ -140,16 +143,26 @@ class _CropOverlay extends StatelessWidget {
 }
 
 class _DraggableCropFrame extends StatelessWidget {
-  const _DraggableCropFrame({required this.enabled, required this.onDrag});
+  const _DraggableCropFrame({
+    required this.enabled,
+    required this.onDragStart,
+    required this.onDrag,
+    required this.onDragEnd,
+  });
 
   final bool enabled;
+  final VoidCallback onDragStart;
   final ValueChanged<Offset> onDrag;
+  final VoidCallback onDragEnd;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
+      onPanStart: enabled ? (_) => onDragStart() : null,
       onPanUpdate: enabled ? (details) => onDrag(details.delta) : null,
+      onPanEnd: enabled ? (_) => onDragEnd() : null,
+      onPanCancel: enabled ? onDragEnd : null,
       child: MouseRegion(
         cursor: enabled ? SystemMouseCursors.move : MouseCursor.defer,
         child: CustomPaint(

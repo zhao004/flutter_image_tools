@@ -116,6 +116,7 @@ class CropController extends GetxController {
   final preset = CropPreset.square.obs;
   final cropCenterXRatio = 0.5.obs;
   final cropCenterYRatio = 0.5.obs;
+  final isDraggingCropFrame = false.obs;
   final isBusy = false.obs;
   final customWidthController = TextEditingController(text: '1');
   final customHeightController = TextEditingController(text: '1');
@@ -183,6 +184,13 @@ class CropController extends GetxController {
   void resetCropFrame() {
     cropCenterXRatio.value = 0.5;
     cropCenterYRatio.value = 0.5;
+  }
+
+  void setCropFrameDragging(bool value) {
+    if (isDraggingCropFrame.value == value) {
+      return;
+    }
+    isDraggingCropFrame.value = value;
   }
 
   void updateCropFrame({

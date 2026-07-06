@@ -31,6 +31,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.resultSummary,
     this.appBarActions = const [],
     this.previewBorderRadius = 24,
+    this.lockPreviewScroll = false,
   });
 
   final String title;
@@ -52,6 +53,7 @@ class ImageEditorScaffold extends StatelessWidget {
   final Widget? resultSummary;
   final List<Widget> appBarActions;
   final double previewBorderRadius;
+  final bool lockPreviewScroll;
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +100,7 @@ class ImageEditorScaffold extends StatelessWidget {
                       previewBuilder: previewBuilder,
                       resultSummary: resultSummary,
                       previewBorderRadius: previewBorderRadius,
+                      lockPreviewScroll: lockPreviewScroll,
                     ),
             ),
             if (image != null) _EditorToolbarSurface(child: toolbar),
@@ -168,6 +171,7 @@ class _EditorPreviewStage extends StatelessWidget {
     required this.meta,
     required this.resultSummary,
     required this.previewBorderRadius,
+    required this.lockPreviewScroll,
   });
 
   final LocalImageFile image;
@@ -176,6 +180,7 @@ class _EditorPreviewStage extends StatelessWidget {
   final String? meta;
   final Widget? resultSummary;
   final double previewBorderRadius;
+  final bool lockPreviewScroll;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +188,9 @@ class _EditorPreviewStage extends StatelessWidget {
       builder: (context, constraints) {
         return Center(
           child: SingleChildScrollView(
+            physics: lockPreviewScroll
+                ? const NeverScrollableScrollPhysics()
+                : null,
             padding: const EdgeInsets.all(16),
             child: ConstrainedBox(
               constraints: BoxConstraints(
