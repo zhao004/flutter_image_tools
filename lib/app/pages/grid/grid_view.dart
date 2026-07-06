@@ -22,16 +22,13 @@ class GridView extends GetView<GridController> {
         actions: [
           Obx(() {
             final hasImage = controller.selectedImage.value != null;
+            if (!hasImage) {
+              return const SizedBox.shrink();
+            }
             return IconButton(
-              tooltip: hasImage
-                  ? 'grid.action.repickImage'.tr
-                  : 'grid.action.pickImage'.tr,
+              tooltip: 'grid.action.repickImage'.tr,
               onPressed: controller.isBusy.value ? null : controller.pickImage,
-              icon: Icon(
-                hasImage
-                    ? Icons.add_photo_alternate_outlined
-                    : Icons.image_search_outlined,
-              ),
+              icon: const Icon(Icons.add_photo_alternate_outlined),
             );
           }),
         ],

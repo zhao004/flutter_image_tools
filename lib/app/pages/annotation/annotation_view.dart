@@ -20,10 +20,16 @@ class AnnotationView extends GetView<AnnotationController> {
       appBar: AppBar(
         title: Text('annotation.title'.tr),
         actions: [
-          IconButton(
-            tooltip: 'annotation.action.repickImage'.tr,
-            onPressed: controller.pickImage,
-            icon: const Icon(Icons.add_photo_alternate_outlined),
+          Obx(
+            () => controller.selectedImage.value == null
+                ? const SizedBox.shrink()
+                : IconButton(
+                    tooltip: 'annotation.action.repickImage'.tr,
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.pickImage,
+                    icon: const Icon(Icons.add_photo_alternate_outlined),
+                  ),
           ),
           Obx(
             () => IconButton(

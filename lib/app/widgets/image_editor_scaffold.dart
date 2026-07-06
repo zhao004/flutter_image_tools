@@ -58,11 +58,12 @@ class ImageEditorScaffold extends StatelessWidget {
       appBar: AppBar(
         title: Text(title),
         actions: [
-          IconButton(
-            tooltip: image == null ? pickLabel : repickLabel,
-            onPressed: isBusy ? null : onPickImage,
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-          ),
+          if (image != null)
+            IconButton(
+              tooltip: repickLabel,
+              onPressed: isBusy ? null : onPickImage,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+            ),
           IconButton(
             tooltip: exportLabel,
             onPressed: image == null || isBusy ? null : onExport,
