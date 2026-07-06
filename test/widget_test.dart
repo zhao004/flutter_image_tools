@@ -73,12 +73,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Image Toolkit'), findsOneWidget);
-    expect(find.text('本地离线图片工具'), findsOneWidget);
-    expect(find.text('隐私优先 · 本地处理'), findsOneWidget);
     expect(find.text('收藏工具'), findsOneWidget);
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    expect(find.text('图片压缩'), findsWidgets);
+    expect(find.text('最近使用'), findsOneWidget);
+    expect(find.text('选择图片后会显示在这里'), findsOneWidget);
   });
 
   testWidgets('显示英文首页内容', (WidgetTester tester) async {
@@ -87,12 +84,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Image Toolkit'), findsOneWidget);
-    expect(find.text('Offline Local Image Toolkit'), findsOneWidget);
-    expect(find.text('Privacy-first · Local processing'), findsOneWidget);
     expect(find.text('Favorite Tools'), findsOneWidget);
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    expect(find.text('Image Compression'), findsWidgets);
+    expect(find.text('Recent Tools'), findsOneWidget);
+    expect(find.text('Selected images will appear here'), findsOneWidget);
   });
 
   testWidgets('显示英文历史记录页面', (WidgetTester tester) async {
