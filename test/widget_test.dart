@@ -7,7 +7,10 @@ import 'package:get/get.dart';
 import 'package:flutter_image_tools/app/database/database.dart';
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
+import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
+import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
 import 'package:flutter_image_tools/app/repositories/operation_history_repository.dart';
+import 'package:flutter_image_tools/app/repositories/operation_logs_repository.dart';
 import 'package:flutter_image_tools/app/theme/app_translations.dart';
 import 'package:flutter_image_tools/app/theme/app_theme.dart';
 import 'package:flutter_image_tools/main.dart';
@@ -56,6 +59,37 @@ void main() {
     expect(find.text('History'), findsOneWidget);
     expect(find.text('No processing records'), findsOneWidget);
     expect(find.text('Search feature, path, or parameters'), findsOneWidget);
+    expect(find.text('All'), findsWidgets);
+    expect(find.text('Today'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文日志管理页面', (WidgetTester tester) async {
+    // 使用内存数据库直接渲染日志页，验证空状态和筛选控件翻译。
+    final database = AppDatabase(NativeDatabase.memory());
+    final repository = OperationLogsRepository(database: database);
+    Get.put(LogsController(repository: repository));
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const LogsView(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Log Management'), findsOneWidget);
+    expect(find.text('No operation logs'), findsOneWidget);
+    expect(
+      find.text('Search feature, path, parameters, or errors'),
+      findsOneWidget,
+    );
     expect(find.text('All'), findsWidgets);
     expect(find.text('Today'), findsOneWidget);
 

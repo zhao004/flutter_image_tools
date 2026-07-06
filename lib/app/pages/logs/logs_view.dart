@@ -14,15 +14,15 @@ class LogsView extends GetView<LogsController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('日志管理'),
+        title: Text('logs.title'.tr),
         actions: [
           IconButton(
-            tooltip: '导出日志',
+            tooltip: 'logs.export.tooltip'.tr,
             onPressed: controller.exportLogs,
             icon: const Icon(Icons.file_download_outlined),
           ),
           IconButton(
-            tooltip: '清理日志',
+            tooltip: 'logs.clear.tooltip'.tr,
             onPressed: () => _confirmClearLogs(context),
             icon: const Icon(Icons.delete_outline),
           ),
@@ -54,11 +54,11 @@ class LogsView extends GetView<LogsController> {
                         children: [
                           const Icon(Icons.article_outlined, size: 48),
                           const SizedBox(height: 12),
-                          const Text('暂无操作日志'),
+                          Text('logs.empty'.tr),
                           const SizedBox(height: 12),
                           OutlinedButton(
                             onPressed: controller.loadLogs,
-                            child: const Text('刷新'),
+                            child: Text('common.refresh'.tr),
                           ),
                         ],
                       ),
@@ -90,7 +90,11 @@ class LogsView extends GetView<LogsController> {
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              trailing: Text(isSuccess ? '成功' : '失败'),
+                              trailing: Text(
+                                isSuccess
+                                    ? 'logs.status.success'.tr
+                                    : 'logs.status.failed'.tr,
+                              ),
                             ),
                           ),
                         );
@@ -109,16 +113,16 @@ class LogsView extends GetView<LogsController> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清理操作日志'),
-        content: const Text('此操作只清理本地诊断日志，不会删除历史记录或导出图片。'),
+        title: Text('logs.clear.title'.tr),
+        content: Text('logs.clear.message'.tr),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text('common.cancel'.tr),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('清理'),
+            child: Text('common.clear'.tr),
           ),
         ],
       ),
@@ -147,9 +151,12 @@ class _ExportResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('导出结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'logs.export.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
-              const Text('当前筛选条件下的日志已导出为 CSV。'),
+              Text('logs.export.result.body'.tr),
               const SizedBox(height: 8),
               Text(path, maxLines: 2, overflow: TextOverflow.ellipsis),
             ],
@@ -175,9 +182,9 @@ class _LogsFilters extends StatelessWidget {
           children: [
             TextField(
               onChanged: controller.updateKeyword,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: '搜索功能、路径、参数或错误',
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'logs.search.hint'.tr,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -188,7 +195,7 @@ class _LogsFilters extends StatelessWidget {
                     .map(
                       (filter) => ButtonSegment(
                         value: filter,
-                        label: Text(filter.label),
+                        label: Text(filter.labelKey.tr),
                       ),
                     )
                     .toList(growable: false),
@@ -205,7 +212,7 @@ class _LogsFilters extends StatelessWidget {
                 children: LogsDateFilter.values
                     .map(
                       (filter) => ChoiceChip(
-                        label: Text(filter.label),
+                        label: Text(filter.labelKey.tr),
                         selected: controller.dateFilter.value == filter,
                         onSelected: (_) => controller.updateDateFilter(filter),
                       ),

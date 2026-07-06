@@ -7,25 +7,25 @@ import '../../database/database.dart';
 import '../../repositories/operation_logs_repository.dart';
 
 enum LogsStatusFilter {
-  all(label: '全部', value: ''),
-  success(label: '成功', value: 'success'),
-  failed(label: '失败', value: 'failed');
+  all(labelKey: 'logs.filter.all', value: ''),
+  success(labelKey: 'logs.status.success', value: 'success'),
+  failed(labelKey: 'logs.status.failed', value: 'failed');
 
-  const LogsStatusFilter({required this.label, required this.value});
+  const LogsStatusFilter({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum LogsDateFilter {
-  all(label: '全部', days: 0),
-  today(label: '今天', days: 1),
-  sevenDays(label: '近 7 天', days: 7),
-  thirtyDays(label: '近 30 天', days: 30);
+  all(labelKey: 'logs.filter.all', days: 0),
+  today(labelKey: 'logs.date.today', days: 1),
+  sevenDays(labelKey: 'logs.date.sevenDays', days: 7),
+  thirtyDays(labelKey: 'logs.date.thirtyDays', days: 30);
 
-  const LogsDateFilter({required this.label, required this.days});
+  const LogsDateFilter({required this.labelKey, required this.days});
 
-  final String label;
+  final String labelKey;
   final int days;
 }
 
@@ -63,7 +63,7 @@ class LogsController extends GetxController {
         ),
       );
     } catch (_) {
-      Get.snackbar('读取失败', '日志读取失败，请稍后重试');
+      Get.snackbar('logs.read.failed.title'.tr, 'logs.read.failed.message'.tr);
     } finally {
       isLoading.value = false;
     }
@@ -89,9 +89,15 @@ class LogsController extends GetxController {
     try {
       await _repository.clearLogs();
       items.clear();
-      Get.snackbar('清理完成', '操作日志已清理');
+      Get.snackbar(
+        'logs.clear.success.title'.tr,
+        'logs.clear.success.message'.tr,
+      );
     } catch (_) {
-      Get.snackbar('清理失败', '日志清理失败，请稍后重试');
+      Get.snackbar(
+        'logs.clear.failed.title'.tr,
+        'logs.clear.failed.message'.tr,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -110,11 +116,17 @@ class LogsController extends GetxController {
       );
       final output = await _createCsvFile(csv);
       exportedPath.value = output.path;
-      Get.snackbar('导出完成', '日志 CSV 已导出到应用缓存目录');
+      Get.snackbar(
+        'logs.export.success.title'.tr,
+        'logs.export.success.message'.tr,
+      );
     } on StateError catch (error) {
-      Get.snackbar('导出失败', error.message);
+      Get.snackbar('logs.export.failed.title'.tr, error.message);
     } catch (_) {
-      Get.snackbar('导出失败', '日志导出失败，请检查存储空间后重试');
+      Get.snackbar(
+        'logs.export.failed.title'.tr,
+        'logs.export.failed.message'.tr,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -129,7 +141,7 @@ class LogsController extends GetxController {
 
   String formatDuration(int? durationMs) {
     if (durationMs == null || durationMs < 0) {
-      return '未知耗时';
+      return 'logs.duration.unknown'.tr;
     }
     if (durationMs < 1000) {
       return '$durationMs ms';
