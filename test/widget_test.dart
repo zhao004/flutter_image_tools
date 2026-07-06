@@ -74,8 +74,8 @@ void main() {
 
     expect(find.text('Image Toolkit'), findsOneWidget);
     expect(find.text('收藏工具'), findsOneWidget);
-    expect(find.text('最近使用'), findsOneWidget);
-    expect(find.text('选择图片后会显示在这里'), findsOneWidget);
+    expect(find.text('最近使用'), findsNothing);
+    expect(find.text('选择图片后会显示在这里'), findsNothing);
   });
 
   testWidgets('显示英文首页内容', (WidgetTester tester) async {
@@ -85,8 +85,8 @@ void main() {
 
     expect(find.text('Image Toolkit'), findsOneWidget);
     expect(find.text('Favorite Tools'), findsOneWidget);
-    expect(find.text('Recent Tools'), findsOneWidget);
-    expect(find.text('Selected images will appear here'), findsOneWidget);
+    expect(find.text('Recent Tools'), findsNothing);
+    expect(find.text('Selected images will appear here'), findsNothing);
   });
 
   testWidgets('显示英文历史记录页面', (WidgetTester tester) async {

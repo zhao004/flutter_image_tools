@@ -310,6 +310,10 @@ class HomeController extends GetxController {
     await openTool(tool);
   }
 
+  Future<void> openFavorites() async {
+    await Get.toNamed(Routes.favorites);
+  }
+
   Future<void> openTool(HomeToolItem tool) async {
     final route = tool.route;
     if (tool.availability != ToolAvailability.available || route == null) {

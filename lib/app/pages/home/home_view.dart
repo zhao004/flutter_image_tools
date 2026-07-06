@@ -18,10 +18,35 @@ class HomeView extends GetView<HomeController> {
       appBar: AppBar(
         title: Text('app.title'.tr),
         actions: [
-          IconButton(
-            tooltip: 'home.tool.settings.title'.tr,
-            onPressed: controller.openSettings,
-            icon: const Icon(Icons.settings_outlined),
+          PopupMenuButton<_HomeMenuAction>(
+            tooltip: 'home.more.tooltip'.tr,
+            icon: const Icon(Icons.more_vert),
+            onSelected: (action) {
+              switch (action) {
+                case _HomeMenuAction.favorites:
+                  controller.openFavorites();
+                case _HomeMenuAction.settings:
+                  controller.openSettings();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _HomeMenuAction.favorites,
+                child: ListTile(
+                  leading: const Icon(Icons.star_outline),
+                  title: Text('home.section.favorites'.tr),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _HomeMenuAction.settings,
+                child: ListTile(
+                  leading: const Icon(Icons.settings_outlined),
+                  title: Text('home.tool.settings.title'.tr),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -99,89 +124,6 @@ class HomeView extends GetView<HomeController> {
                       child: Padding(
                         padding: const EdgeInsets.only(top: 24),
                         child: _SectionHeader(
-                          icon: Icons.bolt_outlined,
-                          titleKey: 'home.section.shortcuts',
-                          subtitleKey: 'home.section.shortcuts.subtitle',
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Center(
-                    child: SizedBox(
-                      width: contentWidth,
-                      child: Obx(
-                        () => _ToolChipWrap(
-                          tools: controller.recentTools,
-                          onTap: controller.openTool,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Center(
-                    child: SizedBox(
-                      width: contentWidth,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 24),
-                        child: _SectionHeader(
-                          icon: Icons.image_outlined,
-                          titleKey: 'home.section.recentImages',
-                          subtitleKey: 'home.section.recentImages.subtitle',
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Center(
-                    child: SizedBox(
-                      width: contentWidth,
-                      child: Obx(() {
-                        if (controller.recentFiles.isEmpty) {
-                          return _EmptyPanel(
-                            icon: Icons.photo_library_outlined,
-                            message: 'home.recentImages.empty'.tr,
-                          );
-                        }
-                        return SizedBox(
-                          height: 64,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: controller.recentFiles.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final file = controller.recentFiles[index];
-                              return Chip(
-                                avatar: const Icon(
-                                  Icons.image_outlined,
-                                  size: 18,
-                                ),
-                                label: SizedBox(
-                                  width: 148,
-                                  child: Text(
-                                    file.fileName,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Center(
-                    child: SizedBox(
-                      width: contentWidth,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 24),
-                        child: _SectionHeader(
                           icon: Icons.grid_view_outlined,
                           titleKey: 'home.section.allTools',
                           subtitleKey: 'home.section.allTools.subtitle',
@@ -223,6 +165,8 @@ class HomeView extends GetView<HomeController> {
     );
   }
 }
+
+enum _HomeMenuAction { favorites, settings }
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({

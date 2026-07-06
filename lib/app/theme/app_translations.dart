@@ -10,6 +10,7 @@ class AppTranslations extends Translations {
     'zh_CN': {
       'app.title': 'Image Toolkit',
       'home.search.hint': '搜索工具',
+      'home.more.tooltip': '更多',
       'home.section.favorites': '收藏工具',
       'home.section.favorites.subtitle': '把常用能力固定在首页，减少重复查找。',
       'home.section.shortcuts': '最近使用',
@@ -1048,6 +1049,7 @@ class AppTranslations extends Translations {
     'zh_TW': {
       'app.title': 'Image Toolkit',
       'home.search.hint': '搜尋工具',
+      'home.more.tooltip': '更多',
       'home.section.favorites': '收藏工具',
       'home.section.favorites.subtitle': '把常用能力固定在首頁，減少重複查找。',
       'home.section.shortcuts': '最近使用',
@@ -2086,6 +2088,7 @@ class AppTranslations extends Translations {
     'en': {
       'app.title': 'Image Toolkit',
       'home.search.hint': 'Search tools',
+      'home.more.tooltip': 'More',
       'home.section.favorites': 'Favorite Tools',
       'home.section.favorites.subtitle':
           'Pin frequent tools to avoid searching every time.',
