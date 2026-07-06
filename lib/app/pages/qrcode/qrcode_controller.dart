@@ -94,6 +94,7 @@ class QrcodeController extends GetxController {
       if (!qr.hasValidOutput) {
         throw const FormatException();
       }
+      await _imageChannel.saveImageToGallery(output.path);
       result.value = qr;
       barcodeResult.value = null;
       await _historyRepository.recordOperationSuccess(
@@ -162,6 +163,7 @@ class QrcodeController extends GetxController {
       if (!file.hasValidOutput) {
         throw const FormatException();
       }
+      await _imageChannel.saveImageToGallery(output.path);
       barcodeResult.value = file;
       result.value = null;
       await _historyRepository.recordOperationSuccess(

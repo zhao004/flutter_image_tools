@@ -29,7 +29,7 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
         emptyMessage: 'imageWatermark.source.empty'.tr,
         pickLabel: 'imageWatermark.action.pickSource'.tr,
         repickLabel: 'imageWatermark.action.repickSource'.tr,
-        exportLabel: 'imageWatermark.action.add'.tr,
+        exportLabel: 'common.saveToGallery'.tr,
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickSourceImage,
         onExport: controller.addWatermark,

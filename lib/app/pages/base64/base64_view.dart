@@ -188,7 +188,7 @@ class _DecodeCard extends StatelessWidget {
                 label: Text(
                   controller.isBusy.value
                       ? 'base64.action.decoding'.tr
-                      : 'base64.action.decode'.tr,
+                      : 'common.saveToGallery'.tr,
                 ),
               ),
               if (result != null) ...[

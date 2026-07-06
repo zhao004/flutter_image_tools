@@ -580,6 +580,7 @@ class LocalImageChannel {
       if (merged.outputPath.isEmpty) {
         throw const AppException('导出路径为空，请重试');
       }
+      await saveImageToGallery(merged.outputPath);
       return merged;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -954,6 +955,7 @@ class LocalImageChannel {
       if (cleaned.outputPath.isEmpty) {
         throw const AppException('导出路径为空，请重试');
       }
+      await saveImageToGallery(cleaned.outputPath);
       return cleaned;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -1060,6 +1062,7 @@ class LocalImageChannel {
       if (!gif.hasValidDimensions) {
         throw const AppException('GIF 输出尺寸异常，请重试');
       }
+      await saveImageToGallery(gif.outputPath);
       return gif;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -1096,6 +1099,9 @@ class LocalImageChannel {
       );
       if (!export.isComplete) {
         throw const AppException('GIF 拆帧数量异常，请重试');
+      }
+      for (final outputPath in export.outputPaths) {
+        await saveImageToGallery(outputPath);
       }
       return export;
     } on PlatformException catch (error) {
@@ -1144,6 +1150,7 @@ class LocalImageChannel {
       if (!compressed.hasValidOutput) {
         throw const AppException('GIF 压缩输出异常，请重试');
       }
+      await saveImageToGallery(compressed.outputPath);
       return compressed;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -1185,6 +1192,7 @@ class LocalImageChannel {
       if (!image.hasValidDimensions) {
         throw const AppException('导出图片尺寸异常，请重试');
       }
+      await saveImageToGallery(image.outputPath);
       return image;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -1220,6 +1228,9 @@ class LocalImageChannel {
       }
       if (!export.isComplete) {
         throw const AppException('PDF 页面导出数量异常，请重试');
+      }
+      for (final outputPath in export.outputPaths) {
+        await saveImageToGallery(outputPath);
       }
       return export;
     } on PlatformException catch (error) {

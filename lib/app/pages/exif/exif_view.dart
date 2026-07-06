@@ -93,7 +93,7 @@ class _ImageCard extends StatelessWidget {
                         ? null
                         : controller.removeExif,
                     icon: const Icon(Icons.privacy_tip_outlined),
-                    label: Text('exif.action.remove'.tr),
+                    label: Text('common.saveToGallery'.tr),
                   ),
                 ],
               ),

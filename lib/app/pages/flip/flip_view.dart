@@ -25,7 +25,7 @@ class FlipView extends GetView<FlipController> {
         emptyMessage: 'flip.image.empty'.tr,
         pickLabel: 'flip.action.pickSingle'.tr,
         repickLabel: 'flip.action.repickSingle'.tr,
-        exportLabel: 'flip.action.flip'.tr,
+        exportLabel: 'common.saveToGallery'.tr,
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.flip,

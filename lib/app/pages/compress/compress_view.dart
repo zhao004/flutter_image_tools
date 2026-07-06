@@ -36,7 +36,7 @@ class CompressView extends GetView<CompressController> {
                 label: Text(
                   controller.isBusy.value
                       ? 'common.processing'.tr
-                      : 'compress.action.compress'.tr,
+                      : 'common.saveToGallery'.tr,
                 ),
               ),
             ),

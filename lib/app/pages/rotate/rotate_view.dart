@@ -27,7 +27,7 @@ class RotateView extends GetView<RotateController> {
         emptyMessage: 'rotate.image.empty'.tr,
         pickLabel: 'rotate.action.pickSingle'.tr,
         repickLabel: 'rotate.action.repickSingle'.tr,
-        exportLabel: 'rotate.action.rotate'.tr,
+        exportLabel: 'common.saveToGallery'.tr,
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.rotate,

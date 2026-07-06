@@ -337,7 +337,7 @@ class _GridBottomToolbar extends StatelessWidget {
                         label: Text(
                           controller.isBusy.value
                               ? 'common.processing'.tr
-                              : 'grid.action.split'.tr,
+                              : 'common.saveToGallery'.tr,
                         ),
                       ),
                     ),

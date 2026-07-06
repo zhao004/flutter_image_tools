@@ -36,7 +36,7 @@ class GifView extends GetView<GifController> {
                 label: Text(
                   controller.isBusy.value
                       ? 'gif.action.creating'.tr
-                      : 'gif.action.create'.tr,
+                      : 'common.saveToGallery'.tr,
                 ),
               ),
             ),
@@ -134,7 +134,7 @@ class _CompressCard extends StatelessWidget {
                 label: Text(
                   controller.isBusy.value
                       ? 'gif.action.compressing'.tr
-                      : 'gif.action.compress'.tr,
+                      : 'common.saveToGallery'.tr,
                 ),
               ),
             ],
@@ -289,7 +289,7 @@ class _FrameExportCard extends StatelessWidget {
                 label: Text(
                   controller.isBusy.value
                       ? 'gif.action.exporting'.tr
-                      : 'gif.action.exportFrames'.tr,
+                      : 'common.saveToGallery'.tr,
                 ),
               ),
             ],

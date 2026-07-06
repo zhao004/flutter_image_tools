@@ -36,7 +36,7 @@ class ConvertView extends GetView<ConvertController> {
                 label: Text(
                   controller.isBusy.value
                       ? 'common.processing'.tr
-                      : 'convert.action.convert'.tr,
+                      : 'common.saveToGallery'.tr,
                 ),
               ),
             ),

@@ -127,7 +127,7 @@ class _PdfPageExportCard extends StatelessWidget {
                     label: Text(
                       controller.isBusy.value
                           ? 'pdf.action.exporting'.tr
-                          : 'pdf.action.exportPage'.tr,
+                          : 'common.saveToGallery'.tr,
                     ),
                   ),
                   FilledButton.tonalIcon(
@@ -135,7 +135,7 @@ class _PdfPageExportCard extends StatelessWidget {
                         ? null
                         : controller.exportAllPdfPages,
                     icon: const Icon(Icons.collections_outlined),
-                    label: Text('pdf.action.exportAllPages'.tr),
+                    label: Text('common.saveToGallery'.tr),
                   ),
                 ],
               ),

@@ -27,7 +27,7 @@ class CropView extends GetView<CropController> {
         emptyMessage: 'crop.image.empty'.tr,
         pickLabel: 'crop.action.pickSingle'.tr,
         repickLabel: 'crop.action.repickSingle'.tr,
-        exportLabel: 'crop.action.crop'.tr,
+        exportLabel: 'common.saveToGallery'.tr,
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.crop,

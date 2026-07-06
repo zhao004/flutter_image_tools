@@ -1,4 +1,4 @@
-import 'package:drift/native.dart';
+﻿import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -349,7 +349,7 @@ void main() {
       find.text('Paste Base64 text or data:image/png;base64,...'),
       findsOneWidget,
     );
-    expect(find.text('Restore Image'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -380,8 +380,8 @@ void main() {
     expect(find.text('QR Code'), findsOneWidget);
     expect(find.text('Generate QR Code / Barcode'), findsOneWidget);
     expect(find.text('Enter text, a link, or a short note'), findsOneWidget);
-    expect(find.text('Generate QR Code'), findsOneWidget);
-    expect(find.text('Generate Barcode'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsWidgets);
+
     expect(find.text('Scan QR Code / Barcode'), findsOneWidget);
     expect(
       find.text(
@@ -475,7 +475,7 @@ void main() {
     expect(find.text('4 × 4'), findsOneWidget);
     expect(find.text('5 × 5'), findsOneWidget);
     expect(find.text('Center Grid'), findsOneWidget);
-    expect(find.text('Generate Slices'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -549,7 +549,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Read Again'), findsOneWidget);
-    expect(find.text('Remove EXIF'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsOneWidget);
     expect(find.text('EXIF Information'), findsOneWidget);
     expect(
       find.text('Readable EXIF fields appear after selecting an image.'),
@@ -710,7 +710,7 @@ void main() {
     expect(find.text('Select Batch'), findsOneWidget);
     expect(find.text('Compression Quality'), findsOneWidget);
     expect(find.text('Current Quality: 80%'), findsOneWidget);
-    expect(find.text('Start Compress'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -752,7 +752,7 @@ void main() {
     expect(find.text('PNG'), findsOneWidget);
     expect(find.text('Export Quality: 95%'), findsOneWidget);
     expect(find.text('JPG and WebP use the export quality.'), findsOneWidget);
-    expect(find.text('Start Convert'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -1086,7 +1086,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Create GIF'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsWidgets);
 
     await database.close();
     Get.reset();

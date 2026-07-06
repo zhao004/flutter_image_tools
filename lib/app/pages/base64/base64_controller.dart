@@ -230,6 +230,7 @@ class Base64Controller extends GetxController {
       );
       outputPath = output.path;
       await output.writeAsBytes(bytes, flush: true);
+      await _imageChannel.saveImageToGallery(output.path);
       decodedResult.value = Base64ImageResult(
         outputPath: output.path,
         outputSizeBytes: await output.length(),

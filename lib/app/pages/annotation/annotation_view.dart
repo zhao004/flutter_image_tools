@@ -33,7 +33,7 @@ class AnnotationView extends GetView<AnnotationController> {
           ),
           Obx(
             () => IconButton(
-              tooltip: 'annotation.action.export'.tr,
+              tooltip: 'common.saveToGallery'.tr,
               onPressed: controller.isBusy.value
                   ? null
                   : controller.exportEditedImage,

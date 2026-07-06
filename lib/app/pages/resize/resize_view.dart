@@ -26,7 +26,7 @@ class ResizeView extends GetView<ResizeController> {
         emptyMessage: 'resize.image.empty'.tr,
         pickLabel: 'resize.action.pickSingle'.tr,
         repickLabel: 'resize.action.repickSingle'.tr,
-        exportLabel: 'resize.action.resize'.tr,
+        exportLabel: 'common.saveToGallery'.tr,
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.resize,
