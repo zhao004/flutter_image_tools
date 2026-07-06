@@ -13,7 +13,7 @@ class ExifView extends GetView<ExifController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('EXIF 管理')),
+      appBar: AppBar(title: Text('exif.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -45,10 +45,13 @@ class _ImageCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'exif.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (image == null)
-                const Text('请选择一张本地图片读取拍摄时间、相机、GPS 等 EXIF 信息。')
+                Text('exif.image.empty'.tr)
               else ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
@@ -72,10 +75,10 @@ class _ImageCard extends StatelessWidget {
                         : const Icon(Icons.add_photo_alternate_outlined),
                     label: Text(
                       controller.isBusy.value
-                          ? '处理中'
+                          ? 'common.processing'.tr
                           : image == null
-                          ? '选择图片'
-                          : '重新选择',
+                          ? 'exif.action.pickImage'.tr
+                          : 'exif.action.repickImage'.tr,
                     ),
                   ),
                   FilledButton.tonalIcon(
@@ -83,14 +86,14 @@ class _ImageCard extends StatelessWidget {
                         ? null
                         : controller.refreshExif,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('重新读取'),
+                    label: Text('exif.action.refresh'.tr),
                   ),
                   FilledButton.icon(
                     onPressed: controller.isBusy.value
                         ? null
                         : controller.removeExif,
                     icon: const Icon(Icons.privacy_tip_outlined),
-                    label: const Text('删除 EXIF'),
+                    label: Text('exif.action.remove'.tr),
                   ),
                 ],
               ),
@@ -117,12 +120,15 @@ class _AttributesCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('EXIF 信息', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'exif.info.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (info == null)
-                const Text('选择图片后会显示可读取的 EXIF 字段。')
+                Text('exif.info.empty'.tr)
               else if (!info.hasExif)
-                const Text('未读取到 EXIF 信息，图片可能已被压缩或清理。')
+                Text('exif.info.notFound'.tr)
               else
                 ...info.attributes.entries.map(
                   (entry) => ListTile(
@@ -157,9 +163,16 @@ class _CleanResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('清理结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'exif.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'exif.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

@@ -12,6 +12,8 @@ import 'package:flutter_image_tools/app/pages/cache/cache_controller.dart';
 import 'package:flutter_image_tools/app/pages/cache/cache_view.dart';
 import 'package:flutter_image_tools/app/pages/color_picker/color_picker_controller.dart';
 import 'package:flutter_image_tools/app/pages/color_picker/color_picker_view.dart';
+import 'package:flutter_image_tools/app/pages/exif/exif_controller.dart';
+import 'package:flutter_image_tools/app/pages/exif/exif_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_view.dart';
 import 'package:flutter_image_tools/app/pages/filter/filter_controller.dart';
@@ -381,6 +383,48 @@ void main() {
     expect(find.text('Grayscale'), findsOneWidget);
     expect(find.text('Sepia'), findsOneWidget);
     expect(find.text('Apply Filter'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文 EXIF 管理页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、信息区和操作按钮文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      ExifController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const ExifView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('EXIF Manager'), findsOneWidget);
+    expect(find.text('Select Image'), findsWidgets);
+    expect(
+      find.text(
+        'Select a local image to read capture time, camera, GPS, and other EXIF information.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Read Again'), findsOneWidget);
+    expect(find.text('Remove EXIF'), findsOneWidget);
+    expect(find.text('EXIF Information'), findsOneWidget);
+    expect(
+      find.text('Readable EXIF fields appear after selecting an image.'),
+      findsOneWidget,
+    );
 
     await database.close();
     Get.reset();

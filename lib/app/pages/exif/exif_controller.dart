@@ -47,7 +47,7 @@ class ExifController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('读取 EXIF 失败，请重试');
+      _showError('exif.error.readFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -59,7 +59,7 @@ class ExifController extends GetxController {
     }
     final image = selectedImage.value;
     if (image == null) {
-      _showError('请先选择一张图片');
+      _showError('exif.error.pickImageFirst'.tr);
       return;
     }
     isBusy.value = true;
@@ -68,7 +68,7 @@ class ExifController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('读取 EXIF 失败，请重试');
+      _showError('exif.error.readFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -80,7 +80,7 @@ class ExifController extends GetxController {
     }
     final image = selectedImage.value;
     if (image == null) {
-      _showError('请先选择一张图片');
+      _showError('exif.error.pickImageFirst'.tr);
       return;
     }
 
@@ -89,18 +89,21 @@ class ExifController extends GetxController {
       final cleaned = await _imageChannel.removeExif(source: image);
       cleanedResult.value = cleaned;
       await _historyRepository.recordOperationSuccess(
-        featureName: '删除 EXIF',
+        featureName: 'exif.featureName'.tr,
         inputPath: image.path,
         outputPath: cleaned.outputPath,
         parameters: <String, Object>{'mode': 'removeExif'},
       );
-      Get.snackbar('删除完成', '已导出去除 EXIF 的图片副本');
+      Get.snackbar(
+        'exif.remove.success.title'.tr,
+        'exif.remove.success.message'.tr,
+      );
     } on AppException catch (error) {
       await _recordRemoveFailure(image, error.message);
       _showError(error.message);
     } catch (_) {
-      await _recordRemoveFailure(image, '删除 EXIF 失败');
-      _showError('删除 EXIF 失败，请重试');
+      await _recordRemoveFailure(image, 'exif.error.removeFailedLog'.tr);
+      _showError('exif.error.removeFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -108,7 +111,7 @@ class ExifController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -124,7 +127,7 @@ class ExifController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'exif.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
   }
@@ -138,7 +141,7 @@ class ExifController extends GetxController {
     String message,
   ) async {
     await _historyRepository.recordOperationFailure(
-      featureName: '删除 EXIF',
+      featureName: 'exif.featureName'.tr,
       inputPath: image.path,
       parameters: const <String, Object>{'mode': 'removeExif'},
       errorMessage: message,
@@ -146,6 +149,6 @@ class ExifController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('exif.error.title'.tr, message);
   }
 }
