@@ -27,7 +27,7 @@ class ResizeView extends GetView<ResizeController> {
         pickLabel: 'resize.action.pickSingle'.tr,
         repickLabel: 'resize.action.repickSingle'.tr,
         exportLabel: 'resize.action.resize'.tr,
-        exportIcon: Icons.save_alt_outlined,
+        exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.resize,
         imageMeta: image == null

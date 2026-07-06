@@ -26,7 +26,7 @@ class WatermarkView extends GetView<WatermarkController> {
         pickLabel: 'watermark.action.pickSingle'.tr,
         repickLabel: 'watermark.action.repickSingle'.tr,
         exportLabel: 'watermark.action.add'.tr,
-        exportIcon: Icons.save_alt_outlined,
+        exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.addWatermark,
         imageMeta: image == null

@@ -28,7 +28,7 @@ class CropView extends GetView<CropController> {
         pickLabel: 'crop.action.pickSingle'.tr,
         repickLabel: 'crop.action.repickSingle'.tr,
         exportLabel: 'crop.action.crop'.tr,
-        exportIcon: Icons.save_alt_outlined,
+        exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.crop,
         previewBorderRadius: 12,

@@ -512,7 +512,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(Icons.add_photo_alternate_outlined), findsWidgets);
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -599,7 +599,7 @@ void main() {
     expect(find.text('Arrow'), findsOneWidget);
     expect(find.text('Red'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -634,7 +634,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
 
     await database.close();
@@ -670,7 +670,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
 
     await database.close();
@@ -787,7 +787,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
 
     await database.close();
@@ -823,7 +823,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
 
     await database.close();
@@ -897,7 +897,7 @@ void main() {
     );
     expect(find.text('Select Batch'), findsOneWidget);
     expect(find.text('Merge Layout'), findsNothing);
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
     Get.find<MergeController>().selectedImages.assignAll(const [
       LocalImageFile(
@@ -961,7 +961,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
 
     await database.close();
@@ -996,7 +996,7 @@ void main() {
       find.text('Select a base image to add an image watermark.'),
       findsOneWidget,
     );
-    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
 
     await database.close();

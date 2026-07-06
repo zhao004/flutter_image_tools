@@ -32,7 +32,7 @@ class MergeView extends GetView<MergeController> {
         pickLabel: 'merge.action.pickBatch'.tr,
         repickLabel: 'merge.action.repickBatch'.tr,
         exportLabel: 'merge.action.merge'.tr,
-        exportIcon: Icons.save_alt_outlined,
+        exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImages,
         onExport: controller.merge,
         imageMeta: images.isEmpty

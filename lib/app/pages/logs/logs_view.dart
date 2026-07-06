@@ -19,7 +19,7 @@ class LogsView extends GetView<LogsController> {
           IconButton(
             tooltip: 'logs.export.tooltip'.tr,
             onPressed: controller.exportLogs,
-            icon: const Icon(Icons.file_download_outlined),
+            icon: const Icon(Icons.save_outlined),
           ),
           IconButton(
             tooltip: 'logs.clear.tooltip'.tr,
