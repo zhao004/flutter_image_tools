@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 
 import 'app/bindings/initial_binding.dart';
 import 'app/database/database.dart';
 import 'app/repositories/app_settings_repository.dart';
 import 'app/routes/app_pages.dart';
-import 'app/theme/app_translations.dart';
 import 'app/theme/app_theme.dart';
+import 'app/theme/app_translations.dart';
 import 'app/theme/locale_parser.dart';
 import 'app/theme/theme_mode_parser.dart';
 
@@ -78,6 +79,16 @@ class ImageToolsApp extends StatelessWidget {
       initialBinding: InitialBinding(),
       initialRoute: AppPages.initial,
       getPages: AppPages.routes,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+        Locale('zh', 'TW'),
+        Locale('en'),
+      ],
     );
   }
 }

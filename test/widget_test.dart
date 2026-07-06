@@ -74,6 +74,10 @@ void main() {
 
     expect(find.text('Image Toolkit'), findsOneWidget);
     expect(find.text('本地离线图片工具'), findsOneWidget);
+    expect(find.text('隐私优先 · 本地处理'), findsOneWidget);
+    expect(find.text('收藏工具'), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
+    await tester.pumpAndSettle();
     expect(find.text('图片压缩'), findsWidgets);
   });
 
@@ -84,6 +88,10 @@ void main() {
 
     expect(find.text('Image Toolkit'), findsOneWidget);
     expect(find.text('Offline Local Image Toolkit'), findsOneWidget);
+    expect(find.text('Privacy-first · Local processing'), findsOneWidget);
+    expect(find.text('Favorite Tools'), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
+    await tester.pumpAndSettle();
     expect(find.text('Image Compression'), findsWidgets);
   });
 

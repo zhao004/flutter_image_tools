@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -12,10 +14,9 @@ class HomeView extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Image Toolkit'),
+        title: Text('app.title'.tr),
         actions: [
           IconButton(
             tooltip: 'home.tool.settings.title'.tr,
@@ -25,168 +26,212 @@ class HomeView extends GetView<HomeController> {
         ],
       ),
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              sliver: SliverToBoxAdapter(
-                child: _HeaderCard(colorScheme: colorScheme),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverToBoxAdapter(
-                child: TextField(
-                  onChanged: controller.updateQuery,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: 'home.search.hint'.tr,
-                    border: const OutlineInputBorder(),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const contentMaxWidth = 1120.0;
+            final width = constraints.maxWidth;
+            final pagePadding = width >= 840 ? 24.0 : 16.0;
+            final contentWidth = math.min(
+              contentMaxWidth,
+              math.max(0.0, width - pagePadding * 2),
+            );
+            final sideInset = (width - contentWidth) / 2;
+
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 18),
+                        child: _HeaderCard(
+                          colorScheme: Theme.of(context).colorScheme,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  'home.section.favorites'.tr,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverToBoxAdapter(
-                child: Obx(() {
-                  if (controller.favoriteTools.isEmpty) {
-                    return Text('home.favorites.empty'.tr);
-                  }
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: controller.favoriteTools
-                        .map(
-                          (tool) => ActionChip(
-                            avatar: Icon(_iconFor(tool.icon), size: 18),
-                            label: Text(tool.title),
-                            onPressed: () => controller.openTool(tool),
-                          ),
-                        )
-                        .toList(growable: false),
-                  );
-                }),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  'home.section.shortcuts'.tr,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverToBoxAdapter(
-                child: Obx(
-                  () => Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: controller.recentTools
-                        .map(
-                          (tool) => ActionChip(
-                            avatar: Icon(_iconFor(tool.icon), size: 18),
-                            label: Text(tool.title),
-                            onPressed: () => controller.openTool(tool),
-                          ),
-                        )
-                        .toList(growable: false),
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: TextField(
+                        onChanged: controller.updateQuery,
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search),
+                          hintText: 'home.search.hint'.tr,
+                          suffixIcon: const Icon(Icons.tune_outlined),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  'home.section.recentImages'.tr,
-                  style: Theme.of(context).textTheme.titleMedium,
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: _SectionHeader(
+                          icon: Icons.star_outline,
+                          titleKey: 'home.section.favorites',
+                          subtitleKey: 'home.section.favorites.subtitle',
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverToBoxAdapter(
-                child: Obx(() {
-                  if (controller.recentFiles.isEmpty) {
-                    return Text('home.recentImages.empty'.tr);
-                  }
-                  return SizedBox(
-                    height: 72,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: controller.recentFiles.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Obx(() {
+                        if (controller.favoriteTools.isEmpty) {
+                          return _EmptyPanel(
+                            icon: Icons.star_border,
+                            message: 'home.favorites.empty'.tr,
+                          );
+                        }
+                        return _ToolChipWrap(
+                          tools: controller.favoriteTools,
+                          onTap: controller.openTool,
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: _SectionHeader(
+                          icon: Icons.bolt_outlined,
+                          titleKey: 'home.section.shortcuts',
+                          subtitleKey: 'home.section.shortcuts.subtitle',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Obx(
+                        () => _ToolChipWrap(
+                          tools: controller.recentTools,
+                          onTap: controller.openTool,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: _SectionHeader(
+                          icon: Icons.image_outlined,
+                          titleKey: 'home.section.recentImages',
+                          subtitleKey: 'home.section.recentImages.subtitle',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Obx(() {
+                        if (controller.recentFiles.isEmpty) {
+                          return _EmptyPanel(
+                            icon: Icons.photo_library_outlined,
+                            message: 'home.recentImages.empty'.tr,
+                          );
+                        }
+                        return SizedBox(
+                          height: 64,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: controller.recentFiles.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final file = controller.recentFiles[index];
+                              return Chip(
+                                avatar: const Icon(
+                                  Icons.image_outlined,
+                                  size: 18,
+                                ),
+                                label: SizedBox(
+                                  width: 148,
+                                  child: Text(
+                                    file.fileName,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: _SectionHeader(
+                          icon: Icons.grid_view_outlined,
+                          titleKey: 'home.section.allTools',
+                          subtitleKey: 'home.section.allTools.subtitle',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Obx(
+                  () => SliverPadding(
+                    padding: EdgeInsets.fromLTRB(sideInset, 0, sideInset, 28),
+                    sliver: SliverGrid.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 236,
+                            mainAxisSpacing: 14,
+                            crossAxisSpacing: 14,
+                            childAspectRatio: 1.04,
+                          ),
+                      itemCount: controller.filteredTools.length,
                       itemBuilder: (context, index) {
-                        final file = controller.recentFiles[index];
-                        return Chip(
-                          avatar: const Icon(Icons.image_outlined, size: 18),
-                          label: SizedBox(
-                            width: 140,
-                            child: Text(
-                              file.fileName,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                        final tool = controller.filteredTools[index];
+                        return _ToolCard(
+                          tool: tool,
+                          isFavorite: controller.isFavoriteTool(tool),
+                          onToggleFavorite: () =>
+                              controller.toggleFavoriteTool(tool),
+                          onTap: () => controller.openTool(tool),
                         );
                       },
                     ),
-                  );
-                }),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  'home.section.allTools'.tr,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-            ),
-            Obx(
-              () => SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                sliver: SliverGrid.builder(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 220,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.12,
                   ),
-                  itemCount: controller.filteredTools.length,
-                  itemBuilder: (context, index) {
-                    final tool = controller.filteredTools[index];
-                    return _ToolCard(
-                      tool: tool,
-                      isFavorite: controller.isFavoriteTool(tool),
-                      onToggleFavorite: () =>
-                          controller.toggleFavoriteTool(tool),
-                      onTap: () => controller.openTool(tool),
-                    );
-                  },
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
   }
-
-  IconData _iconFor(String key) => _toolIconFor(key);
 }
 
 class _HeaderCard extends StatelessWidget {
@@ -196,31 +241,304 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    final theme = Theme.of(context);
+    final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.8);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 760;
+        final featureRail = Column(
+          children: const [
+            _HeaderFeatureTile(
+              icon: Icons.lock_outline,
+              titleKey: 'home.header.privacy.title',
+              subtitleKey: 'home.header.privacy.subtitle',
+            ),
+            SizedBox(height: 10),
+            _HeaderFeatureTile(
+              icon: Icons.dynamic_feed_outlined,
+              titleKey: 'home.header.batch.title',
+              subtitleKey: 'home.header.batch.subtitle',
+            ),
+            SizedBox(height: 10),
+            _HeaderFeatureTile(
+              icon: Icons.file_present_outlined,
+              titleKey: 'home.header.formats.title',
+              subtitleKey: 'home.header.formats.subtitle',
+            ),
+          ],
+        );
+        final titleBlock = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.lock_outline, color: colorScheme.onPrimaryContainer),
-            const SizedBox(height: 12),
-            Text(
-              'home.header.title'.tr,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w700,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: colorScheme.surface.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: borderColor),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.security_outlined,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'home.header.eyebrow'.tr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 18),
             Text(
-              'home.header.subtitle'.tr,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onPrimaryContainer,
+              'home.header.title'.tr,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+                height: 1.08,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Text(
+                'home.header.subtitle'.tr,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
               ),
             ),
           ],
-        ),
+        );
+
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: borderColor),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                colorScheme.primaryContainer.withValues(alpha: 0.92),
+                colorScheme.secondaryContainer.withValues(alpha: 0.72),
+                colorScheme.surfaceContainerLow,
+              ],
+            ),
+          ),
+          padding: EdgeInsets.all(isWide ? 28 : 22),
+          child: isWide
+              ? Row(
+                  children: [
+                    Expanded(child: titleBlock),
+                    const SizedBox(width: 28),
+                    SizedBox(width: 340, child: featureRail),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleBlock,
+                    const SizedBox(height: 22),
+                    featureRail,
+                  ],
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _HeaderFeatureTile extends StatelessWidget {
+  const _HeaderFeatureTile({
+    required this.icon,
+    required this.titleKey,
+    required this.subtitleKey,
+  });
+
+  final IconData icon;
+  final String titleKey;
+  final String subtitleKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: colorScheme.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titleKey.tr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitleKey.tr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.titleKey,
+    required this.subtitleKey,
+  });
+
+  final IconData icon;
+  final String titleKey;
+  final String subtitleKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titleKey.tr,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitleKey.tr,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolChipWrap extends StatelessWidget {
+  const _ToolChipWrap({required this.tools, required this.onTap});
+
+  final Iterable<HomeToolItem> tools;
+  final ValueChanged<HomeToolItem> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: tools
+          .map(
+            (tool) => ActionChip(
+              avatar: Icon(_toolIconFor(tool.icon), size: 18),
+              label: Text(tool.title),
+              onPressed: () => onTap(tool),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+}
+
+class _EmptyPanel extends StatelessWidget {
+  const _EmptyPanel({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -253,15 +571,27 @@ class _ToolCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(
-                    _toolIconFor(tool.icon),
-                    color: isAvailable ? colorScheme.primary : foreground,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isAvailable
+                          ? colorScheme.primaryContainer
+                          : colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(
+                      _toolIconFor(tool.icon),
+                      color: isAvailable
+                          ? colorScheme.onPrimaryContainer
+                          : foreground,
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
@@ -276,7 +606,7 @@ class _ToolCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: 14),
               Text(
                 tool.title,
                 maxLines: 1,
@@ -295,10 +625,21 @@ class _ToolCard extends StatelessWidget {
               ),
               if (!isAvailable) ...[
                 const SizedBox(height: 8),
-                Text(
-                  'home.planned.badge'.tr,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.outline,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'home.planned.badge'.tr,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.outline,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
