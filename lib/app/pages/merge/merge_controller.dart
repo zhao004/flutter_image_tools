@@ -54,7 +54,18 @@ enum MergeScaleMode {
   final String value;
 }
 
-/// 图片拼接控制器，管理批量选图、布局模式、网格列数、间距和拼接结果。
+enum MergeToolbarTab {
+  layout(labelKey: 'merge.tool.layout', icon: 'layout'),
+  style(labelKey: 'merge.tool.style', icon: 'style'),
+  order(labelKey: 'merge.tool.order', icon: 'order');
+
+  const MergeToolbarTab({required this.labelKey, required this.icon});
+
+  final String labelKey;
+  final String icon;
+}
+
+/// 图片拼接控制器，管理批量选图、工具分组、布局参数和拼接结果。
 ///
 /// 异常策略：Dart 侧限制图片数量和布局参数，Android 侧再校验文件与输出
 /// 画布大小，避免超大图片组合导致内存不足。
@@ -81,6 +92,7 @@ class MergeController extends GetxController {
   final borderWidth = 0.obs;
   final cornerRadius = 0.obs;
   final scaleMode = MergeScaleMode.original.obs;
+  final toolbarTab = MergeToolbarTab.layout.obs;
   final isBusy = false.obs;
 
   Future<void> pickImages() async {
@@ -129,6 +141,10 @@ class MergeController extends GetxController {
 
   void setScaleMode(MergeScaleMode value) {
     scaleMode.value = value;
+  }
+
+  void setToolbarTab(MergeToolbarTab value) {
+    toolbarTab.value = value;
   }
 
   void reorderSelectedImages(int oldIndex, int newIndex) {

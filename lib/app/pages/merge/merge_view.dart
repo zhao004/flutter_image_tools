@@ -11,8 +11,8 @@ import 'merge_controller.dart';
 /// 图片拼接编辑页，选图后在主预览区实时展示拼接布局。
 ///
 /// 构建设计：未选图时保持统一空状态；选图后复用编辑器骨架，右上角保存
-/// 执行导出，底部工具栏集中承载布局、间距、背景、缩放和排序，避免参数
-/// 分散在页面卡片里影响连续编辑效率。
+/// 执行导出，底部工具栏按布局、样式和排序分组展示，避免所有参数堆叠在
+/// 同一个页面里挤压预览空间。
 class MergeView extends GetView<MergeController> {
   const MergeView({super.key});
 
@@ -261,155 +261,212 @@ class _MergeToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maxToolbarHeight = math.min(
-      MediaQuery.sizeOf(context).height * 0.32,
-      260.0,
+      MediaQuery.sizeOf(context).height * 0.26,
+      220.0,
     );
     return SizedBox(
       height: maxToolbarHeight,
-      child: Obx(
-        () => SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ToolbarTitle(
-                title: 'merge.layout.title'.tr,
-                trailing: 'merge.image.selectedCount'.trParams({
-                  'count': controller.selectedImages.length.toString(),
-                }),
-              ),
-              const SizedBox(height: 6),
-              EditorOptionWrap<MergeMode>(
-                values: MergeMode.values,
-                selected: controller.mode.value,
-                labelFor: (value) => value.labelKey.tr,
-                enabled: !controller.isBusy.value,
-                onSelected: controller.setMode,
-              ),
-              if (controller.mode.value == MergeMode.grid) ...[
-                const SizedBox(height: 8),
-                _LabeledSlider(
-                  label: 'merge.layout.columns'.trParams({
-                    'count': controller.columns.value.toString(),
-                  }),
-                  value: controller.columns.value.toDouble(),
-                  min: 1,
-                  max: 10,
-                  divisions: 9,
-                  onChanged: controller.isBusy.value
-                      ? null
-                      : controller.updateColumns,
-                ),
-              ],
-              const SizedBox(height: 8),
-              _LabeledSlider(
-                label: 'merge.layout.spacing'.trParams({
-                  'value': controller.spacing.value.toString(),
-                }),
-                value: controller.spacing.value.toDouble(),
-                min: 0,
-                max: 100,
-                divisions: 20,
-                onChanged: controller.isBusy.value
-                    ? null
-                    : controller.updateSpacing,
-              ),
-              const SizedBox(height: 8),
-              _ChoiceSection<MergeBackgroundColor>(
-                title: 'merge.layout.backgroundColor'.tr,
-                values: MergeBackgroundColor.values,
-                selected: controller.backgroundColor.value,
-                enabled: !controller.isBusy.value,
-                labelFor: (value) => value.labelKey.tr,
-                colorFor: (value) => _parseColor(value.value),
-                onSelected: controller.setBackgroundColor,
-              ),
-              const SizedBox(height: 8),
-              _ChoiceSection<MergeScaleMode>(
-                title: 'merge.layout.scaleMode'.tr,
-                values: MergeScaleMode.values,
-                selected: controller.scaleMode.value,
-                enabled: !controller.isBusy.value,
-                labelFor: (value) => value.labelKey.tr,
-                onSelected: controller.setScaleMode,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'merge.layout.scaleHint'.tr,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              _LabeledSlider(
-                label: 'merge.layout.cornerRadius'.trParams({
-                  'value': controller.cornerRadius.value.toString(),
-                }),
-                value: controller.cornerRadius.value.toDouble(),
-                min: 0,
-                max: 200,
-                divisions: 20,
-                onChanged: controller.isBusy.value
-                    ? null
-                    : controller.updateCornerRadius,
-              ),
-              const SizedBox(height: 8),
-              _LabeledSlider(
-                label: 'merge.layout.borderWidth'.trParams({
-                  'value': controller.borderWidth.value.toString(),
-                }),
-                value: controller.borderWidth.value.toDouble(),
-                min: 0,
-                max: 50,
-                divisions: 10,
-                onChanged: controller.isBusy.value
-                    ? null
-                    : controller.updateBorderWidth,
-              ),
-              const SizedBox(height: 8),
-              _ChoiceSection<MergeBorderColor>(
-                title: 'merge.layout.borderColor'.tr,
-                values: MergeBorderColor.values,
-                selected: controller.borderColor.value,
-                enabled: !controller.isBusy.value,
-                labelFor: (value) => value.labelKey.tr,
-                colorFor: (value) => _parseColor(value.value),
-                onSelected: controller.setBorderColor,
-              ),
-              if (controller.selectedImages.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text('merge.image.reorderHint'.tr),
-                const SizedBox(height: 4),
-                _ReorderImageList(controller: controller),
-              ],
-            ],
+      child: Column(
+        children: [
+          _MergeToolTabs(controller: controller),
+          const SizedBox(height: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Obx(() {
+                final selectedTab = controller.toolbarTab.value;
+                return _MergeToolPanel(
+                  controller: controller,
+                  selectedTab: selectedTab,
+                );
+              }),
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MergeToolTabs extends StatelessWidget {
+  const _MergeToolTabs({required this.controller});
+
+  final MergeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<MergeToolbarTab>(
+          showSelectedIcon: false,
+          segments: MergeToolbarTab.values
+              .map(
+                (tab) => ButtonSegment<MergeToolbarTab>(
+                  value: tab,
+                  icon: Icon(_toolbarTabIcon(tab), size: 18),
+                  label: Text(tab.labelKey.tr),
+                ),
+              )
+              .toList(growable: false),
+          selected: {controller.toolbarTab.value},
+          onSelectionChanged: controller.isBusy.value
+              ? null
+              : (values) => controller.setToolbarTab(values.first),
         ),
       ),
     );
   }
 }
 
-class _ToolbarTitle extends StatelessWidget {
-  const _ToolbarTitle({required this.title, required this.trailing});
+class _MergeToolPanel extends StatelessWidget {
+  const _MergeToolPanel({required this.controller, required this.selectedTab});
 
-  final String title;
-  final String trailing;
+  final MergeController controller;
+  final MergeToolbarTab selectedTab;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return switch (selectedTab) {
+      MergeToolbarTab.layout => _LayoutToolPanel(controller: controller),
+      MergeToolbarTab.style => _StyleToolPanel(controller: controller),
+      MergeToolbarTab.order => _OrderToolPanel(controller: controller),
+    };
+  }
+}
+
+class _LayoutToolPanel extends StatelessWidget {
+  const _LayoutToolPanel({required this.controller});
+
+  final MergeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            trailing,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
+        EditorOptionWrap<MergeMode>(
+          values: MergeMode.values,
+          selected: controller.mode.value,
+          labelFor: (value) => value.labelKey.tr,
+          enabled: !controller.isBusy.value,
+          onSelected: controller.setMode,
         ),
+        if (controller.mode.value == MergeMode.grid) ...[
+          const SizedBox(height: 8),
+          _LabeledSlider(
+            label: 'merge.layout.columns'.trParams({
+              'count': controller.columns.value.toString(),
+            }),
+            value: controller.columns.value.toDouble(),
+            min: 1,
+            max: 10,
+            divisions: 9,
+            onChanged: controller.isBusy.value
+                ? null
+                : controller.updateColumns,
+          ),
+        ],
+        const SizedBox(height: 8),
+        _LabeledSlider(
+          label: 'merge.layout.spacing'.trParams({
+            'value': controller.spacing.value.toString(),
+          }),
+          value: controller.spacing.value.toDouble(),
+          min: 0,
+          max: 100,
+          divisions: 20,
+          onChanged: controller.isBusy.value ? null : controller.updateSpacing,
+        ),
+        const SizedBox(height: 8),
+        _ChoiceSection<MergeScaleMode>(
+          title: 'merge.layout.scaleMode'.tr,
+          values: MergeScaleMode.values,
+          selected: controller.scaleMode.value,
+          enabled: !controller.isBusy.value,
+          labelFor: (value) => value.labelKey.tr,
+          onSelected: controller.setScaleMode,
+        ),
+      ],
+    );
+  }
+}
+
+class _StyleToolPanel extends StatelessWidget {
+  const _StyleToolPanel({required this.controller});
+
+  final MergeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ChoiceSection<MergeBackgroundColor>(
+          title: 'merge.layout.backgroundColor'.tr,
+          values: MergeBackgroundColor.values,
+          selected: controller.backgroundColor.value,
+          enabled: !controller.isBusy.value,
+          labelFor: (value) => value.labelKey.tr,
+          colorFor: (value) => _parseColor(value.value),
+          onSelected: controller.setBackgroundColor,
+        ),
+        const SizedBox(height: 8),
+        _LabeledSlider(
+          label: 'merge.layout.cornerRadius'.trParams({
+            'value': controller.cornerRadius.value.toString(),
+          }),
+          value: controller.cornerRadius.value.toDouble(),
+          min: 0,
+          max: 200,
+          divisions: 20,
+          onChanged: controller.isBusy.value
+              ? null
+              : controller.updateCornerRadius,
+        ),
+        const SizedBox(height: 8),
+        _LabeledSlider(
+          label: 'merge.layout.borderWidth'.trParams({
+            'value': controller.borderWidth.value.toString(),
+          }),
+          value: controller.borderWidth.value.toDouble(),
+          min: 0,
+          max: 50,
+          divisions: 10,
+          onChanged: controller.isBusy.value
+              ? null
+              : controller.updateBorderWidth,
+        ),
+        const SizedBox(height: 8),
+        _ChoiceSection<MergeBorderColor>(
+          title: 'merge.layout.borderColor'.tr,
+          values: MergeBorderColor.values,
+          selected: controller.borderColor.value,
+          enabled: !controller.isBusy.value,
+          labelFor: (value) => value.labelKey.tr,
+          colorFor: (value) => _parseColor(value.value),
+          onSelected: controller.setBorderColor,
+        ),
+      ],
+    );
+  }
+}
+
+class _OrderToolPanel extends StatelessWidget {
+  const _OrderToolPanel({required this.controller});
+
+  final MergeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'merge.image.reorderHint'.tr,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 4),
+        _ReorderImageList(controller: controller),
       ],
     );
   }
@@ -548,4 +605,12 @@ class _ReorderImageList extends StatelessWidget {
 Color _parseColor(String hex) {
   final normalized = hex.replaceFirst('#', '');
   return Color(int.parse('FF$normalized', radix: 16));
+}
+
+IconData _toolbarTabIcon(MergeToolbarTab tab) {
+  return switch (tab) {
+    MergeToolbarTab.layout => Icons.dashboard_customize_outlined,
+    MergeToolbarTab.style => Icons.palette_outlined,
+    MergeToolbarTab.order => Icons.swap_vert_outlined,
+  };
 }

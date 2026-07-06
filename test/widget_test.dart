@@ -1,4 +1,4 @@
-﻿import 'package:drift/native.dart';
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -919,7 +919,9 @@ void main() {
     ]);
     await tester.pump();
 
-    expect(find.text('Merge Layout'), findsOneWidget);
+    expect(find.text('Layout'), findsOneWidget);
+    expect(find.text('Style'), findsOneWidget);
+    expect(find.text('Order'), findsOneWidget);
     expect(find.text('Horizontal'), findsOneWidget);
     expect(find.text('Vertical'), findsOneWidget);
     expect(find.text('Grid'), findsOneWidget);
