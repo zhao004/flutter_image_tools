@@ -235,6 +235,7 @@ class BatchController extends GetxController {
   void onInit() {
     super.onInit();
     _loadDefaultQuality();
+    _loadDefaultExportFormat();
   }
 
   Future<void> _loadDefaultQuality() async {
@@ -242,6 +243,16 @@ class BatchController extends GetxController {
       quality.value = await _settingsRepository.getDefaultQuality();
     } catch (_) {
       quality.value = 80;
+    }
+  }
+
+  Future<void> _loadDefaultExportFormat() async {
+    try {
+      convertFormat.value = _batchConvertFormatForValue(
+        await _settingsRepository.getDefaultExportFormat(),
+      );
+    } catch (_) {
+      convertFormat.value = BatchConvertFormat.jpg;
     }
   }
 
@@ -1080,6 +1091,14 @@ class BatchController extends GetxController {
 
   void _showError(String message) {
     Get.snackbar('操作失败', message);
+  }
+
+  BatchConvertFormat _batchConvertFormatForValue(String value) {
+    final normalized = value.trim().toLowerCase();
+    return BatchConvertFormat.values.firstWhere(
+      (item) => item.value == normalized,
+      orElse: () => BatchConvertFormat.jpg,
+    );
   }
 
   bool _hasValidResizeSettings() {

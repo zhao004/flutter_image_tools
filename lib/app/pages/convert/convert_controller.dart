@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../core/exceptions/app_exception.dart';
 import '../../core/models/converted_image_file.dart';
 import '../../core/models/local_image_file.dart';
+import '../../repositories/app_settings_repository.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
@@ -57,13 +58,16 @@ class ConvertController extends GetxController {
   ConvertController({
     required LocalImageChannel imageChannel,
     required OperationHistoryRepository historyRepository,
+    required AppSettingsRepository settingsRepository,
     required RecentFilesRepository recentFilesRepository,
   }) : _imageChannel = imageChannel,
        _historyRepository = historyRepository,
+       _settingsRepository = settingsRepository,
        _recentFilesRepository = recentFilesRepository;
 
   final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
+  final AppSettingsRepository _settingsRepository;
   final RecentFilesRepository _recentFilesRepository;
 
   final selectedImage = Rxn<LocalImageFile>();
@@ -74,6 +78,22 @@ class ConvertController extends GetxController {
   final format = ConvertFormat.jpg.obs;
   final quality = 95.obs;
   final isBusy = false.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _loadDefaultExportFormat();
+  }
+
+  Future<void> _loadDefaultExportFormat() async {
+    try {
+      format.value = _convertFormatForValue(
+        await _settingsRepository.getDefaultExportFormat(),
+      );
+    } catch (_) {
+      format.value = ConvertFormat.jpg;
+    }
+  }
 
   Future<void> pickImage() async {
     if (isBusy.value) {
@@ -243,5 +263,13 @@ class ConvertController extends GetxController {
 
   void _showError(String message) {
     Get.snackbar('操作失败', message);
+  }
+
+  ConvertFormat _convertFormatForValue(String value) {
+    final normalized = value.trim().toLowerCase();
+    return ConvertFormat.values.firstWhere(
+      (item) => item.value == normalized,
+      orElse: () => ConvertFormat.jpg,
+    );
   }
 }
