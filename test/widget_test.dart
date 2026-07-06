@@ -5,10 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_image_tools/app/database/database.dart';
+import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
+import 'package:flutter_image_tools/app/pages/favorites/favorites_view.dart';
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
+import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_history_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_logs_repository.dart';
 import 'package:flutter_image_tools/app/theme/app_translations.dart';
@@ -92,6 +95,39 @@ void main() {
     );
     expect(find.text('All'), findsWidgets);
     expect(find.text('Today'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文收藏模板页面', (WidgetTester tester) async {
+    // 使用内存数据库直接渲染收藏页，验证表单、空状态和筛选文案翻译。
+    final database = AppDatabase(NativeDatabase.memory());
+    final repository = FavoriteTemplatesRepository(database: database);
+    Get.put(FavoritesController(repository: repository));
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const FavoritesView(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Favorite Templates'), findsOneWidget);
+    expect(find.text('New Template'), findsOneWidget);
+    expect(find.text('Image Compression'), findsOneWidget);
+    expect(find.text('Template Name'), findsOneWidget);
+    expect(find.text('Parameters JSON'), findsOneWidget);
+    expect(
+      find.text('Search feature, template name, or parameters'),
+      findsOneWidget,
+    );
+    expect(find.text('No favorite templates'), findsOneWidget);
 
     await database.close();
     Get.reset();

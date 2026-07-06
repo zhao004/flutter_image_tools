@@ -7,14 +7,14 @@ import '../../database/database.dart';
 import '../../repositories/favorite_templates_repository.dart';
 
 enum FavoriteFeaturePreset {
-  compress(label: '图片压缩', value: '图片压缩'),
-  resize(label: '尺寸调整', value: '尺寸调整'),
-  watermark(label: '文字水印', value: '文字水印'),
-  annotation(label: '图片标注', value: '图片标注');
+  compress(labelKey: 'favorites.feature.compress', value: '图片压缩'),
+  resize(labelKey: 'favorites.feature.resize', value: '尺寸调整'),
+  watermark(labelKey: 'favorites.feature.watermark', value: '文字水印'),
+  annotation(labelKey: 'favorites.feature.annotation', value: '图片标注');
 
-  const FavoriteFeaturePreset({required this.label, required this.value});
+  const FavoriteFeaturePreset({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
@@ -32,7 +32,9 @@ class FavoritesController extends GetxController {
   final isLoading = false.obs;
   final keyword = ''.obs;
   final feature = FavoriteFeaturePreset.compress.obs;
-  final templateNameController = TextEditingController(text: '高质量导出');
+  final templateNameController = TextEditingController(
+    text: 'favorites.defaultTemplateName'.tr,
+  );
   final parametersController = TextEditingController(
     text: const JsonEncoder.withIndent(
       '  ',
@@ -59,7 +61,10 @@ class FavoritesController extends GetxController {
         await _repository.getFavoriteTemplates(keyword: keyword.value),
       );
     } catch (_) {
-      Get.snackbar('读取失败', '收藏模板读取失败，请稍后重试');
+      Get.snackbar(
+        'favorites.read.failed.title'.tr,
+        'favorites.read.failed.message'.tr,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -81,7 +86,7 @@ class FavoritesController extends GetxController {
     }
     final templateName = templateNameController.text.trim();
     if (templateName.isEmpty) {
-      _showError('模板名称不能为空');
+      _showError('favorites.validation.nameRequired'.tr);
       return;
     }
 
@@ -101,9 +106,12 @@ class FavoritesController extends GetxController {
         parameters: parameters,
       );
       await loadTemplates();
-      Get.snackbar('收藏完成', '模板已保存到本地');
+      Get.snackbar(
+        'favorites.create.success.title'.tr,
+        'favorites.create.success.message'.tr,
+      );
     } catch (_) {
-      _showError('模板保存失败，请重试');
+      _showError('favorites.create.failed.message'.tr);
     } finally {
       isLoading.value = false;
     }
@@ -114,9 +122,12 @@ class FavoritesController extends GetxController {
     try {
       await _repository.deleteTemplate(item.id);
       items.removeWhere((template) => template.id == item.id);
-      Get.snackbar('删除完成', '模板已删除');
+      Get.snackbar(
+        'favorites.delete.success.title'.tr,
+        'favorites.delete.success.message'.tr,
+      );
     } catch (_) {
-      _showError('模板删除失败，请重试');
+      _showError('favorites.delete.failed.message'.tr);
     } finally {
       isLoading.value = false;
     }
@@ -127,9 +138,12 @@ class FavoritesController extends GetxController {
     try {
       await _repository.clearTemplates();
       items.clear();
-      Get.snackbar('清理完成', '收藏模板已清空');
+      Get.snackbar(
+        'favorites.clear.success.title'.tr,
+        'favorites.clear.success.message'.tr,
+      );
     } catch (_) {
-      _showError('模板清理失败，请重试');
+      _showError('favorites.clear.failed.message'.tr);
     } finally {
       isLoading.value = false;
     }
@@ -154,11 +168,11 @@ class FavoritesController extends GetxController {
   Map<String, Object?> _parseParameters(String value) {
     final text = value.trim();
     if (text.isEmpty) {
-      throw const FormatException('模板参数不能为空');
+      throw FormatException('favorites.validation.parametersRequired'.tr);
     }
     final decoded = jsonDecode(text);
     if (decoded is! Map<String, Object?>) {
-      throw const FormatException('模板参数必须是 JSON 对象');
+      throw FormatException('favorites.validation.parametersObject'.tr);
     }
     return decoded;
   }
@@ -188,6 +202,6 @@ class FavoritesController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('favorites.operation.failed.title'.tr, message);
   }
 }

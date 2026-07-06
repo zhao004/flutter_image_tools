@@ -15,10 +15,10 @@ class FavoritesView extends GetView<FavoritesController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('收藏模板'),
+        title: Text('favorites.title'.tr),
         actions: [
           IconButton(
-            tooltip: '清空模板',
+            tooltip: 'favorites.clear.tooltip'.tr,
             onPressed: () => _confirmClearTemplates(context),
             icon: const Icon(Icons.delete_outline),
           ),
@@ -44,16 +44,16 @@ class FavoritesView extends GetView<FavoritesController> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清空收藏模板'),
-        content: const Text('此操作只删除本地模板，不会影响历史记录和已导出图片。'),
+        title: Text('favorites.clear.title'.tr),
+        content: Text('favorites.clear.message'.tr),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text('common.cancel'.tr),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('清空'),
+            child: Text('common.clear'.tr),
           ),
         ],
       ),
@@ -78,13 +78,18 @@ class _TemplateFormCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('新增模板', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'favorites.form.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               SegmentedButton<FavoriteFeaturePreset>(
                 segments: FavoriteFeaturePreset.values
                     .map(
-                      (item) =>
-                          ButtonSegment(value: item, label: Text(item.label)),
+                      (item) => ButtonSegment(
+                        value: item,
+                        label: Text(item.labelKey.tr),
+                      ),
                     )
                     .toList(growable: false),
                 selected: {controller.feature.value},
@@ -96,8 +101,8 @@ class _TemplateFormCard extends StatelessWidget {
               TextField(
                 controller: controller.templateNameController,
                 enabled: !controller.isLoading.value,
-                decoration: const InputDecoration(
-                  labelText: '模板名称',
+                decoration: InputDecoration(
+                  labelText: 'favorites.form.name'.tr,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -107,8 +112,8 @@ class _TemplateFormCard extends StatelessWidget {
                 enabled: !controller.isLoading.value,
                 minLines: 5,
                 maxLines: 10,
-                decoration: const InputDecoration(
-                  labelText: '参数 JSON',
+                decoration: InputDecoration(
+                  labelText: 'favorites.form.parameters'.tr,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -123,7 +128,11 @@ class _TemplateFormCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.star_border),
-                label: Text(controller.isLoading.value ? '处理中' : '保存模板'),
+                label: Text(
+                  controller.isLoading.value
+                      ? 'common.processing'.tr
+                      : 'favorites.form.save'.tr,
+                ),
               ),
             ],
           ),
@@ -148,9 +157,9 @@ class _TemplateListCard extends StatelessWidget {
           children: [
             TextField(
               onChanged: controller.updateKeyword,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: '搜索功能、模板名或参数',
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'favorites.search.hint'.tr,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -160,9 +169,9 @@ class _TemplateListCard extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (controller.items.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Center(child: Text('暂无收藏模板')),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: Text('favorites.empty'.tr)),
                 );
               }
               return Column(
@@ -194,10 +203,11 @@ class _TemplateTile extends StatelessWidget {
       leading: const Icon(Icons.star_outline),
       title: Text(item.templateName),
       subtitle: Text(
-        '${item.featureName} · ${controller.formatDateTime(item.updatedAt)}',
+        '${_localizedFeatureName(item.featureName)} · '
+        '${controller.formatDateTime(item.updatedAt)}',
       ),
       trailing: IconButton(
-        tooltip: '删除模板',
+        tooltip: 'favorites.delete.tooltip'.tr,
         onPressed: () => _confirmDelete(context),
         icon: const Icon(Icons.delete_outline),
       ),
@@ -214,16 +224,18 @@ class _TemplateTile extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除模板'),
-        content: Text('确定删除“${item.templateName}”吗？'),
+        title: Text('favorites.delete.title'.tr),
+        content: Text(
+          'favorites.delete.message'.trParams({'name': item.templateName}),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text('common.cancel'.tr),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
+            child: Text('common.delete'.tr),
           ),
         ],
       ),
@@ -231,5 +243,14 @@ class _TemplateTile extends StatelessWidget {
     if (confirmed == true) {
       await controller.deleteTemplate(item);
     }
+  }
+
+  String _localizedFeatureName(String value) {
+    for (final preset in FavoriteFeaturePreset.values) {
+      if (preset.value == value) {
+        return preset.labelKey.tr;
+      }
+    }
+    return value;
   }
 }
