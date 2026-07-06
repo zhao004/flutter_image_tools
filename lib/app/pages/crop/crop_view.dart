@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../models/local_image_file.dart';
 import '../../widgets/image_editor_scaffold.dart';
 import 'crop_controller.dart';
 
-/// 图片裁剪编辑页：选择图片后在画布上实时显示中心裁剪比例框。
+/// 图片裁剪编辑页：选择图片后在画布上实时显示可拖动裁剪比例框。
 ///
-/// 设计意图：当前原生能力是中心裁剪，因此预览层用比例遮罩明确导出区域；
-/// 自定义比例仍在控制器导出前校验，UI 只负责即时反馈和参数输入。
+/// 设计意图：裁剪框位置使用归一化比例同步到控制器，预览层只负责手势和
+/// 即时反馈；导出前仍由控制器和服务层校验比例与边界，避免无效区域。
 class CropView extends GetView<CropController> {
   const CropView({super.key});
 
@@ -35,7 +36,11 @@ class CropView extends GetView<CropController> {
             : '${controller.formatDimensions(image)} · ${controller.currentRatioText()}',
         previewBuilder: (context, previewImage) => EditorImagePreview(
           image: previewImage,
-          child: _CropOverlay(aspectRatio: _previewAspectRatio()),
+          child: _CropOverlay(
+            image: previewImage,
+            controller: controller,
+            aspectRatio: _previewAspectRatio(),
+          ),
         ),
         toolbar: _CropToolbar(controller: controller),
         resultSummary: result == null
@@ -67,8 +72,14 @@ class CropView extends GetView<CropController> {
 }
 
 class _CropOverlay extends StatelessWidget {
-  const _CropOverlay({required this.aspectRatio});
+  const _CropOverlay({
+    required this.image,
+    required this.controller,
+    required this.aspectRatio,
+  });
 
+  final LocalImageFile image;
+  final CropController controller;
   final double aspectRatio;
 
   @override
@@ -77,12 +88,11 @@ class _CropOverlay extends StatelessWidget {
       builder: (context, constraints) {
         final stageWidth = constraints.maxWidth;
         final stageHeight = constraints.maxHeight;
-        var frameWidth = stageWidth;
-        var frameHeight = frameWidth / aspectRatio;
-        if (frameHeight > stageHeight) {
-          frameHeight = stageHeight;
-          frameWidth = frameHeight * aspectRatio;
-        }
+        final frameRatios = controller.frameRatiosForImage(image, aspectRatio);
+        final frameWidth = stageWidth * frameRatios.width;
+        final frameHeight = stageHeight * frameRatios.height;
+        final frameLeft = stageWidth * frameRatios.left;
+        final frameTop = stageHeight * frameRatios.top;
         return Stack(
           children: [
             Positioned.fill(
@@ -92,13 +102,37 @@ class _CropOverlay extends StatelessWidget {
                 ),
               ),
             ),
-            Center(
-              child: Container(
-                width: frameWidth,
-                height: frameHeight,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 2),
-                  color: Colors.transparent,
+            Positioned(
+              left: frameLeft,
+              top: frameTop,
+              width: frameWidth,
+              height: frameHeight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: controller.isBusy.value
+                    ? null
+                    : (details) {
+                        if (stageWidth <= 0 || stageHeight <= 0) {
+                          return;
+                        }
+                        final centerXRatio =
+                            (frameLeft + frameWidth / 2 + details.delta.dx) /
+                            stageWidth;
+                        final centerYRatio =
+                            (frameTop + frameHeight / 2 + details.delta.dy) /
+                            stageHeight;
+                        controller.updateCropFrame(
+                          centerXRatio: centerXRatio,
+                          centerYRatio: centerYRatio,
+                          frameWidthRatio: frameRatios.width,
+                          frameHeightRatio: frameRatios.height,
+                        );
+                      },
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white, width: 2),
+                    color: Colors.transparent,
+                  ),
                 ),
               ),
             ),

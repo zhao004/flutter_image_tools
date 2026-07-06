@@ -432,6 +432,8 @@ class LocalImageChannel {
   Future<CroppedImageFile> cropImage({
     required LocalImageFile source,
     required double aspectRatio,
+    double? cropLeftRatio,
+    double? cropTopRatio,
   }) async {
     if (source.path.trim().isEmpty) {
       throw const AppException('图片路径为空，无法裁剪');
@@ -442,10 +444,28 @@ class LocalImageChannel {
     if (aspectRatio < 0.1 || aspectRatio > 10) {
       throw const AppException('裁剪比例必须在 0.1 到 10 之间');
     }
+    final hasCropPosition = cropLeftRatio != null || cropTopRatio != null;
+    if (hasCropPosition) {
+      if (cropLeftRatio == null ||
+          cropTopRatio == null ||
+          !cropLeftRatio.isFinite ||
+          !cropTopRatio.isFinite ||
+          cropLeftRatio < 0 ||
+          cropTopRatio < 0 ||
+          cropLeftRatio > 1 ||
+          cropTopRatio > 1) {
+        throw const AppException('裁剪区域无效，请调整裁剪框后重试');
+      }
+    }
 
     try {
       final decoded = await _readImage(source.path);
-      final cropRect = _centerCropRect(decoded, aspectRatio);
+      final cropRect = _cropRect(
+        decoded,
+        aspectRatio: aspectRatio,
+        cropLeftRatio: cropLeftRatio,
+        cropTopRatio: cropTopRatio,
+      );
       final croppedImage = img.copyCrop(
         decoded,
         x: cropRect.left,
@@ -1383,7 +1403,12 @@ class LocalImageChannel {
     );
   }
 
-  _ImageRect _centerCropRect(img.Image image, double aspectRatio) {
+  _ImageRect _cropRect(
+    img.Image image, {
+    required double aspectRatio,
+    double? cropLeftRatio,
+    double? cropTopRatio,
+  }) {
     final sourceRatio = image.width / image.height;
     var width = image.width;
     var height = image.height;
@@ -1392,16 +1417,19 @@ class LocalImageChannel {
     } else {
       height = (image.width / aspectRatio).round().clamp(1, image.height);
     }
-    final left = ((image.width - width) / 2).round().clamp(0, image.width - 1);
-    final top = ((image.height - height) / 2).round().clamp(
-      0,
-      image.height - 1,
-    );
+    final left = cropLeftRatio == null
+        ? ((image.width - width) / 2).round()
+        : (image.width * cropLeftRatio).round();
+    final top = cropTopRatio == null
+        ? ((image.height - height) / 2).round()
+        : (image.height * cropTopRatio).round();
+    final safeLeft = left.clamp(0, math.max(0, image.width - width)).toInt();
+    final safeTop = top.clamp(0, math.max(0, image.height - height)).toInt();
     return _ImageRect(
-      left: left,
-      top: top,
-      width: width.clamp(1, image.width - left),
-      height: height.clamp(1, image.height - top),
+      left: safeLeft,
+      top: safeTop,
+      width: width.clamp(1, image.width - safeLeft).toInt(),
+      height: height.clamp(1, image.height - safeTop).toInt(),
     );
   }
 

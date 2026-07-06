@@ -9,6 +9,24 @@ import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
+/// 裁剪框在图片坐标中的归一化位置和尺寸。
+///
+/// 设计意图：UI 预览和导出服务都使用 0~1 比例描述裁剪区域，避免预览
+/// 尺寸和原图像素尺寸不同导致导出偏移。边界由控制器和服务双层限制。
+class CropFrameRatios {
+  const CropFrameRatios({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
+
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+}
+
 class CropTask {
   const CropTask({
     required this.source,
@@ -72,11 +90,11 @@ enum CropPreset {
   final double aspectRatio;
 }
 
-/// 图片裁剪控制器，管理选图、比例预设、自定义比例和裁剪结果。
+/// 图片裁剪控制器，管理选图、比例预设、裁剪框位置和裁剪结果。
 ///
-/// 异常策略：当前阶段采用居中裁剪，先保证常用比例稳定导出；自定义比例
-/// 在 Dart 侧限制范围，避免无效或极端比例触发原生 Bitmap 异常；批量裁剪
-/// 顺序执行，降低多张大图同时处理导致的内存峰值。
+/// 异常策略：裁剪框位置使用归一化中心点保存，导出前再按每张原图尺寸
+/// 计算像素区域；自定义比例在 Dart 侧限制范围，避免无效或极端比例触发
+/// 图片解码异常；批量裁剪顺序执行，降低多张大图同时处理导致的内存峰值。
 class CropController extends GetxController {
   CropController({
     required LocalImageChannel imageChannel,
@@ -96,6 +114,8 @@ class CropController extends GetxController {
   final tasks = <CropTask>[].obs;
   final processedCount = 0.obs;
   final preset = CropPreset.square.obs;
+  final cropCenterXRatio = 0.5.obs;
+  final cropCenterYRatio = 0.5.obs;
   final isBusy = false.obs;
   final customWidthController = TextEditingController(text: '1');
   final customHeightController = TextEditingController(text: '1');
@@ -121,6 +141,7 @@ class CropController extends GetxController {
       result.value = null;
       tasks.clear();
       processedCount.value = 0;
+      resetCropFrame();
       await _recentFilesRepository.recordImage(image);
     } on AppException catch (error) {
       _showError(error.message);
@@ -142,6 +163,7 @@ class CropController extends GetxController {
       selectedImage.value = images.first;
       result.value = null;
       processedCount.value = 0;
+      resetCropFrame();
       tasks.assignAll(images.map((image) => CropTask(source: image)));
       for (final image in images) {
         await _recentFilesRepository.recordImage(image);
@@ -155,6 +177,60 @@ class CropController extends GetxController {
 
   void setPreset(CropPreset value) {
     preset.value = value;
+    resetCropFrame();
+  }
+
+  void resetCropFrame() {
+    cropCenterXRatio.value = 0.5;
+    cropCenterYRatio.value = 0.5;
+  }
+
+  void updateCropFrame({
+    required double centerXRatio,
+    required double centerYRatio,
+    required double frameWidthRatio,
+    required double frameHeightRatio,
+  }) {
+    if (!centerXRatio.isFinite ||
+        !centerYRatio.isFinite ||
+        !frameWidthRatio.isFinite ||
+        !frameHeightRatio.isFinite) {
+      return;
+    }
+    final halfWidth = frameWidthRatio.clamp(0.0, 1.0) / 2;
+    final halfHeight = frameHeightRatio.clamp(0.0, 1.0) / 2;
+    cropCenterXRatio.value = centerXRatio.clamp(halfWidth, 1 - halfWidth);
+    cropCenterYRatio.value = centerYRatio.clamp(halfHeight, 1 - halfHeight);
+  }
+
+  CropFrameRatios frameRatiosForImage(
+    LocalImageFile image,
+    double aspectRatio,
+  ) {
+    if (!image.hasValidDimensions ||
+        !aspectRatio.isFinite ||
+        aspectRatio <= 0) {
+      return const CropFrameRatios(left: 0, top: 0, width: 1, height: 1);
+    }
+    final sourceRatio = image.width / image.height;
+    var widthRatio = 1.0;
+    var heightRatio = 1.0;
+    if (sourceRatio > aspectRatio) {
+      widthRatio = (image.height * aspectRatio / image.width).clamp(0.0, 1.0);
+    } else {
+      heightRatio = (image.width / aspectRatio / image.height).clamp(0.0, 1.0);
+    }
+
+    final halfWidth = widthRatio / 2;
+    final halfHeight = heightRatio / 2;
+    final centerX = cropCenterXRatio.value.clamp(halfWidth, 1 - halfWidth);
+    final centerY = cropCenterYRatio.value.clamp(halfHeight, 1 - halfHeight);
+    return CropFrameRatios(
+      left: (centerX - halfWidth).clamp(0.0, 1 - widthRatio),
+      top: (centerY - halfHeight).clamp(0.0, 1 - heightRatio),
+      width: widthRatio,
+      height: heightRatio,
+    );
   }
 
   Future<void> crop() async {
@@ -182,10 +258,13 @@ class CropController extends GetxController {
     try {
       for (var index = 0; index < selectedImages.length; index++) {
         final source = selectedImages[index];
+        final cropFrame = frameRatiosForImage(source, aspectRatio);
         try {
           final cropped = await _imageChannel.cropImage(
             source: source,
             aspectRatio: aspectRatio,
+            cropLeftRatio: cropFrame.left,
+            cropTopRatio: cropFrame.top,
           );
           result.value = cropped;
           tasks[index] = tasks[index].copyWith(
@@ -196,7 +275,7 @@ class CropController extends GetxController {
             featureName: 'crop.featureName'.tr,
             inputPath: source.path,
             outputPath: cropped.outputPath,
-            parameters: _historyParameters(aspectRatio),
+            parameters: _historyParameters(aspectRatio, cropFrame),
           );
         } on AppException catch (error) {
           tasks[index] = tasks[index].copyWith(
@@ -206,7 +285,7 @@ class CropController extends GetxController {
           await _historyRepository.recordOperationFailure(
             featureName: 'crop.featureName'.tr,
             inputPath: source.path,
-            parameters: _historyParameters(aspectRatio),
+            parameters: _historyParameters(aspectRatio, cropFrame),
             errorMessage: error.message,
           );
         } finally {
@@ -297,10 +376,17 @@ class CropController extends GetxController {
     return ratio;
   }
 
-  Map<String, Object> _historyParameters(double aspectRatio) {
+  Map<String, Object> _historyParameters(
+    double aspectRatio,
+    CropFrameRatios cropFrame,
+  ) {
     return <String, Object>{
       'preset': preset.value.name,
       'aspectRatio': aspectRatio,
+      'cropLeftRatio': cropFrame.left,
+      'cropTopRatio': cropFrame.top,
+      'cropWidthRatio': cropFrame.width,
+      'cropHeightRatio': cropFrame.height,
     };
   }
 

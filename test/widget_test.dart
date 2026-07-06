@@ -818,9 +818,7 @@ void main() {
     expect(find.text('Image Crop'), findsOneWidget);
     expect(find.text('Select Image'), findsOneWidget);
     expect(
-      find.text(
-        'Select a JPG, PNG, WebP, or BMP image for local center cropping.',
-      ),
+      find.text('Select a JPG, PNG, WebP, or BMP image for local cropping.'),
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
