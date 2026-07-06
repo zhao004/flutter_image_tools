@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/flipped_image_file.dart';
 import '../../models/local_image_file.dart';
@@ -178,12 +179,12 @@ class FlipController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar(
+        showLatestSnackbar(
           'flip.success.title'.tr,
           'flip.success.message'.trParams({'count': successCount.toString()}),
         );
       } else {
-        Get.snackbar(
+        showLatestSnackbar(
           'flip.batch.success.title'.tr,
           'flip.batch.success.message'.trParams({
             'success': successCount.toString(),
@@ -230,6 +231,6 @@ class FlipController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('flip.error.title'.tr, message);
+    showLatestSnackbar('flip.error.title'.tr, message);
   }
 }

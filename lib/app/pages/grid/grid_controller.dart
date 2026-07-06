@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/grid_image_file.dart';
 import '../../models/local_image_file.dart';
@@ -84,7 +85,7 @@ class GridController extends GetxController {
           'pieceCount': gridImage.pieceCount,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'grid.split.success.title'.tr,
         'grid.split.success.message'.trParams({
           'count': '${gridImage.pieceCount}',
@@ -127,6 +128,6 @@ class GridController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('grid.error.title'.tr, message);
+    showLatestSnackbar('grid.error.title'.tr, message);
   }
 }

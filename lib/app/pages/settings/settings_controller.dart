@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../repositories/app_settings_repository.dart';
 import '../../theme/locale_parser.dart';
 import '../../theme/theme_mode_parser.dart';
@@ -41,7 +42,7 @@ class SettingsController extends GetxController {
       defaultExportDirectory.value = await _settingsRepository
           .getDefaultExportDirectory();
     } catch (_) {
-      Get.snackbar(
+      showLatestSnackbar(
         'settings.load.failed.title'.tr,
         'settings.load.failed.message'.tr,
       );
@@ -104,6 +105,6 @@ class SettingsController extends GetxController {
   }
 
   void _showSaveFailed(String message) {
-    Get.snackbar('settings.save.failed.title'.tr, message);
+    showLatestSnackbar('settings.save.failed.title'.tr, message);
   }
 }

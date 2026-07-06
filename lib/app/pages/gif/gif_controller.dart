@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/compressed_gif_file.dart';
 import '../../models/gif_frames_export.dart';
@@ -120,7 +121,7 @@ class GifController extends GetxController {
           'delayMs': delayMs.value,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'gif.success.created.title'.tr,
         'gif.success.created.message'.tr,
       );
@@ -187,7 +188,7 @@ class GifController extends GetxController {
           'frameStepMs': export.frameStepMs,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'gif.success.framesExported.title'.tr,
         'gif.success.framesExported.message'.trParams({
           'count': export.frameCount.toString(),
@@ -235,7 +236,7 @@ class GifController extends GetxController {
           'savedSizeBytes': compressed.savedSizeBytes,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'gif.success.compressed.title'.tr,
         'gif.success.compressed.message'.tr,
       );
@@ -279,6 +280,6 @@ class GifController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('gif.error.title'.tr, message);
+    showLatestSnackbar('gif.error.title'.tr, message);
   }
 }

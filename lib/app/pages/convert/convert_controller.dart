@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/converted_image_file.dart';
 import '../../models/local_image_file.dart';
@@ -204,14 +205,14 @@ class ConvertController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar(
+        showLatestSnackbar(
           'convert.success.title'.tr,
           'convert.success.message'.trParams({
             'count': successCount.toString(),
           }),
         );
       } else {
-        Get.snackbar(
+        showLatestSnackbar(
           'convert.batch.success.title'.tr,
           'convert.batch.success.message'.trParams({
             'success': successCount.toString(),
@@ -271,7 +272,7 @@ class ConvertController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('convert.error.title'.tr, message);
+    showLatestSnackbar('convert.error.title'.tr, message);
   }
 
   ConvertFormat _convertFormatForValue(String value) {

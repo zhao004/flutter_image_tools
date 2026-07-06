@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../database/database.dart';
 import '../../repositories/operation_history_repository.dart';
 
@@ -93,12 +94,12 @@ class HistoryController extends GetxController {
     try {
       await _repository.deleteHistoryItem(item.id);
       items.removeWhere((history) => history.id == item.id);
-      Get.snackbar(
+      showLatestSnackbar(
         'history.delete.success.title'.tr,
         'history.delete.success.message'.tr,
       );
     } catch (_) {
-      Get.snackbar(
+      showLatestSnackbar(
         'history.delete.failed.title'.tr,
         'history.delete.failed.message'.tr,
       );

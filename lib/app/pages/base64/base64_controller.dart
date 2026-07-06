@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/base64_image_result.dart';
 import '../../models/local_image_file.dart';
@@ -105,7 +106,7 @@ class Base64Controller extends GetxController {
         outputPath: source.path,
         parameters: <String, Object>{'mode': 'encode', 'length': text.length},
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'base64.encode.success.title'.tr,
         'base64.encode.success.message'.tr,
       );
@@ -137,7 +138,7 @@ class Base64Controller extends GetxController {
       return;
     }
     await Clipboard.setData(ClipboardData(text: text));
-    Get.snackbar(
+    showLatestSnackbar(
       'base64.copy.success.title'.tr,
       'base64.copy.success.message'.tr,
     );
@@ -178,7 +179,7 @@ class Base64Controller extends GetxController {
         base64Length: text.length,
         mimeType: 'text/plain',
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'base64.export.success.title'.tr,
         'base64.export.success.message'.tr,
       );
@@ -245,7 +246,7 @@ class Base64Controller extends GetxController {
           'length': payload.text.length,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'base64.decode.success.title'.tr,
         'base64.decode.success.message'.tr,
       );
@@ -346,7 +347,7 @@ class Base64Controller extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('base64.error.title'.tr, message);
+    showLatestSnackbar('base64.error.title'.tr, message);
   }
 }
 

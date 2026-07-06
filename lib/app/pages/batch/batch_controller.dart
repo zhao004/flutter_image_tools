@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/local_image_file.dart';
 import '../../repositories/app_settings_repository.dart';
@@ -1055,7 +1056,7 @@ class BatchController extends GetxController {
         : 'batch.completion.title'.trParams({
             'operation': operationLabel(operation.value),
           });
-    Get.snackbar(
+    showLatestSnackbar(
       title,
       'batch.completion.message'.trParams({
         'success': success.toString(),
@@ -1268,7 +1269,7 @@ class BatchController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('batch.error.title'.tr, message);
+    showLatestSnackbar('batch.error.title'.tr, message);
   }
 
   BatchConvertFormat _batchConvertFormatForValue(String value) {

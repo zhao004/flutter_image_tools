@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/local_image_file.dart';
 import '../../models/resized_image_file.dart';
@@ -237,12 +238,12 @@ class ResizeController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar(
+        showLatestSnackbar(
           'resize.success.title'.tr,
           'resize.success.message'.trParams({'count': successCount.toString()}),
         );
       } else {
-        Get.snackbar(
+        showLatestSnackbar(
           'resize.batch.success.title'.tr,
           'resize.batch.success.message'.trParams({
             'success': successCount.toString(),
@@ -380,7 +381,7 @@ class ResizeController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('resize.error.title'.tr, message);
+    showLatestSnackbar('resize.error.title'.tr, message);
   }
 }
 

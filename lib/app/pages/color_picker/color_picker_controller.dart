@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/local_image_file.dart';
 import '../../models/picked_color_sample.dart';
@@ -109,7 +110,7 @@ class ColorPickerController extends GetxController {
       return;
     }
     await Clipboard.setData(ClipboardData(text: value));
-    Get.snackbar('colorPicker.copy.success.title'.tr, value);
+    showLatestSnackbar('colorPicker.copy.success.title'.tr, value);
   }
 
   String formatBytes(int bytes) {
@@ -193,6 +194,6 @@ class ColorPickerController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('colorPicker.error.title'.tr, message);
+    showLatestSnackbar('colorPicker.error.title'.tr, message);
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../database/database.dart';
 import '../../repositories/favorite_templates_repository.dart';
 
@@ -61,7 +62,7 @@ class FavoritesController extends GetxController {
         await _repository.getFavoriteTemplates(keyword: keyword.value),
       );
     } catch (_) {
-      Get.snackbar(
+      showLatestSnackbar(
         'favorites.read.failed.title'.tr,
         'favorites.read.failed.message'.tr,
       );
@@ -106,7 +107,7 @@ class FavoritesController extends GetxController {
         parameters: parameters,
       );
       await loadTemplates();
-      Get.snackbar(
+      showLatestSnackbar(
         'favorites.create.success.title'.tr,
         'favorites.create.success.message'.tr,
       );
@@ -122,7 +123,7 @@ class FavoritesController extends GetxController {
     try {
       await _repository.deleteTemplate(item.id);
       items.removeWhere((template) => template.id == item.id);
-      Get.snackbar(
+      showLatestSnackbar(
         'favorites.delete.success.title'.tr,
         'favorites.delete.success.message'.tr,
       );
@@ -138,7 +139,7 @@ class FavoritesController extends GetxController {
     try {
       await _repository.clearTemplates();
       items.clear();
-      Get.snackbar(
+      showLatestSnackbar(
         'favorites.clear.success.title'.tr,
         'favorites.clear.success.message'.tr,
       );
@@ -202,6 +203,6 @@ class FavoritesController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('favorites.operation.failed.title'.tr, message);
+    showLatestSnackbar('favorites.operation.failed.title'.tr, message);
   }
 }

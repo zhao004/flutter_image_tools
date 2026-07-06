@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/local_image_file.dart';
 import '../../models/watermarked_image_file.dart';
@@ -230,14 +231,14 @@ class WatermarkController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar(
+        showLatestSnackbar(
           'watermark.success.title'.tr,
           'watermark.success.message'.trParams({
             'count': successCount.toString(),
           }),
         );
       } else {
-        Get.snackbar(
+        showLatestSnackbar(
           'watermark.batch.success.title'.tr,
           'watermark.batch.success.message'.trParams({
             'success': successCount.toString(),
@@ -299,6 +300,6 @@ class WatermarkController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('watermark.error.title'.tr, message);
+    showLatestSnackbar('watermark.error.title'.tr, message);
   }
 }

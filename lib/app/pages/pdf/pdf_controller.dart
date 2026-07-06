@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/local_image_file.dart';
 import '../../models/pdf_document_file.dart';
@@ -147,7 +148,7 @@ class PdfController extends GetxController {
         outputPath: pdf.outputPath,
         parameters: _historyParameters(),
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'pdf.success.created.title'.tr,
         'pdf.success.created.message'.tr,
       );
@@ -196,7 +197,7 @@ class PdfController extends GetxController {
           'pageCount': image.pageCount,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'pdf.success.pageExported.title'.tr,
         'pdf.success.pageExported.message'.trParams({
           'page': image.pageNumber.toString(),
@@ -239,7 +240,7 @@ class PdfController extends GetxController {
           'outputCount': export.outputPaths.length,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'pdf.success.allPagesExported.title'.tr,
         'pdf.success.allPagesExported.message'.trParams({
           'count': export.pageCount.toString(),
@@ -296,6 +297,6 @@ class PdfController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('pdf.error.title'.tr, message);
+    showLatestSnackbar('pdf.error.title'.tr, message);
   }
 }

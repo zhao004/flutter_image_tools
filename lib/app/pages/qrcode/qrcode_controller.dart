@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/barcode_image_file.dart';
 import '../../models/barcode_scan_result.dart';
@@ -105,7 +106,7 @@ class QrcodeController extends GetxController {
           'pixelSize': qr.pixelSize,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'qrcode.generate.success.title'.tr,
         'qrcode.generate.qrSuccess.message'.tr,
       );
@@ -173,7 +174,7 @@ class QrcodeController extends GetxController {
           'pixelHeight': file.pixelHeight,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'qrcode.generate.success.title'.tr,
         'qrcode.generate.barcodeSuccess.message'.tr,
       );
@@ -226,7 +227,7 @@ class QrcodeController extends GetxController {
           'rawBytesLength': scan.rawBytesLength,
         },
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'qrcode.scan.success.title'.tr,
         'qrcode.scan.success.message'.trParams({'format': scan.format}),
       );
@@ -262,7 +263,7 @@ class QrcodeController extends GetxController {
       return;
     }
     await Clipboard.setData(ClipboardData(text: text));
-    Get.snackbar(
+    showLatestSnackbar(
       'qrcode.copy.success.title'.tr,
       text.length > 60 ? '${text.substring(0, 60)}...' : text,
     );
@@ -321,6 +322,6 @@ class QrcodeController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('qrcode.error.title'.tr, message);
+    showLatestSnackbar('qrcode.error.title'.tr, message);
   }
 }

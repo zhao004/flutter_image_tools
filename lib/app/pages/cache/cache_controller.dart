@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../models/cache_summary.dart';
 import '../../repositories/cache_repository.dart';
 
@@ -33,7 +34,7 @@ class CacheController extends GetxController {
     try {
       summary.value = await _collectSummary();
     } catch (_) {
-      Get.snackbar(
+      showLatestSnackbar(
         'cache.stats.failed.title'.tr,
         'cache.stats.failed.message'.tr,
       );
@@ -54,12 +55,12 @@ class CacheController extends GetxController {
       }
       await _cacheRepository.clearRecords();
       summary.value = await _collectSummary();
-      Get.snackbar(
+      showLatestSnackbar(
         'cache.clear.success.title'.tr,
         'cache.clear.success.message'.tr,
       );
     } catch (_) {
-      Get.snackbar(
+      showLatestSnackbar(
         'cache.clear.failed.title'.tr,
         'cache.clear.failed.message'.tr,
       );

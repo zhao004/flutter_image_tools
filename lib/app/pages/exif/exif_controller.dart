@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/exif_cleaned_image_file.dart';
 import '../../models/exif_info.dart';
@@ -94,7 +95,7 @@ class ExifController extends GetxController {
         outputPath: cleaned.outputPath,
         parameters: <String, Object>{'mode': 'removeExif'},
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'exif.remove.success.title'.tr,
         'exif.remove.success.message'.tr,
       );
@@ -149,6 +150,6 @@ class ExifController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('exif.error.title'.tr, message);
+    showLatestSnackbar('exif.error.title'.tr, message);
   }
 }

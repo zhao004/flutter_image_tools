@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/filtered_image_file.dart';
 import '../../models/local_image_file.dart';
@@ -95,7 +96,7 @@ class FilterController extends GetxController {
         outputPath: filtered.outputPath,
         parameters: <String, Object>{'filter': filter.value.value},
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'filter.apply.success.title'.tr,
         'filter.apply.success.message'.tr,
       );
@@ -145,6 +146,6 @@ class FilterController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('filter.error.title'.tr, message);
+    showLatestSnackbar('filter.error.title'.tr, message);
   }
 }

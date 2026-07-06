@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/local_image_file.dart';
 import '../../models/rotated_image_file.dart';
@@ -174,12 +175,12 @@ class RotateController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar(
+        showLatestSnackbar(
           'rotate.success.title'.tr,
           'rotate.success.message'.trParams({'count': successCount.toString()}),
         );
       } else {
-        Get.snackbar(
+        showLatestSnackbar(
           'rotate.batch.success.title'.tr,
           'rotate.batch.success.message'.trParams({
             'success': successCount.toString(),
@@ -217,6 +218,6 @@ class RotateController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('rotate.error.title'.tr, message);
+    showLatestSnackbar('rotate.error.title'.tr, message);
   }
 }

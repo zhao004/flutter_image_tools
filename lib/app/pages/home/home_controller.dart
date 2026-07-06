@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../database/database.dart';
 import '../../repositories/app_settings_repository.dart';
 import '../../repositories/recent_files_repository.dart';
@@ -67,13 +68,6 @@ class HomeController extends GetxController {
       icon: 'history',
       availability: ToolAvailability.available,
       route: Routes.history,
-    ),
-    const HomeToolItem(
-      titleKey: 'home.tool.settings.title',
-      descriptionKey: 'home.tool.settings.description',
-      icon: 'settings',
-      availability: ToolAvailability.available,
-      route: Routes.settings,
     ),
     const HomeToolItem(
       titleKey: 'home.tool.crop.title',
@@ -294,7 +288,7 @@ class HomeController extends GetxController {
     try {
       await _settingsRepository.setFavoriteToolRoutes(normalized);
     } catch (_) {
-      Get.snackbar(
+      showLatestSnackbar(
         'home.favorite.saveFailed.title'.tr,
         'home.favorite.saveFailed.message'.tr,
       );
@@ -317,7 +311,7 @@ class HomeController extends GetxController {
   Future<void> openTool(HomeToolItem tool) async {
     final route = tool.route;
     if (tool.availability != ToolAvailability.available || route == null) {
-      Get.snackbar(
+      showLatestSnackbar(
         'home.planned.title'.tr,
         'home.planned.message'.trParams({'tool': tool.title}),
       );

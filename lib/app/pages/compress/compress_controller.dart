@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/compressed_image_file.dart';
 import '../../models/local_image_file.dart';
@@ -183,14 +184,14 @@ class CompressController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar(
+        showLatestSnackbar(
           'compress.success.title'.tr,
           'compress.success.message'.trParams({
             'count': successCount.toString(),
           }),
         );
       } else {
-        Get.snackbar(
+        showLatestSnackbar(
           'compress.batch.success.title'.tr,
           'compress.batch.success.message'.trParams({
             'success': successCount.toString(),
@@ -228,6 +229,6 @@ class CompressController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('compress.error.title'.tr, message);
+    showLatestSnackbar('compress.error.title'.tr, message);
   }
 }

@@ -1,5 +1,4 @@
 import 'package:drift/native.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -76,6 +75,17 @@ void main() {
     expect(find.text('收藏工具'), findsOneWidget);
     expect(find.text('最近使用'), findsNothing);
     expect(find.text('选择图片后会显示在这里'), findsNothing);
+    expect(find.text('设置'), findsNothing);
+    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('收藏工具'), findsWidgets);
+    expect(find.text('设置'), findsOneWidget);
+
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('显示英文首页内容', (WidgetTester tester) async {
@@ -87,6 +97,17 @@ void main() {
     expect(find.text('Favorite Tools'), findsOneWidget);
     expect(find.text('Recent Tools'), findsNothing);
     expect(find.text('Selected images will appear here'), findsNothing);
+    expect(find.text('Settings'), findsNothing);
+    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Favorite Tools'), findsWidgets);
+    expect(find.text('Settings'), findsOneWidget);
+
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('显示英文历史记录页面', (WidgetTester tester) async {

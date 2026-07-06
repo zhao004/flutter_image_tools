@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/local_image_file.dart';
 import '../../models/merged_image_file.dart';
@@ -207,7 +208,7 @@ class MergeController extends GetxController {
           'scaleMode': scaleMode.value.value,
         },
       );
-      Get.snackbar('merge.success.title'.tr, 'merge.success.message'.tr);
+      showLatestSnackbar('merge.success.title'.tr, 'merge.success.message'.tr);
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
         featureName: 'merge.featureName'.tr,
@@ -251,6 +252,6 @@ class MergeController extends GetxController {
       selectedImages.fold<int>(0, (sum, image) => sum + image.sizeBytes);
 
   void _showError(String message) {
-    Get.snackbar('merge.error.title'.tr, message);
+    showLatestSnackbar('merge.error.title'.tr, message);
   }
 }

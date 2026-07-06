@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../database/database.dart';
 import '../../repositories/operation_logs_repository.dart';
 
@@ -63,7 +64,10 @@ class LogsController extends GetxController {
         ),
       );
     } catch (_) {
-      Get.snackbar('logs.read.failed.title'.tr, 'logs.read.failed.message'.tr);
+      showLatestSnackbar(
+        'logs.read.failed.title'.tr,
+        'logs.read.failed.message'.tr,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -89,12 +93,12 @@ class LogsController extends GetxController {
     try {
       await _repository.clearLogs();
       items.clear();
-      Get.snackbar(
+      showLatestSnackbar(
         'logs.clear.success.title'.tr,
         'logs.clear.success.message'.tr,
       );
     } catch (_) {
-      Get.snackbar(
+      showLatestSnackbar(
         'logs.clear.failed.title'.tr,
         'logs.clear.failed.message'.tr,
       );
@@ -116,14 +120,14 @@ class LogsController extends GetxController {
       );
       final output = await _createCsvFile(csv);
       exportedPath.value = output.path;
-      Get.snackbar(
+      showLatestSnackbar(
         'logs.export.success.title'.tr,
         'logs.export.success.message'.tr,
       );
     } on StateError catch (error) {
-      Get.snackbar('logs.export.failed.title'.tr, error.message);
+      showLatestSnackbar('logs.export.failed.title'.tr, error.message);
     } catch (_) {
-      Get.snackbar(
+      showLatestSnackbar(
         'logs.export.failed.title'.tr,
         'logs.export.failed.message'.tr,
       );

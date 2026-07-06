@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/annotated_image_file.dart';
 import '../../models/local_image_file.dart';
@@ -137,7 +138,7 @@ class AnnotationController extends GetxController {
         outputPath: annotated.outputPath,
         parameters: _historyParameters(text),
       );
-      Get.snackbar(
+      showLatestSnackbar(
         'annotation.export.success.title'.tr,
         'annotation.export.success.message'.tr,
       );
@@ -196,6 +197,6 @@ class AnnotationController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('annotation.error.title'.tr, message);
+    showLatestSnackbar('annotation.error.title'.tr, message);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../utils/latest_snackbar.dart';
 import '../../exceptions/app_exception.dart';
 import '../../models/cropped_image_file.dart';
 import '../../models/local_image_file.dart';
@@ -214,12 +215,12 @@ class CropController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar(
+        showLatestSnackbar(
           'crop.success.title'.tr,
           'crop.success.message'.trParams({'count': successCount.toString()}),
         );
       } else {
-        Get.snackbar(
+        showLatestSnackbar(
           'crop.batch.success.title'.tr,
           'crop.batch.success.message'.trParams({
             'success': successCount.toString(),
@@ -304,6 +305,6 @@ class CropController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('crop.error.title'.tr, message);
+    showLatestSnackbar('crop.error.title'.tr, message);
   }
 }
