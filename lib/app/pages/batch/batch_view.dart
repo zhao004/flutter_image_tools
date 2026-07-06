@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印、图片滤镜、图片裁剪和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印、图片滤镜、图片裁剪、删除 EXIF 和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
 /// 取消都只影响未开始任务，正在处理的单个本地任务会自然结束后再停队列。
@@ -528,6 +528,9 @@ class _SettingsCard extends StatelessWidget {
                 ] else ...[
                   Text('当前比例：${controller.cropPreset.value.ratioText}'),
                 ],
+              ] else if (controller.operation.value ==
+                  BatchOperation.removeExif) ...[
+                const Text('模式：导出去除 EXIF 的图片副本'),
               ] else ...[
                 Text('质量：${controller.quality.value}%'),
                 Slider(

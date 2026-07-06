@@ -16,7 +16,8 @@ enum BatchOperation {
   textWatermark(label: '文字水印', featureName: '批量文字水印'),
   imageWatermark(label: '图片水印', featureName: '批量图片水印'),
   filter(label: '图片滤镜', featureName: '批量图片滤镜'),
-  crop(label: '图片裁剪', featureName: '批量图片裁剪');
+  crop(label: '图片裁剪', featureName: '批量图片裁剪'),
+  removeExif(label: '删除 EXIF', featureName: '批量删除 EXIF');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -597,6 +598,8 @@ class BatchController extends GetxController {
           await _processFilterTask(index, task.source);
         case BatchOperation.crop:
           await _processCropTask(index, task.source);
+        case BatchOperation.removeExif:
+          await _processRemoveExifTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -819,6 +822,23 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processRemoveExifTask(int index, LocalImageFile source) async {
+    final cleaned = await _imageChannel.removeExif(source: source);
+    tasks[index] = tasks[index].copyWith(
+      outputPath: cleaned.outputPath,
+      outputSizeBytes: cleaned.outputSizeBytes,
+      resultLabel: 'EXIF 已删除',
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: cleaned.outputPath,
+      parameters: _historyParameters,
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -925,6 +945,8 @@ class BatchController extends GetxController {
           'preset': cropPreset.value.name,
           'aspectRatio': _cropAspectRatio() ?? cropPreset.value.aspectRatio,
         });
+      case BatchOperation.removeExif:
+        parameters['mode'] = 'removeExif';
     }
     return parameters;
   }
@@ -976,6 +998,9 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.crop) {
       return '裁剪会从每张图片中心保留当前比例区域并导出新图片。';
+    }
+    if (operation.value == BatchOperation.removeExif) {
+      return '删除 EXIF 会重新导出去除元数据的图片副本，不会覆盖原文件。';
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
