@@ -706,6 +706,9 @@ class LocalImageChannel {
   Future<GridImageFile> splitGridImage({
     required LocalImageFile source,
     required int gridSize,
+    double? cropLeftRatio,
+    double? cropTopRatio,
+    double? cropSizeRatio,
   }) async {
     if (source.path.trim().isEmpty) {
       throw const AppException('图片路径为空，无法切图');
@@ -713,11 +716,39 @@ class LocalImageChannel {
     if (gridSize < minGridSize || gridSize > maxGridSize) {
       throw const AppException('网格大小必须在 2 到 5 之间');
     }
+    final hasCropSelection =
+        cropLeftRatio != null || cropTopRatio != null || cropSizeRatio != null;
+    if (hasCropSelection) {
+      if (cropLeftRatio == null ||
+          cropTopRatio == null ||
+          cropSizeRatio == null ||
+          !_isValidGridCropRatio(
+            left: cropLeftRatio,
+            top: cropTopRatio,
+            size: cropSizeRatio,
+          )) {
+        throw const AppException('切图区域无效，请调整网格位置后重试');
+      }
+    }
 
     try {
+      final arguments = <String, Object?>{
+        'path': source.path,
+        'gridSize': gridSize,
+      };
+      if (hasCropSelection) {
+        final cropLeft = cropLeftRatio!;
+        final cropTop = cropTopRatio!;
+        final cropSize = cropSizeRatio!;
+        arguments.addAll({
+          'cropLeftRatio': cropLeft.clamp(0.0, 1.0).toDouble(),
+          'cropTopRatio': cropTop.clamp(0.0, 1.0).toDouble(),
+          'cropSizeRatio': cropSize.clamp(0.01, 1.0).toDouble(),
+        });
+      }
       final result = await _channel.invokeMapMethod<Object?, Object?>(
         'splitGridImage',
-        <String, Object?>{'path': source.path, 'gridSize': gridSize},
+        arguments,
       );
       if (result == null) {
         throw const AppException('切图结果为空，请重试');
@@ -741,6 +772,22 @@ class LocalImageChannel {
     } catch (error) {
       throw AppException('九宫格切图失败，请重试', cause: error);
     }
+  }
+
+  bool _isValidGridCropRatio({
+    required double left,
+    required double top,
+    required double size,
+  }) {
+    return left.isFinite &&
+        top.isFinite &&
+        size.isFinite &&
+        left >= 0 &&
+        top >= 0 &&
+        size > 0 &&
+        size <= 1 &&
+        left <= 1 &&
+        top <= 1;
   }
 
   Future<ExifInfo> readExif({required LocalImageFile source}) async {

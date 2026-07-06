@@ -31,6 +31,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
+import kotlin.math.roundToInt
 import java.util.LinkedHashMap
 import java.util.UUID
 
@@ -1572,12 +1573,36 @@ class MainActivity : FlutterActivity() {
     private fun splitGridImage(call: MethodCall, result: MethodChannel.Result) {
         val path = call.argument<String>("path")
         val gridSize = call.argument<Int>("gridSize") ?: 3
+        val cropLeftRatio = call.argument<Double>("cropLeftRatio")
+        val cropTopRatio = call.argument<Double>("cropTopRatio")
+        val cropSizeRatio = call.argument<Double>("cropSizeRatio")
         if (path.isNullOrBlank()) {
             result.error("file_not_found", "图片路径为空", null)
             return
         }
         if (gridSize !in 2..5) {
             result.error("invalid_args", "网格大小必须在 2 到 5 之间", null)
+            return
+        }
+        val hasCropSelection =
+            cropLeftRatio != null || cropTopRatio != null || cropSizeRatio != null
+        if (hasCropSelection && (
+                cropLeftRatio == null ||
+                    cropTopRatio == null ||
+                    cropSizeRatio == null ||
+                    cropLeftRatio.isNaN() ||
+                    cropTopRatio.isNaN() ||
+                    cropSizeRatio.isNaN() ||
+                    cropLeftRatio.isInfinite() ||
+                    cropTopRatio.isInfinite() ||
+                    cropSizeRatio.isInfinite() ||
+                    cropLeftRatio !in 0.0..1.0 ||
+                    cropTopRatio !in 0.0..1.0 ||
+                    cropSizeRatio <= 0.0 ||
+                    cropSizeRatio > 1.0
+                )
+        ) {
+            result.error("invalid_args", "切图区域无效，请调整网格位置后重试", null)
             return
         }
 
@@ -1598,6 +1623,30 @@ class MainActivity : FlutterActivity() {
             return
         }
 
+        val cropLeft: Int
+        val cropTop: Int
+        val cropWidth: Int
+        val cropHeight: Int
+        if (hasCropSelection) {
+            val shortestSide = minOf(bitmap.width, bitmap.height)
+            val cropSize = (shortestSide * cropSizeRatio!!)
+                .roundToInt()
+                .coerceIn(gridSize, shortestSide)
+            cropLeft = (bitmap.width * cropLeftRatio!!)
+                .roundToInt()
+                .coerceIn(0, bitmap.width - cropSize)
+            cropTop = (bitmap.height * cropTopRatio!!)
+                .roundToInt()
+                .coerceIn(0, bitmap.height - cropSize)
+            cropWidth = cropSize
+            cropHeight = cropSize
+        } else {
+            cropLeft = 0
+            cropTop = 0
+            cropWidth = bitmap.width
+            cropHeight = bitmap.height
+        }
+
         val outputPaths = mutableListOf<String>()
         try {
             val outputDir = File(
@@ -1607,11 +1656,11 @@ class MainActivity : FlutterActivity() {
             var totalSizeBytes = 0L
             var pieceIndex = 1
             for (row in 0 until gridSize) {
-                val top = bitmap.height * row / gridSize
-                val bottom = bitmap.height * (row + 1) / gridSize
+                val top = cropTop + cropHeight * row / gridSize
+                val bottom = cropTop + cropHeight * (row + 1) / gridSize
                 for (column in 0 until gridSize) {
-                    val left = bitmap.width * column / gridSize
-                    val right = bitmap.width * (column + 1) / gridSize
+                    val left = cropLeft + cropWidth * column / gridSize
+                    val right = cropLeft + cropWidth * (column + 1) / gridSize
                     val pieceWidth = right - left
                     val pieceHeight = bottom - top
                     val pieceBitmap = Bitmap.createBitmap(

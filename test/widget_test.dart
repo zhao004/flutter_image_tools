@@ -375,8 +375,18 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Grid Size'), findsOneWidget);
+    expect(
+      find.text(
+        'Drag the grid on the image to choose the split area. Use the toolbar to adjust grid count and range.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Range'), findsOneWidget);
+    expect(find.text('2 × 2'), findsOneWidget);
     expect(find.text('3 × 3'), findsOneWidget);
+    expect(find.text('4 × 4'), findsOneWidget);
+    expect(find.text('5 × 5'), findsOneWidget);
+    expect(find.text('Center Grid'), findsOneWidget);
     expect(find.text('Generate Slices'), findsOneWidget);
 
     await database.close();
