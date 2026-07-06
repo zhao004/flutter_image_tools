@@ -281,10 +281,7 @@ class HomeController extends GetxController {
     try {
       await _settingsRepository.setFavoriteToolRoutes(normalized);
     } catch (_) {
-      showLatestSnackbar(
-        'home.favorite.saveFailed.title'.tr,
-        'home.favorite.saveFailed.message'.tr,
-      );
+      // 收藏状态优先即时刷新，持久化失败不弹提示，避免频繁打断用户。
     }
   }
 
