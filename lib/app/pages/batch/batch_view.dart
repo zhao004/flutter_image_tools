@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印、图片滤镜、图片裁剪、删除 EXIF、九宫格切图和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印、图片滤镜、图片裁剪、删除 EXIF、九宫格切图、二维码识别和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
 /// 取消都只影响未开始任务，正在处理的单个本地任务会自然结束后再停队列。
@@ -555,6 +555,9 @@ class _SettingsCard extends StatelessWidget {
                 Text(
                   '网格：${controller.gridSize.value} × ${controller.gridSize.value}',
                 ),
+              ] else if (controller.operation.value ==
+                  BatchOperation.scanCode) ...[
+                const Text('模式：逐张识别二维码或条形码内容'),
               ] else ...[
                 Text('质量：${controller.quality.value}%'),
                 Slider(
@@ -693,7 +696,11 @@ class _TaskListCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  subtitle: Text(task.errorMessage ?? task.status.label),
+                  subtitle: Text(
+                    _subtitleForTask(task),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   trailing: task.outputSizeBytes <= 0
                       ? null
                       : Text(controller.formatBytes(task.outputSizeBytes)),
@@ -715,5 +722,19 @@ class _TaskListCard extends StatelessWidget {
       BatchTaskStatus.failed => Icons.error_outline,
       BatchTaskStatus.canceled => Icons.cancel_outlined,
     };
+  }
+
+  String _subtitleForTask(BatchImageTask task) {
+    final error = task.errorMessage;
+    if (error != null && error.isNotEmpty) {
+      return error;
+    }
+    if (task.resultText.isNotEmpty) {
+      return '${task.resultLabel}：${task.resultText}';
+    }
+    if (task.resultLabel.isNotEmpty && task.status == BatchTaskStatus.success) {
+      return task.resultLabel;
+    }
+    return task.status.label;
   }
 }

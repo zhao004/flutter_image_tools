@@ -18,7 +18,8 @@ enum BatchOperation {
   filter(label: '图片滤镜', featureName: '批量图片滤镜'),
   crop(label: '图片裁剪', featureName: '批量图片裁剪'),
   removeExif(label: '删除 EXIF', featureName: '批量删除 EXIF'),
-  grid(label: '九宫格切图', featureName: '批量九宫格切图');
+  grid(label: '九宫格切图', featureName: '批量九宫格切图'),
+  scanCode(label: '批量识别', featureName: '批量二维码识别');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -139,6 +140,7 @@ class BatchImageTask {
     this.outputPath = '',
     this.outputSizeBytes = 0,
     this.resultLabel = '',
+    this.resultText = '',
     this.errorMessage,
     this.status = BatchTaskStatus.pending,
   });
@@ -147,6 +149,7 @@ class BatchImageTask {
   final String outputPath;
   final int outputSizeBytes;
   final String resultLabel;
+  final String resultText;
   final String? errorMessage;
   final BatchTaskStatus status;
 
@@ -161,6 +164,7 @@ class BatchImageTask {
     String? outputPath,
     int? outputSizeBytes,
     String? resultLabel,
+    String? resultText,
     String? errorMessage,
     BatchTaskStatus? status,
     bool clearError = false,
@@ -170,6 +174,7 @@ class BatchImageTask {
       outputPath: outputPath ?? this.outputPath,
       outputSizeBytes: outputSizeBytes ?? this.outputSizeBytes,
       resultLabel: resultLabel ?? this.resultLabel,
+      resultText: resultText ?? this.resultText,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       status: status ?? this.status,
     );
@@ -627,6 +632,8 @@ class BatchController extends GetxController {
           await _processRemoveExifTask(index, task.source);
         case BatchOperation.grid:
           await _processGridTask(index, task.source);
+        case BatchOperation.scanCode:
+          await _processScanCodeTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -886,6 +893,29 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processScanCodeTask(int index, LocalImageFile source) async {
+    final scan = await _imageChannel.scanBarcodeFromImage(source: source);
+    tasks[index] = tasks[index].copyWith(
+      outputPath: source.path,
+      outputSizeBytes: 0,
+      resultLabel: scan.format,
+      resultText: _summarizeScanText(scan.text),
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: source.path,
+      parameters: <String, Object>{
+        'operation': operation.value.name,
+        'format': scan.format,
+        'length': scan.text.length,
+        'rawBytesLength': scan.rawBytesLength,
+      },
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -999,6 +1029,8 @@ class BatchController extends GetxController {
           'gridSize': gridSize.value,
           'pieceCount': gridSize.value * gridSize.value,
         });
+      case BatchOperation.scanCode:
+        parameters['mode'] = 'scan_image';
     }
     return parameters;
   }
@@ -1065,6 +1097,9 @@ class BatchController extends GetxController {
     if (operation.value == BatchOperation.grid) {
       return '九宫格切图会为每张图片生成独立切片目录，支持 2×2 到 5×5。';
     }
+    if (operation.value == BatchOperation.scanCode) {
+      return '批量识别会逐张读取二维码或条形码内容，结果只记录文本，不会生成新图片。';
+    }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
       BatchConvertFormat.webp => 'JPG 和 WebP 会使用导出质量。',
@@ -1099,6 +1134,16 @@ class BatchController extends GetxController {
       (item) => item.value == normalized,
       orElse: () => BatchConvertFormat.jpg,
     );
+  }
+
+  String _summarizeScanText(String text) {
+    final normalized = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty) {
+      return '未识别到文本内容';
+    }
+    return normalized.length > 60
+        ? '${normalized.substring(0, 60)}...'
+        : normalized;
   }
 
   bool _hasValidResizeSettings() {
