@@ -37,16 +37,22 @@ class ImageWatermarkTask {
 }
 
 enum ImageWatermarkPosition {
-  topLeft(label: '左上', value: 'topLeft'),
-  topRight(label: '右上', value: 'topRight'),
-  bottomLeft(label: '左下', value: 'bottomLeft'),
-  bottomRight(label: '右下', value: 'bottomRight'),
-  center(label: '居中', value: 'center'),
-  tile(label: '平铺', value: 'tile');
+  topLeft(labelKey: 'imageWatermark.position.topLeft', value: 'topLeft'),
+  topRight(labelKey: 'imageWatermark.position.topRight', value: 'topRight'),
+  bottomLeft(
+    labelKey: 'imageWatermark.position.bottomLeft',
+    value: 'bottomLeft',
+  ),
+  bottomRight(
+    labelKey: 'imageWatermark.position.bottomRight',
+    value: 'bottomRight',
+  ),
+  center(labelKey: 'imageWatermark.position.center', value: 'center'),
+  tile(labelKey: 'imageWatermark.position.tile', value: 'tile');
 
-  const ImageWatermarkPosition({required this.label, required this.value});
+  const ImageWatermarkPosition({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
@@ -109,7 +115,7 @@ class ImageWatermarkController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('imageWatermark.error.recentFileFailed'.tr);
     }
   }
 
@@ -145,11 +151,11 @@ class ImageWatermarkController extends GetxController {
     }
     final watermark = selectedWatermark.value;
     if (selectedImages.isEmpty) {
-      _showError('请先选择底图');
+      _showError('imageWatermark.error.pickSourceFirst'.tr);
       return;
     }
     if (watermark == null) {
-      _showError('请先选择水印图片');
+      _showError('imageWatermark.error.pickWatermarkFirst'.tr);
       return;
     }
 
@@ -176,7 +182,7 @@ class ImageWatermarkController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationSuccess(
-            featureName: '图片水印',
+            featureName: 'imageWatermark.featureName'.tr,
             inputPath: source.path,
             outputPath: watermarked.outputPath,
             parameters: _historyParameters(watermark),
@@ -187,7 +193,7 @@ class ImageWatermarkController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationFailure(
-            featureName: '图片水印',
+            featureName: 'imageWatermark.featureName'.tr,
             inputPath: source.path,
             parameters: _historyParameters(watermark),
             errorMessage: error.message,
@@ -198,11 +204,19 @@ class ImageWatermarkController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar('图片水印完成', '已成功处理 $successCount 张图片');
+        Get.snackbar(
+          'imageWatermark.success.title'.tr,
+          'imageWatermark.success.message'.trParams({
+            'count': successCount.toString(),
+          }),
+        );
       } else {
         Get.snackbar(
-          '批量图片水印完成',
-          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+          'imageWatermark.batch.success.title'.tr,
+          'imageWatermark.batch.success.message'.trParams({
+            'success': successCount.toString(),
+            'failed': (selectedImages.length - successCount).toString(),
+          }),
         );
       }
     } finally {
@@ -230,7 +244,7 @@ class ImageWatermarkController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -246,9 +260,16 @@ class ImageWatermarkController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'imageWatermark.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
+  }
+
+  String positionLabel(String value) {
+    return ImageWatermarkPosition.values
+        .firstWhere((item) => item.value == value, orElse: () => position.value)
+        .labelKey
+        .tr;
   }
 
   Future<void> _pickImage(ValueChangedLocalImage onSelected) async {
@@ -266,12 +287,12 @@ class ImageWatermarkController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('imageWatermark.error.recentFileFailed'.tr);
     }
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('imageWatermark.error.title'.tr, message);
   }
 }
 

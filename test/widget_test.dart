@@ -33,6 +33,8 @@ import 'package:flutter_image_tools/app/pages/grid/grid_controller.dart';
 import 'package:flutter_image_tools/app/pages/grid/grid_view.dart' as grid_page;
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
+import 'package:flutter_image_tools/app/pages/image_watermark/image_watermark_controller.dart';
+import 'package:flutter_image_tools/app/pages/image_watermark/image_watermark_view.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
 import 'package:flutter_image_tools/app/pages/merge/merge_controller.dart';
@@ -820,6 +822,49 @@ void main() {
     expect(find.text('Watermark Settings'), findsOneWidget);
     expect(find.text('Watermark Text'), findsOneWidget);
     expect(find.text('Bottom Right'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文图片水印页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证底图、水印图和参数区域首屏文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      ImageWatermarkController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const ImageWatermarkView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Image Watermark'), findsOneWidget);
+    expect(find.text('Select Base Image'), findsNWidgets(2));
+    expect(
+      find.text('Select a base image to add an image watermark.'),
+      findsOneWidget,
+    );
+    expect(find.text('Select Watermark Image'), findsOneWidget);
+    expect(
+      find.text('Select a PNG, logo, or QR code image as the watermark.'),
+      findsOneWidget,
+    );
+    expect(find.text('Select Watermark'), findsOneWidget);
+    expect(find.text('Watermark Settings'), findsOneWidget);
+    expect(find.text('Bottom Right'), findsOneWidget);
+    expect(find.text('Opacity: 70%'), findsOneWidget);
+    expect(find.text('Scale: 25%'), findsOneWidget);
 
     await database.close();
     Get.reset();
