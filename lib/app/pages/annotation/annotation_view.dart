@@ -13,7 +13,7 @@ class AnnotationView extends GetView<AnnotationController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('图片标注')),
+      appBar: AppBar(title: Text('annotation.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -31,7 +31,11 @@ class AnnotationView extends GetView<AnnotationController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.edit_outlined),
-                label: Text(controller.isBusy.value ? '标注中' : '导出标注图片'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'annotation.action.export'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -58,10 +62,13 @@ class _ImageCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'annotation.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (image == null)
-                const Text('请选择一张本地图片，随后选择标注类型并导出副本。')
+                Text('annotation.image.empty'.tr)
               else ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
@@ -74,7 +81,11 @@ class _ImageCard extends StatelessWidget {
                     ? null
                     : controller.pickImage,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: Text(image == null ? '选择图片' : '重新选择'),
+                label: Text(
+                  image == null
+                      ? 'annotation.action.pickImage'.tr
+                      : 'annotation.action.repickImage'.tr,
+                ),
               ),
             ],
           );
@@ -98,7 +109,10 @@ class _AnnotationCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('标注样式', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'annotation.style.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -122,13 +136,16 @@ class _AnnotationCard extends StatelessWidget {
                     !controller.isBusy.value &&
                     controller.mode.value == AnnotationMode.text,
                 maxLength: 40,
-                decoration: const InputDecoration(
-                  labelText: '文本内容',
+                decoration: InputDecoration(
+                  labelText: 'annotation.text.label'.tr,
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
-              Text('颜色', style: Theme.of(context).textTheme.titleSmall),
+              Text(
+                'annotation.color.title'.tr,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -146,7 +163,11 @@ class _AnnotationCard extends StatelessWidget {
                     .toList(growable: false),
               ),
               const SizedBox(height: 16),
-              Text('粗细：${controller.strokeWidth.value}px'),
+              Text(
+                'annotation.strokeWidth'.trParams({
+                  'value': controller.strokeWidth.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.strokeWidth.value.toDouble(),
                 min: 2,
@@ -157,7 +178,7 @@ class _AnnotationCard extends StatelessWidget {
                     ? null
                     : controller.updateStrokeWidth,
               ),
-              const Text('当前版本使用预设区域绘制标注，导出时不会覆盖原图。'),
+              Text('annotation.preview.note'.tr),
             ],
           ),
         ),
@@ -184,10 +205,21 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('标注结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'annotation.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('标注模式：${result.mode}'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'annotation.result.mode'.trParams({
+                  'mode': controller.labelForModeValue(result.mode),
+                }),
+              ),
+              Text(
+                'annotation.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

@@ -9,31 +9,35 @@ import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
 enum AnnotationMode {
-  brush(label: '画笔', value: 'brush'),
-  arrow(label: '箭头', value: 'arrow'),
-  rectangle(label: '矩形', value: 'rectangle'),
-  circle(label: '圆形', value: 'circle'),
-  text(label: '文本', value: 'text'),
-  highlight(label: '高亮', value: 'highlight'),
-  mosaic(label: '马赛克', value: 'mosaic');
+  brush(labelKey: 'annotation.mode.brush', value: 'brush'),
+  arrow(labelKey: 'annotation.mode.arrow', value: 'arrow'),
+  rectangle(labelKey: 'annotation.mode.rectangle', value: 'rectangle'),
+  circle(labelKey: 'annotation.mode.circle', value: 'circle'),
+  text(labelKey: 'annotation.mode.text', value: 'text'),
+  highlight(labelKey: 'annotation.mode.highlight', value: 'highlight'),
+  mosaic(labelKey: 'annotation.mode.mosaic', value: 'mosaic');
 
-  const AnnotationMode({required this.label, required this.value});
+  const AnnotationMode({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
+
+  String get label => labelKey.tr;
 }
 
 enum AnnotationColor {
-  red(label: '红色', value: '#E53935'),
-  yellow(label: '黄色', value: '#FDD835'),
-  blue(label: '蓝色', value: '#1E88E5'),
-  green(label: '绿色', value: '#43A047'),
-  white(label: '白色', value: '#FFFFFF');
+  red(labelKey: 'annotation.color.red', value: '#E53935'),
+  yellow(labelKey: 'annotation.color.yellow', value: '#FDD835'),
+  blue(labelKey: 'annotation.color.blue', value: '#1E88E5'),
+  green(labelKey: 'annotation.color.green', value: '#43A047'),
+  white(labelKey: 'annotation.color.white', value: '#FFFFFF');
 
-  const AnnotationColor({required this.label, required this.value});
+  const AnnotationColor({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
+
+  String get label => labelKey.tr;
 }
 
 /// 图片标注控制器，管理选图、标注模式、颜色、粗细、文本和导出结果。
@@ -59,7 +63,7 @@ class AnnotationController extends GetxController {
   final color = AnnotationColor.red.obs;
   final strokeWidth = 12.obs;
   final isBusy = false.obs;
-  final textController = TextEditingController(text: '标注文本');
+  final textController = TextEditingController();
 
   @override
   void onClose() {
@@ -82,7 +86,7 @@ class AnnotationController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('annotation.error.recentFileFailed'.tr);
     }
   }
 
@@ -104,16 +108,16 @@ class AnnotationController extends GetxController {
     }
     final source = selectedImage.value;
     if (source == null) {
-      _showError('请先选择一张图片');
+      _showError('annotation.error.pickImageFirst'.tr);
       return;
     }
     final text = textController.text.trim();
     if (mode.value == AnnotationMode.text && text.isEmpty) {
-      _showError('文本标注内容不能为空');
+      _showError('annotation.error.textRequired'.tr);
       return;
     }
     if (text.length > 40) {
-      _showError('文本标注不能超过 40 个字符');
+      _showError('annotation.error.textTooLong'.trParams({'max': '40'}));
       return;
     }
 
@@ -128,15 +132,18 @@ class AnnotationController extends GetxController {
       );
       result.value = annotated;
       await _historyRepository.recordOperationSuccess(
-        featureName: '图片标注',
+        featureName: 'annotation.featureName'.tr,
         inputPath: source.path,
         outputPath: annotated.outputPath,
         parameters: _historyParameters(text),
       );
-      Get.snackbar('标注完成', '图片已导出到应用缓存目录');
+      Get.snackbar(
+        'annotation.export.success.title'.tr,
+        'annotation.export.success.message'.tr,
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: '图片标注',
+        featureName: 'annotation.featureName'.tr,
         inputPath: source.path,
         parameters: _historyParameters(text),
         errorMessage: error.message,
@@ -149,7 +156,7 @@ class AnnotationController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -165,9 +172,18 @@ class AnnotationController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'annotation.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
+  }
+
+  String labelForModeValue(String value) {
+    for (final mode in AnnotationMode.values) {
+      if (mode.value == value) {
+        return mode.label;
+      }
+    }
+    return value;
   }
 
   Map<String, Object> _historyParameters(String text) {
@@ -180,6 +196,6 @@ class AnnotationController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('annotation.error.title'.tr, message);
   }
 }

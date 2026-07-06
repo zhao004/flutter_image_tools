@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 
 import 'package:flutter_image_tools/app/database/database.dart';
 import 'package:flutter_image_tools/app/core/models/cache_summary.dart';
+import 'package:flutter_image_tools/app/pages/annotation/annotation_controller.dart';
+import 'package:flutter_image_tools/app/pages/annotation/annotation_view.dart';
 import 'package:flutter_image_tools/app/pages/base64/base64_controller.dart';
 import 'package:flutter_image_tools/app/pages/base64/base64_view.dart';
 import 'package:flutter_image_tools/app/pages/cache/cache_controller.dart';
@@ -423,6 +425,54 @@ void main() {
     expect(find.text('EXIF Information'), findsOneWidget);
     expect(
       find.text('Readable EXIF fields appear after selecting an image.'),
+      findsOneWidget,
+    );
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文图片标注页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证标注模式、颜色和导出按钮文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      AnnotationController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const AnnotationView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Annotation'), findsOneWidget);
+    expect(find.text('Select Image'), findsWidgets);
+    expect(
+      find.text(
+        'Select a local image, then choose an annotation type and export a copy.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Annotation Style'), findsOneWidget);
+    expect(find.text('Brush'), findsOneWidget);
+    expect(find.text('Arrow'), findsOneWidget);
+    expect(find.text('Text Content'), findsOneWidget);
+    expect(find.text('Color'), findsOneWidget);
+    expect(find.text('Red'), findsOneWidget);
+    expect(find.text('Stroke: 12 px'), findsOneWidget);
+    expect(
+      find.text(
+        'This version draws annotations in preset regions and never overwrites the original image.',
+      ),
       findsOneWidget,
     );
 
