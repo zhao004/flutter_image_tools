@@ -465,7 +465,7 @@ void main() {
   });
 
   testWidgets('显示英文图片标注页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证标注模式、颜色和导出按钮文案国际化。
+    // 直接注入控制器依赖，仅验证统一图片编辑器的工具栏和导出入口文案。
     final database = AppDatabase(NativeDatabase.memory());
     Get.put(
       AnnotationController(
@@ -486,27 +486,24 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Annotation'), findsOneWidget);
-    expect(find.text('Select Image'), findsWidgets);
+    expect(find.text('Image Editor'), findsOneWidget);
+    expect(find.text('Select Image'), findsOneWidget);
     expect(
       find.text(
-        'Select a local image, then choose an annotation type and export a copy.',
+        'Select one image to enter the editor, then use the bottom toolbar for text, shapes, arrows, mosaic, and brush.',
       ),
       findsOneWidget,
     );
-    expect(find.text('Annotation Style'), findsOneWidget);
+    expect(find.text('Move'), findsOneWidget);
     expect(find.text('Brush'), findsOneWidget);
+    expect(find.text('Mosaic'), findsOneWidget);
+    expect(find.text('Text'), findsOneWidget);
+    expect(find.text('Rectangle'), findsOneWidget);
+    expect(find.text('Circle'), findsOneWidget);
     expect(find.text('Arrow'), findsOneWidget);
-    expect(find.text('Text Content'), findsOneWidget);
-    expect(find.text('Color'), findsOneWidget);
     expect(find.text('Red'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
-    expect(
-      find.text(
-        'This version draws annotations in preset regions and never overwrites the original image.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();

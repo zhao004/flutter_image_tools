@@ -1,22 +1,29 @@
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
-import '../../utils/latest_snackbar.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
+
 import '../../exceptions/app_exception.dart';
 import '../../models/annotated_image_file.dart';
 import '../../models/local_image_file.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
+import '../../utils/latest_snackbar.dart';
 
 enum AnnotationMode {
+  select(labelKey: 'annotation.mode.select', value: 'select'),
   brush(labelKey: 'annotation.mode.brush', value: 'brush'),
-  arrow(labelKey: 'annotation.mode.arrow', value: 'arrow'),
+  mosaic(labelKey: 'annotation.mode.mosaic', value: 'mosaic'),
+  text(labelKey: 'annotation.mode.text', value: 'text'),
   rectangle(labelKey: 'annotation.mode.rectangle', value: 'rectangle'),
   circle(labelKey: 'annotation.mode.circle', value: 'circle'),
-  text(labelKey: 'annotation.mode.text', value: 'text'),
-  highlight(labelKey: 'annotation.mode.highlight', value: 'highlight'),
-  mosaic(labelKey: 'annotation.mode.mosaic', value: 'mosaic');
+  arrow(labelKey: 'annotation.mode.arrow', value: 'arrow');
 
   const AnnotationMode({required this.labelKey, required this.value});
 
@@ -39,12 +46,62 @@ enum AnnotationColor {
   final String value;
 
   String get label => labelKey.tr;
+
+  Color get color => _colorFromHex(value);
 }
 
-/// 图片标注控制器，管理选图、标注模式、颜色、粗细、文本和导出结果。
+enum EditableLayerType { text, rectangle, circle, arrow }
+
+class EditableLayer {
+  EditableLayer({
+    required this.id,
+    required this.type,
+    required this.position,
+    required this.color,
+    this.text = '',
+    this.rotation = 0,
+    this.scale = 1,
+  });
+
+  final int id;
+  final EditableLayerType type;
+  Offset position;
+  Color color;
+  String text;
+  double rotation;
+  double scale;
+
+  EditableLayer copy() {
+    return EditableLayer(
+      id: id,
+      type: type,
+      position: position,
+      color: color,
+      text: text,
+      rotation: rotation,
+      scale: scale,
+    );
+  }
+}
+
+class DrawingStroke {
+  DrawingStroke({
+    required this.mode,
+    required this.color,
+    required this.width,
+    required this.points,
+  });
+
+  final AnnotationMode mode;
+  final Color color;
+  final double width;
+  final List<Offset> points;
+}
+
+/// 图片编辑控制器，管理选图、图层、涂抹轨迹、变换参数和截图导出。
 ///
-/// 异常策略：标注模式、文本长度和线条粗细在 Dart 侧先校验，平台端再做
-/// 文件与绘制校验；导出失败会写入历史记录，方便用户回溯参数。
+/// 设计意图：编辑操作先在 Flutter 画布中完成，文字/形状/箭头使用图层模型，
+/// 画笔和马赛克使用路径模型；导出时截图整个编辑画布，避免覆盖原图。
 class AnnotationController extends GetxController {
   AnnotationController({
     required LocalImageChannel imageChannel,
@@ -58,13 +115,34 @@ class AnnotationController extends GetxController {
   final OperationHistoryRepository _historyRepository;
   final RecentFilesRepository _recentFilesRepository;
 
+  final canvasKey = GlobalKey();
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<AnnotatedImageFile>();
-  final mode = AnnotationMode.brush.obs;
+  final mode = AnnotationMode.select.obs;
   final color = AnnotationColor.red.obs;
   final strokeWidth = 12.obs;
   final isBusy = false.obs;
+  final layers = <EditableLayer>[].obs;
+  final strokes = <DrawingStroke>[].obs;
+  final selectedLayerId = RxnInt();
   final textController = TextEditingController();
+
+  int _nextLayerId = 1;
+
+  EditableLayer? get selectedLayer {
+    final id = selectedLayerId.value;
+    if (id == null) {
+      return null;
+    }
+    for (final layer in layers) {
+      if (layer.id == id) {
+        return layer;
+      }
+    }
+    return null;
+  }
+
+  bool get hasEdits => layers.isNotEmpty || strokes.isNotEmpty;
 
   @override
   void onClose() {
@@ -83,6 +161,7 @@ class AnnotationController extends GetxController {
       }
       selectedImage.value = image;
       result.value = null;
+      clearEdits(showMessage: false);
       await _recentFilesRepository.recordImage(image);
     } on AppException catch (error) {
       _showError(error.message);
@@ -93,17 +172,129 @@ class AnnotationController extends GetxController {
 
   void setMode(AnnotationMode value) {
     mode.value = value;
+    if (value == AnnotationMode.brush || value == AnnotationMode.mosaic) {
+      selectedLayerId.value = null;
+    }
   }
 
   void setColor(AnnotationColor value) {
     color.value = value;
+    final layer = selectedLayer;
+    if (layer != null) {
+      layer.color = value.color;
+      layers.refresh();
+    }
   }
 
   void updateStrokeWidth(double value) {
-    strokeWidth.value = value.round().clamp(2, 48);
+    strokeWidth.value = value.round().clamp(2, 60);
   }
 
-  Future<void> annotate() async {
+  void addTextLayer() {
+    final text = textController.text.trim();
+    if (text.isEmpty) {
+      _showError('annotation.error.textRequired'.tr);
+      return;
+    }
+    if (text.length > 40) {
+      _showError('annotation.error.textTooLong'.trParams({'max': '40'}));
+      return;
+    }
+    _addLayer(EditableLayerType.text, text: text);
+    textController.clear();
+  }
+
+  void addShapeLayer(EditableLayerType type) {
+    _addLayer(type);
+  }
+
+  void selectLayer(int id) {
+    selectedLayerId.value = id;
+    mode.value = AnnotationMode.select;
+  }
+
+  void moveSelectedLayer(Offset delta) {
+    final layer = selectedLayer;
+    if (layer == null) {
+      return;
+    }
+    layer.position += delta;
+    layers.refresh();
+  }
+
+  void updateSelectedLayerScale(double value) {
+    final layer = selectedLayer;
+    if (layer == null) {
+      return;
+    }
+    layer.scale = value.clamp(0.4, 3.0);
+    layers.refresh();
+  }
+
+  void updateSelectedLayerRotation(double value) {
+    final layer = selectedLayer;
+    if (layer == null) {
+      return;
+    }
+    layer.rotation = value.clamp(-180, 180);
+    layers.refresh();
+  }
+
+  void deleteSelectedLayer() {
+    final id = selectedLayerId.value;
+    if (id == null) {
+      return;
+    }
+    layers.removeWhere((layer) => layer.id == id);
+    selectedLayerId.value = null;
+  }
+
+  void addStroke({
+    required AnnotationMode strokeMode,
+    required List<Offset> points,
+  }) {
+    if (points.length < 2) {
+      return;
+    }
+    strokes.add(
+      DrawingStroke(
+        mode: strokeMode,
+        color: color.value.color,
+        width: strokeWidth.value.toDouble(),
+        points: List<Offset>.unmodifiable(points),
+      ),
+    );
+    result.value = null;
+  }
+
+  void undo() {
+    if (selectedLayerId.value != null) {
+      deleteSelectedLayer();
+      return;
+    }
+    if (strokes.isNotEmpty) {
+      strokes.removeLast();
+      return;
+    }
+    if (layers.isNotEmpty) {
+      layers.removeLast();
+    }
+  }
+
+  void clearEdits({bool showMessage = true}) {
+    layers.clear();
+    strokes.clear();
+    selectedLayerId.value = null;
+    result.value = null;
+    if (showMessage) {
+      showLatestSnackbar(
+        'annotation.clear.success.title'.tr,
+        'annotation.clear.success.message'.tr,
+      );
+    }
+  }
+
+  Future<void> exportEditedImage() async {
     if (isBusy.value) {
       return;
     }
@@ -112,44 +303,54 @@ class AnnotationController extends GetxController {
       _showError('annotation.error.pickImageFirst'.tr);
       return;
     }
-    final text = textController.text.trim();
-    if (mode.value == AnnotationMode.text && text.isEmpty) {
-      _showError('annotation.error.textRequired'.tr);
-      return;
-    }
-    if (text.length > 40) {
-      _showError('annotation.error.textTooLong'.trParams({'max': '40'}));
+    if (!hasEdits) {
+      _showError('annotation.error.noEdits'.tr);
       return;
     }
 
     isBusy.value = true;
     try {
-      final annotated = await _imageChannel.annotateImage(
+      final boundary =
+          canvasKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw AppException('annotation.error.canvasUnavailable'.tr);
+      }
+      final image = await boundary.toImage(pixelRatio: 3);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw AppException('annotation.error.exportEmpty'.tr);
+      }
+      final output = await _createOutputFile(byteData.buffer.asUint8List());
+      final annotated = AnnotatedImageFile(
         source: source,
-        mode: mode.value.value,
-        text: text,
-        color: color.value.value,
-        strokeWidth: strokeWidth.value,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
+        mode: 'editor',
       );
       result.value = annotated;
       await _historyRepository.recordOperationSuccess(
         featureName: 'annotation.featureName'.tr,
         inputPath: source.path,
-        outputPath: annotated.outputPath,
-        parameters: _historyParameters(text),
+        outputPath: output.path,
+        parameters: _historyParameters(),
       );
       showLatestSnackbar(
         'annotation.export.success.title'.tr,
         'annotation.export.success.message'.tr,
       );
-    } on AppException catch (error) {
+    } catch (error) {
       await _historyRepository.recordOperationFailure(
         featureName: 'annotation.featureName'.tr,
         inputPath: source.path,
-        parameters: _historyParameters(text),
-        errorMessage: error.message,
+        parameters: _historyParameters(),
+        errorMessage: error is AppException ? error.message : '$error',
       );
-      _showError(error.message);
+      _showError(
+        error is AppException
+            ? error.message
+            : 'annotation.error.exportFailed'.tr,
+      );
     } finally {
       isBusy.value = false;
     }
@@ -184,15 +385,47 @@ class AnnotationController extends GetxController {
         return mode.label;
       }
     }
-    return value;
+    return value == 'editor' ? 'annotation.mode.editor'.tr : value;
   }
 
-  Map<String, Object> _historyParameters(String text) {
+  void _addLayer(EditableLayerType type, {String text = ''}) {
+    if (selectedImage.value == null) {
+      _showError('annotation.error.pickImageFirst'.tr);
+      return;
+    }
+    final layer = EditableLayer(
+      id: _nextLayerId++,
+      type: type,
+      position: const Offset(0, 0),
+      color: color.value.color,
+      text: text,
+    );
+    layers.add(layer);
+    selectedLayerId.value = layer.id;
+    mode.value = AnnotationMode.select;
+    result.value = null;
+  }
+
+  Future<File> _createOutputFile(Uint8List bytes) async {
+    final root = await getTemporaryDirectory();
+    final directory = Directory('${root.path}/edited_images');
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+    final output = File(
+      '${directory.path}/edited_${DateTime.now().millisecondsSinceEpoch}.png',
+    );
+    await output.writeAsBytes(bytes, flush: true);
+    return output;
+  }
+
+  Map<String, Object> _historyParameters() {
     return <String, Object>{
-      'mode': mode.value.value,
-      'color': color.value.value,
+      'mode': 'editor',
+      'layers': layers.length,
+      'strokes': strokes.length,
       'strokeWidth': strokeWidth.value,
-      if (text.isNotEmpty) 'text': text,
+      'color': color.value.value,
     };
   }
 
@@ -200,3 +433,14 @@ class AnnotationController extends GetxController {
     showLatestSnackbar('annotation.error.title'.tr, message);
   }
 }
+
+Color _colorFromHex(String value) {
+  final normalized = value.replaceFirst('#', '');
+  final parsed = int.tryParse(normalized, radix: 16);
+  if (parsed == null) {
+    return Colors.red;
+  }
+  return Color(0xFF000000 | parsed);
+}
+
+double degreesToRadians(double value) => value * math.pi / 180;
