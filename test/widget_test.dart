@@ -896,6 +896,29 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Merge Layout'), findsNothing);
+    expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
+
+    Get.find<MergeController>().selectedImages.assignAll(const [
+      LocalImageFile(
+        path: 'first.png',
+        name: 'first.png',
+        sizeBytes: 1200,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+      LocalImageFile(
+        path: 'second.png',
+        name: 'second.png',
+        sizeBytes: 2400,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+    ]);
+    await tester.pump();
+
     expect(find.text('Merge Layout'), findsOneWidget);
     expect(find.text('Horizontal'), findsOneWidget);
     expect(find.text('Vertical'), findsOneWidget);
