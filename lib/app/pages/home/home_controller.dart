@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../../database/database.dart';
+import '../../repositories/app_settings_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../routes/app_pages.dart';
 
@@ -31,13 +32,18 @@ class HomeToolItem {
 /// 设计意图：工具清单先集中在 Controller，后续可迁移到 Drift 收藏和
 /// 最近使用记录；跳转前校验 route，避免未实现功能触发空路由异常。
 class HomeController extends GetxController {
-  HomeController({required RecentFilesRepository recentFilesRepository})
-    : _recentFilesRepository = recentFilesRepository;
+  HomeController({
+    required AppSettingsRepository settingsRepository,
+    required RecentFilesRepository recentFilesRepository,
+  }) : _settingsRepository = settingsRepository,
+       _recentFilesRepository = recentFilesRepository;
 
+  final AppSettingsRepository _settingsRepository;
   final RecentFilesRepository _recentFilesRepository;
 
   final query = ''.obs;
   final recentFiles = <RecentFile>[].obs;
+  final recentToolRoutes = <String>[].obs;
 
   final tools = <HomeToolItem>[
     const HomeToolItem(
@@ -204,14 +210,37 @@ class HomeController extends GetxController {
         .toList(growable: false);
   }
 
-  List<HomeToolItem> get recentTools => tools
-      .where((tool) => tool.availability == ToolAvailability.available)
-      .toList(growable: false);
+  List<HomeToolItem> get recentTools {
+    final recent = recentToolRoutes
+        .map(_toolForRoute)
+        .whereType<HomeToolItem>()
+        .where((tool) => tool.availability == ToolAvailability.available)
+        .toList(growable: false);
+    if (recent.isNotEmpty) {
+      return recent;
+    }
+    return tools
+        .where((tool) => tool.availability == ToolAvailability.available)
+        .take(6)
+        .toList(growable: false);
+  }
 
   @override
   void onInit() {
     super.onInit();
+    loadRecentTools();
     loadRecentFiles();
+  }
+
+  Future<void> loadRecentTools() async {
+    try {
+      final routes = await _settingsRepository.getRecentToolRoutes();
+      recentToolRoutes.assignAll(
+        routes.where((route) => _toolForRoute(route) != null),
+      );
+    } catch (_) {
+      recentToolRoutes.clear();
+    }
   }
 
   Future<void> loadRecentFiles() async {
@@ -226,7 +255,16 @@ class HomeController extends GetxController {
     query.value = value;
   }
 
-  void openTool(HomeToolItem tool) {
+  Future<void> openSettings() async {
+    final tool = _toolForRoute(Routes.settings);
+    if (tool == null) {
+      Get.toNamed(Routes.settings);
+      return;
+    }
+    await openTool(tool);
+  }
+
+  Future<void> openTool(HomeToolItem tool) async {
     final route = tool.route;
     if (tool.availability != ToolAvailability.available || route == null) {
       Get.snackbar(
@@ -235,6 +273,33 @@ class HomeController extends GetxController {
       );
       return;
     }
+    await _recordRecentTool(route);
     Get.toNamed(route);
+  }
+
+  Future<void> _recordRecentTool(String route) async {
+    final nextRoutes = <String>[
+      route,
+      ...recentToolRoutes.where((item) => item != route),
+    ].take(AppSettingsRepository.maxRecentToolRoutes).toList(growable: false);
+    recentToolRoutes.assignAll(nextRoutes);
+    try {
+      await _settingsRepository.setRecentToolRoutes(nextRoutes);
+    } catch (_) {
+      // 最近工具是体验增强项，写入失败不阻断实际页面跳转。
+    }
+  }
+
+  HomeToolItem? _toolForRoute(String route) {
+    final normalized = route.trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    for (final tool in tools) {
+      if (tool.route == normalized) {
+        return tool;
+      }
+    }
+    return null;
   }
 }

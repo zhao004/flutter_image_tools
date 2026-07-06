@@ -19,7 +19,7 @@ class HomeView extends GetView<HomeController> {
         actions: [
           IconButton(
             tooltip: 'home.tool.settings.title'.tr,
-            onPressed: () => controller.openTool(controller.tools[2]),
+            onPressed: controller.openSettings,
             icon: const Icon(Icons.settings_outlined),
           ),
         ],
@@ -58,18 +58,20 @@ class HomeView extends GetView<HomeController> {
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverToBoxAdapter(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: controller.recentTools
-                      .map(
-                        (tool) => ActionChip(
-                          avatar: Icon(_iconFor(tool.icon), size: 18),
-                          label: Text(tool.title),
-                          onPressed: () => controller.openTool(tool),
-                        ),
-                      )
-                      .toList(growable: false),
+                child: Obx(
+                  () => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: controller.recentTools
+                        .map(
+                          (tool) => ActionChip(
+                            avatar: Icon(_iconFor(tool.icon), size: 18),
+                            label: Text(tool.title),
+                            onPressed: () => controller.openTool(tool),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
                 ),
               ),
             ),

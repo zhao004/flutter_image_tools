@@ -10,7 +10,7 @@ class AppTranslations extends Translations {
     'zh_CN': {
       'app.title': 'Image Toolkit',
       'home.search.hint': '搜索工具',
-      'home.section.shortcuts': '功能入口',
+      'home.section.shortcuts': '最近使用',
       'home.section.recentImages': '最近图片',
       'home.section.allTools': '全部工具',
       'home.recentImages.empty': '选择图片后会显示在这里',
@@ -92,7 +92,7 @@ class AppTranslations extends Translations {
     'zh_TW': {
       'app.title': 'Image Toolkit',
       'home.search.hint': '搜尋工具',
-      'home.section.shortcuts': '功能入口',
+      'home.section.shortcuts': '最近使用',
       'home.section.recentImages': '最近圖片',
       'home.section.allTools': '全部工具',
       'home.recentImages.empty': '選擇圖片後會顯示在這裡',
@@ -174,7 +174,7 @@ class AppTranslations extends Translations {
     'en': {
       'app.title': 'Image Toolkit',
       'home.search.hint': 'Search tools',
-      'home.section.shortcuts': 'Shortcuts',
+      'home.section.shortcuts': 'Recent Tools',
       'home.section.recentImages': 'Recent Images',
       'home.section.allTools': 'All Tools',
       'home.recentImages.empty': 'Selected images will appear here',

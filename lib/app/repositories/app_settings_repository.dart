@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../database/database.dart';
 
 /// 应用设置仓储，统一读写本地 app_settings 表。
@@ -13,6 +15,8 @@ class AppSettingsRepository {
   static const String defaultSaveRuleKey = 'default_save_rule';
   static const String themeModeKey = 'theme_mode';
   static const String languageKey = 'language';
+  static const String recentToolRoutesKey = 'recent_tool_routes';
+  static const int maxRecentToolRoutes = 8;
 
   final AppDatabase _database;
 
@@ -88,6 +92,43 @@ class AppSettingsRepository {
       throw ArgumentError.value(language, 'language', '不支持的语言设置');
     }
     await _setValue(languageKey, normalized, 'string');
+  }
+
+  Future<List<String>> getRecentToolRoutes() async {
+    final value = await _getString(recentToolRoutesKey);
+    if (value == null || value.trim().isEmpty) {
+      return const [];
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(value);
+    } on FormatException {
+      return const [];
+    }
+    if (decoded is! List) {
+      return const [];
+    }
+    return decoded
+        .whereType<String>()
+        .map((route) => route.trim())
+        .where((route) => route.isNotEmpty)
+        .take(maxRecentToolRoutes)
+        .toList(growable: false);
+  }
+
+  Future<void> setRecentToolRoutes(List<String> routes) async {
+    final normalized = <String>[];
+    for (final route in routes) {
+      final value = route.trim();
+      if (value.isEmpty || normalized.contains(value)) {
+        continue;
+      }
+      normalized.add(value);
+      if (normalized.length >= maxRecentToolRoutes) {
+        break;
+      }
+    }
+    await _setValue(recentToolRoutesKey, jsonEncode(normalized), 'json');
   }
 
   Future<int?> _getInt(String key) async {
