@@ -153,9 +153,27 @@ class _CropToolbar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'crop.ratio.title'.tr,
-          style: Theme.of(context).textTheme.titleSmall,
+        Row(
+          children: [
+            Text(
+              'crop.ratio.title'.tr,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'crop.ratio.current'.trParams({
+                  'ratio': controller.currentRatioText(),
+                }),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         EditorOptionWrap<CropPreset>(
@@ -199,13 +217,6 @@ class _CropToolbar extends StatelessWidget {
             ],
           ),
         ],
-        const SizedBox(height: 8),
-        Text(
-          'crop.ratio.current'.trParams({
-            'ratio': controller.currentRatioText(),
-          }),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
         if (controller.tasks.isNotEmpty) ...[
           const SizedBox(height: 8),
           LinearProgressIndicator(value: controller.progress),
