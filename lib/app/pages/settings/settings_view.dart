@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import '../../routes/app_pages.dart';
 import 'settings_controller.dart';
 
-/// 设置页，展示离线隐私说明、默认压缩参数和导出偏好。
+/// 设置页，展示导出、主题、语言和本地管理入口。
 ///
 /// 构建设计：设置项直接写入本地 Drift，保证离线可用；未接入目录选择前，
 /// 导出目录只展示当前策略，避免提供无法生效的编辑入口。
@@ -19,50 +19,6 @@ class SettingsView extends GetView<SettingsController> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'settings.privacy.title'.tr,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text('settings.privacy.body'.tr),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Obx(
-                  () => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'settings.quality.title'.tr,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text('${controller.defaultQuality.value}%'),
-                      Slider(
-                        value: controller.defaultQuality.value.toDouble(),
-                        min: 1,
-                        max: 100,
-                        divisions: 99,
-                        label: '${controller.defaultQuality.value}%',
-                        onChanged: controller.updateDefaultQuality,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),

@@ -6,7 +6,7 @@ import '../../repositories/app_settings_repository.dart';
 import '../../theme/locale_parser.dart';
 import '../../theme/theme_mode_parser.dart';
 
-/// 设置控制器，承载默认压缩参数、导出格式、保存规则、语言和主题模式。
+/// 设置控制器，承载导出格式、保存规则、语言和主题模式。
 ///
 /// 异常策略：读取失败回退安全默认值并提示用户；写入失败保留当前界面值，
 /// 避免本地数据库异常导致设置页不可用。
@@ -16,7 +16,6 @@ class SettingsController extends GetxController {
 
   final AppSettingsRepository _settingsRepository;
 
-  final defaultQuality = 80.obs;
   final defaultExportFormat = 'jpg'.obs;
   final defaultSaveRule = 'timestamp'.obs;
   final themeMode = 'system'.obs;
@@ -33,7 +32,6 @@ class SettingsController extends GetxController {
   Future<void> loadSettings() async {
     isLoading.value = true;
     try {
-      defaultQuality.value = await _settingsRepository.getDefaultQuality();
       defaultExportFormat.value = await _settingsRepository
           .getDefaultExportFormat();
       defaultSaveRule.value = await _settingsRepository.getDefaultSaveRule();
@@ -48,16 +46,6 @@ class SettingsController extends GetxController {
       );
     } finally {
       isLoading.value = false;
-    }
-  }
-
-  Future<void> updateDefaultQuality(double value) async {
-    final nextValue = value.round().clamp(1, 100);
-    defaultQuality.value = nextValue;
-    try {
-      await _settingsRepository.setDefaultQuality(nextValue);
-    } catch (_) {
-      _showSaveFailed('settings.save.failed.quality'.tr);
     }
   }
 
