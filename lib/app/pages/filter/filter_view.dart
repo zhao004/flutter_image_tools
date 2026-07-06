@@ -1,187 +1,313 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../widgets/image_editor_scaffold.dart';
 import 'filter_controller.dart';
 
-/// 图片滤镜页，支持灰度、黑白、怀旧、反色、冷暖色、HDR、胶片、锐化和柔化。
+/// 图片滤镜编辑页，选择图片后在编辑画布中实时预览滤镜效果。
 ///
-/// 构建设计：当前阶段提供确定性像素滤镜，不引入预览缓存；后续可扩展为
-/// 缩略图预览和强度调节。
+/// 设计意图：滤镜选择放在底部工具栏，预览层使用轻量 ColorFilter 模拟
+/// 视觉结果，导出仍走原生像素处理，保证输出质量和历史记录一致。
 class FilterView extends GetView<FilterController> {
   const FilterView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('filter.title'.tr)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _ImageCard(controller: controller),
-            const SizedBox(height: 16),
-            _FilterCard(controller: controller),
-            const SizedBox(height: 16),
-            Obx(
-              () => FilledButton.icon(
-                onPressed: controller.isBusy.value
-                    ? null
-                    : controller.applyFilter,
-                icon: controller.isBusy.value
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.filter_vintage_outlined),
-                label: Text(
-                  controller.isBusy.value
-                      ? 'common.processing'.tr
-                      : 'filter.action.apply'.tr,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _ResultCard(controller: controller),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageCard extends StatelessWidget {
-  const _ImageCard({required this.controller});
-
-  final FilterController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(() {
-          final image = controller.selectedImage.value;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'filter.image.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              if (image == null)
-                Text('filter.image.empty'.tr)
-              else ...[
-                Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(controller.formatBytes(image.sizeBytes)),
-                Text(controller.formatDimensions(image)),
-              ],
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: controller.isBusy.value
-                    ? null
-                    : controller.pickImage,
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: Text(
-                  image == null
-                      ? 'filter.action.pickImage'.tr
-                      : 'filter.action.repickImage'.tr,
-                ),
-              ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _FilterCard extends StatelessWidget {
-  const _FilterCard({required this.controller});
-
-  final FilterController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(
-          () => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'filter.type.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ImageFilterType.values
-                    .map(
-                      (item) => ChoiceChip(
-                        label: Text(item.label),
-                        selected: controller.filter.value == item,
-                        onSelected: controller.isBusy.value
-                            ? null
-                            : (_) => controller.setFilter(item),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.controller});
-
-  final FilterController controller;
-
-  @override
-  Widget build(BuildContext context) {
     return Obx(() {
+      final image = controller.selectedImage.value;
       final result = controller.result.value;
-      if (result == null) {
-        return const SizedBox.shrink();
-      }
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'filter.result.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'filter.result.type'.trParams({
-                  'type': controller.labelForFilterValue(result.filter),
-                }),
-              ),
-              Text(
-                'filter.result.outputSize'.trParams({
-                  'size': controller.formatBytes(result.outputSizeBytes),
-                }),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                result.outputPath,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+      return ImageEditorScaffold(
+        title: 'filter.title'.tr,
+        selectedImage: image,
+        isBusy: controller.isBusy.value,
+        emptyIcon: Icons.filter_vintage_outlined,
+        emptyTitle: 'filter.image.title'.tr,
+        emptyMessage: 'filter.image.empty'.tr,
+        pickLabel: 'filter.action.pickImage'.tr,
+        repickLabel: 'filter.action.repickImage'.tr,
+        exportLabel: 'filter.action.apply'.tr,
+        exportIcon: Icons.ios_share_outlined,
+        onPickImage: controller.pickImage,
+        onExport: controller.applyFilter,
+        imageMeta: image == null
+            ? null
+            : '${controller.formatDimensions(image)} · ${controller.formatBytes(image.sizeBytes)}',
+        previewBuilder: (context, previewImage) => EditorImagePreview(
+          image: previewImage,
+          colorFilter: _colorFilterFor(controller.filter.value),
         ),
+        toolbar: _FilterToolbar(controller: controller),
+        resultSummary: result == null
+            ? null
+            : EditorResultPill(
+                title: 'filter.result.title'.tr,
+                detail:
+                    '${controller.labelForFilterValue(result.filter)} · ${controller.formatBytes(result.outputSizeBytes)}',
+                tooltip: result.outputPath,
+              ),
       );
     });
+  }
+
+  ColorFilter? _colorFilterFor(ImageFilterType filter) {
+    switch (filter) {
+      case ImageFilterType.grayscale:
+        return const ColorFilter.matrix([
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.monochrome:
+        return const ColorFilter.matrix([
+          1.5,
+          1.5,
+          1.5,
+          0,
+          -180,
+          1.5,
+          1.5,
+          1.5,
+          0,
+          -180,
+          1.5,
+          1.5,
+          1.5,
+          0,
+          -180,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.sepia:
+        return const ColorFilter.matrix([
+          0.393,
+          0.769,
+          0.189,
+          0,
+          0,
+          0.349,
+          0.686,
+          0.168,
+          0,
+          0,
+          0.272,
+          0.534,
+          0.131,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.invert:
+        return const ColorFilter.matrix([
+          -1,
+          0,
+          0,
+          0,
+          255,
+          0,
+          -1,
+          0,
+          0,
+          255,
+          0,
+          0,
+          -1,
+          0,
+          255,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.warm:
+        return const ColorFilter.matrix([
+          1.12,
+          0,
+          0,
+          0,
+          10,
+          0,
+          1.02,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0.90,
+          0,
+          -8,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.cool:
+        return const ColorFilter.matrix([
+          0.90,
+          0,
+          0,
+          0,
+          -8,
+          0,
+          1.02,
+          0,
+          0,
+          2,
+          0,
+          0,
+          1.14,
+          0,
+          10,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.hdr:
+        return const ColorFilter.matrix([
+          1.25,
+          0,
+          0,
+          0,
+          -16,
+          0,
+          1.25,
+          0,
+          0,
+          -16,
+          0,
+          0,
+          1.25,
+          0,
+          -16,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.film:
+        return const ColorFilter.matrix([
+          1.05,
+          0.05,
+          0,
+          0,
+          8,
+          0.04,
+          0.98,
+          0.02,
+          0,
+          4,
+          0,
+          0.06,
+          0.92,
+          0,
+          10,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.sharpen:
+        return const ColorFilter.matrix([
+          1.12,
+          0,
+          0,
+          0,
+          -6,
+          0,
+          1.12,
+          0,
+          0,
+          -6,
+          0,
+          0,
+          1.12,
+          0,
+          -6,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.soften:
+        return const ColorFilter.matrix([
+          0.94,
+          0.03,
+          0.03,
+          0,
+          4,
+          0.03,
+          0.94,
+          0.03,
+          0,
+          4,
+          0.03,
+          0.03,
+          0.94,
+          0,
+          4,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+    }
+  }
+}
+
+class _FilterToolbar extends StatelessWidget {
+  const _FilterToolbar({required this.controller});
+
+  final FilterController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'filter.type.title'.tr,
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        EditorOptionWrap<ImageFilterType>(
+          values: ImageFilterType.values,
+          selected: controller.filter.value,
+          labelFor: (value) => value.label,
+          enabled: !controller.isBusy.value,
+          onSelected: controller.setFilter,
+        ),
+      ],
+    );
   }
 }

@@ -1,404 +1,233 @@
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../models/local_image_file.dart';
+import '../../widgets/image_editor_scaffold.dart';
 import 'image_watermark_controller.dart';
 
-/// 图片水印页，支持 PNG/Logo/二维码图片作为水印叠加到底图上。
+/// 图片水印编辑页：选择底图后在画布中实时预览水印图样式。
 ///
-/// 构建设计：单图和批量共用同一张水印图和参数；批量任务顺序执行并展示进度，
-/// 避免多张大图同时合成导致内存峰值过高。
+/// 设计意图：底图作为主编辑对象，水印图和样式参数集中在底部工具栏；
+/// 导出继续复用控制器的原生合成与批量处理逻辑。
 class ImageWatermarkView extends GetView<ImageWatermarkController> {
   const ImageWatermarkView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('imageWatermark.title'.tr)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+    return Obx(() {
+      final image = controller.selectedImage.value;
+      final watermark = controller.selectedWatermark.value;
+      final result = controller.result.value;
+      return ImageEditorScaffold(
+        title: 'imageWatermark.title'.tr,
+        selectedImage: image,
+        isBusy: controller.isBusy.value,
+        emptyIcon: Icons.layers_outlined,
+        emptyTitle: 'imageWatermark.source.title'.tr,
+        emptyMessage: 'imageWatermark.source.empty'.tr,
+        pickLabel: 'imageWatermark.action.pickSource'.tr,
+        repickLabel: 'imageWatermark.action.repickSource'.tr,
+        exportLabel: 'imageWatermark.action.add'.tr,
+        exportIcon: Icons.ios_share_outlined,
+        onPickImage: controller.pickSourceImage,
+        onExport: controller.addWatermark,
+        imageMeta: image == null
+            ? null
+            : '${controller.formatDimensions(image)} · ${watermark?.name ?? 'imageWatermark.watermark.empty'.tr}',
+        previewBuilder: (context, previewImage) => EditorImagePreview(
+          image: previewImage,
+          child: _ImageWatermarkOverlay(controller: controller),
+        ),
+        toolbar: _ImageWatermarkToolbar(controller: controller),
+        appBarActions: [
+          IconButton(
+            tooltip: 'imageWatermark.action.pickBatch'.tr,
+            onPressed: controller.isBusy.value
+                ? null
+                : controller.pickSourceImages,
+            icon: const Icon(Icons.photo_library_outlined),
+          ),
+        ],
+        resultSummary: result == null
+            ? null
+            : EditorResultPill(
+                title: 'imageWatermark.result.title'.tr,
+                detail:
+                    '${controller.positionLabel(result.position)} · ${controller.formatBytes(result.outputSizeBytes)}',
+                tooltip: result.outputPath,
+              ),
+      );
+    });
+  }
+}
+
+class _ImageWatermarkOverlay extends StatelessWidget {
+  const _ImageWatermarkOverlay({required this.controller});
+
+  final ImageWatermarkController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final watermark = controller.selectedWatermark.value;
+    if (watermark == null) {
+      return const SizedBox.shrink();
+    }
+    final logo = Opacity(
+      opacity: controller.opacity.value / 100,
+      child: Transform.rotate(
+        angle: controller.rotationDegrees.value * math.pi / 180,
+        child: Image.file(File(watermark.path), fit: BoxFit.contain),
+      ),
+    );
+    final size = 220.0 * controller.scalePercent.value / 100;
+    final constrainedLogo = SizedBox.square(
+      dimension: size.clamp(36, 220),
+      child: logo,
+    );
+    if (controller.position.value == ImageWatermarkPosition.tile) {
+      return IgnorePointer(
+        child: Wrap(
+          spacing: 32,
+          runSpacing: 24,
+          children: List.generate(18, (_) => constrainedLogo),
+        ),
+      );
+    }
+    return IgnorePointer(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Align(
+          alignment: _alignmentFor(controller.position.value),
+          child: constrainedLogo,
+        ),
+      ),
+    );
+  }
+
+  Alignment _alignmentFor(ImageWatermarkPosition position) {
+    switch (position) {
+      case ImageWatermarkPosition.topLeft:
+        return Alignment.topLeft;
+      case ImageWatermarkPosition.topRight:
+        return Alignment.topRight;
+      case ImageWatermarkPosition.bottomLeft:
+        return Alignment.bottomLeft;
+      case ImageWatermarkPosition.bottomRight:
+        return Alignment.bottomRight;
+      case ImageWatermarkPosition.center:
+      case ImageWatermarkPosition.tile:
+        return Alignment.center;
+    }
+  }
+}
+
+class _ImageWatermarkToolbar extends StatelessWidget {
+  const _ImageWatermarkToolbar({required this.controller});
+
+  final ImageWatermarkController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final watermark = controller.selectedWatermark.value;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            _ImageCard(
-              title: 'imageWatermark.source.title'.tr,
-              emptyText: 'imageWatermark.source.empty'.tr,
-              buttonText: 'imageWatermark.action.pickSource'.tr,
-              repickText: 'imageWatermark.action.repickSource'.tr,
-              selectedImage: controller.selectedImage,
-              selectedImages: controller.selectedImages,
-              isBusy: controller.isBusy,
-              onPick: controller.pickSourceImage,
-              onPickMultiple: controller.pickSourceImages,
-              controller: controller,
-            ),
-            const SizedBox(height: 16),
-            _ImageCard(
-              title: 'imageWatermark.watermark.title'.tr,
-              emptyText: 'imageWatermark.watermark.empty'.tr,
-              buttonText: 'imageWatermark.action.pickWatermark'.tr,
-              repickText: 'imageWatermark.action.repickWatermark'.tr,
-              selectedImage: controller.selectedWatermark,
-              selectedImages: null,
-              isBusy: controller.isBusy,
-              onPick: controller.pickWatermarkImage,
-              onPickMultiple: null,
-              controller: controller,
-            ),
-            const SizedBox(height: 16),
-            _WatermarkOptionsCard(controller: controller),
-            const SizedBox(height: 16),
-            _ProgressCard(controller: controller),
-            const SizedBox(height: 16),
-            Obx(
-              () => FilledButton.icon(
-                onPressed: controller.isBusy.value
-                    ? null
-                    : controller.addWatermark,
-                icon: controller.isBusy.value
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.layers_outlined),
-                label: Text(
-                  controller.isBusy.value
-                      ? 'common.processing'.tr
-                      : 'imageWatermark.action.add'.tr,
-                ),
+            Expanded(
+              child: Text(
+                'imageWatermark.config.title'.tr,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
-            const SizedBox(height: 16),
-            _ResultCard(controller: controller),
+            TextButton.icon(
+              onPressed: controller.isBusy.value
+                  ? null
+                  : controller.pickWatermarkImage,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(
+                watermark == null
+                    ? 'imageWatermark.action.pickWatermark'.tr
+                    : 'imageWatermark.action.repickWatermark'.tr,
+              ),
+            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ImageCard extends StatelessWidget {
-  const _ImageCard({
-    required this.title,
-    required this.emptyText,
-    required this.buttonText,
-    required this.repickText,
-    required this.selectedImage,
-    required this.selectedImages,
-    required this.isBusy,
-    required this.onPick,
-    required this.onPickMultiple,
-    required this.controller,
-  });
-
-  final String title;
-  final String emptyText;
-  final String buttonText;
-  final String repickText;
-  final Rxn selectedImage;
-  final RxList<LocalImageFile>? selectedImages;
-  final RxBool isBusy;
-  final VoidCallback onPick;
-  final VoidCallback? onPickMultiple;
-  final ImageWatermarkController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(() {
-          final image = selectedImage.value;
-          final images = selectedImages;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              if (image == null && (images == null || images.isEmpty))
-                Text(emptyText)
-              else if (images != null && images.length > 1) ...[
-                Text(
-                  'imageWatermark.source.selectedCount'.trParams({
-                    'count': images.length.toString(),
-                  }),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'imageWatermark.source.totalSize'.trParams({
-                    'size': controller.formatBytes(
-                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
-                    ),
-                  }),
-                ),
-              ] else if (image != null) ...[
-                Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(controller.formatBytes(image.sizeBytes)),
-                Text(controller.formatDimensions(image)),
-              ],
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: isBusy.value ? null : onPick,
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(image == null ? buttonText : repickText),
-                  ),
-                  if (onPickMultiple != null)
-                    FilledButton.tonalIcon(
-                      onPressed: isBusy.value ? null : onPickMultiple,
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: Text('imageWatermark.action.pickBatch'.tr),
-                    ),
-                ],
-              ),
-              if (images != null && images.length > 1) ...[
-                const SizedBox(height: 12),
-                ...images
-                    .take(5)
-                    .map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                if (images.length > 5)
-                  Text(
-                    'imageWatermark.source.moreCount'.trParams({
-                      'count': (images.length - 5).toString(),
-                    }),
-                  ),
-              ],
-            ],
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _WatermarkOptionsCard extends StatelessWidget {
-  const _WatermarkOptionsCard({required this.controller});
-
-  final ImageWatermarkController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(
-          () => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'imageWatermark.config.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ImageWatermarkPosition.values
-                    .map(
-                      (item) => ChoiceChip(
-                        label: Text(item.labelKey.tr),
-                        selected: controller.position.value == item,
-                        onSelected: controller.isBusy.value
-                            ? null
-                            : (_) => controller.setPosition(item),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'imageWatermark.config.opacity'.trParams({
-                  'opacity': controller.opacity.value.toString(),
-                }),
-              ),
-              Slider(
-                value: controller.opacity.value.toDouble(),
-                min: 10,
-                max: 100,
-                divisions: 18,
-                label: '${controller.opacity.value}%',
-                onChanged: controller.isBusy.value
-                    ? null
-                    : controller.updateOpacity,
-              ),
-              Text(
-                'imageWatermark.config.scale'.trParams({
-                  'scale': controller.scalePercent.value.toString(),
-                }),
-              ),
-              Slider(
-                value: controller.scalePercent.value.toDouble(),
-                min: 5,
-                max: 100,
-                divisions: 19,
-                label: '${controller.scalePercent.value}%',
-                onChanged: controller.isBusy.value
-                    ? null
-                    : controller.updateScale,
-              ),
-              Text(
-                'imageWatermark.config.rotation'.trParams({
-                  'rotation': controller.rotationDegrees.value.toString(),
-                }),
-              ),
-              Slider(
-                value: controller.rotationDegrees.value.toDouble(),
-                min: -180,
-                max: 180,
-                divisions: 72,
-                label: '${controller.rotationDegrees.value}°',
-                onChanged: controller.isBusy.value
-                    ? null
-                    : controller.updateRotation,
-              ),
-            ],
+        if (watermark != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            watermark.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
+        ],
+        const SizedBox(height: 10),
+        EditorOptionWrap<ImageWatermarkPosition>(
+          values: ImageWatermarkPosition.values,
+          selected: controller.position.value,
+          labelFor: (value) => value.labelKey.tr,
+          enabled: !controller.isBusy.value,
+          onSelected: controller.setPosition,
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          'imageWatermark.config.opacity'.trParams({
+            'opacity': controller.opacity.value.toString(),
+          }),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        Slider(
+          value: controller.opacity.value.toDouble(),
+          min: 10,
+          max: 100,
+          divisions: 18,
+          label: '${controller.opacity.value}%',
+          onChanged: controller.isBusy.value ? null : controller.updateOpacity,
+        ),
+        Text(
+          'imageWatermark.config.scale'.trParams({
+            'scale': controller.scalePercent.value.toString(),
+          }),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        Slider(
+          value: controller.scalePercent.value.toDouble(),
+          min: 5,
+          max: 100,
+          divisions: 19,
+          label: '${controller.scalePercent.value}%',
+          onChanged: controller.isBusy.value ? null : controller.updateScale,
+        ),
+        Text(
+          'imageWatermark.config.rotation'.trParams({
+            'rotation': controller.rotationDegrees.value.toString(),
+          }),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        Slider(
+          value: controller.rotationDegrees.value.toDouble(),
+          min: -180,
+          max: 180,
+          divisions: 72,
+          label: '${controller.rotationDegrees.value}°',
+          onChanged: controller.isBusy.value ? null : controller.updateRotation,
+        ),
+        if (controller.tasks.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: controller.progress),
+          const SizedBox(height: 6),
+          Text(
+            'imageWatermark.progress.processed'.trParams({
+              'processed': controller.processedCount.value.toString(),
+              'total': controller.selectedImages.length.toString(),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ],
     );
-  }
-}
-
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.controller});
-
-  final ImageWatermarkController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      if (controller.tasks.isEmpty) {
-        return const SizedBox.shrink();
-      }
-      final total = controller.selectedImages.length;
-      final processed = controller.processedCount.value;
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'imageWatermark.progress.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: controller.progress),
-              const SizedBox(height: 8),
-              Text(
-                'imageWatermark.progress.processed'.trParams({
-                  'processed': processed.toString(),
-                  'total': total.toString(),
-                }),
-              ),
-              const SizedBox(height: 12),
-              ...controller.tasks.map((task) {
-                final status = task.isCompleted
-                    ? task.isSuccess
-                          ? 'imageWatermark.task.success'.tr
-                          : 'imageWatermark.task.failed'.tr
-                    : 'imageWatermark.task.waiting'.tr;
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    task.isCompleted
-                        ? task.isSuccess
-                              ? Icons.check_circle_outline
-                              : Icons.error_outline
-                        : Icons.hourglass_empty,
-                  ),
-                  title: Text(
-                    task.source.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(task.errorMessage ?? status),
-                );
-              }),
-            ],
-          ),
-        ),
-      );
-    });
-  }
-}
-
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.controller});
-
-  final ImageWatermarkController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final result = controller.result.value;
-      if (result == null) {
-        return const SizedBox.shrink();
-      }
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'imageWatermark.result.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'imageWatermark.result.watermark'.trParams({
-                  'name': result.watermark.name,
-                }),
-              ),
-              Text(
-                'imageWatermark.result.position'.trParams({
-                  'position': controller.positionLabel(result.position),
-                }),
-              ),
-              Text(
-                'imageWatermark.result.opacity'.trParams({
-                  'opacity': result.opacity.toString(),
-                }),
-              ),
-              Text(
-                'imageWatermark.result.scale'.trParams({
-                  'scale': result.scalePercent.toString(),
-                }),
-              ),
-              Text(
-                'imageWatermark.result.rotation'.trParams({
-                  'rotation': result.rotationDegrees.toString(),
-                }),
-              ),
-              Text(
-                'imageWatermark.result.outputSize'.trParams({
-                  'size': controller.formatBytes(result.outputSizeBytes),
-                }),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                result.outputPath,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      );
-    });
   }
 }

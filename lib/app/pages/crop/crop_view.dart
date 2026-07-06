@@ -2,354 +2,196 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../widgets/image_editor_scaffold.dart';
 import 'crop_controller.dart';
 
-/// 图片裁剪页，支持常用比例和自定义比例的本地居中裁剪。
+/// 图片裁剪编辑页：选择图片后在画布上实时显示中心裁剪比例框。
 ///
-/// 构建设计：当前版本优先提供确定性强的中心裁剪闭环，不引入手势裁剪器；
-/// 批量裁剪复用同一比例顺序处理，保证每张图片都保留中心目标比例区域。
+/// 设计意图：当前原生能力是中心裁剪，因此预览层用比例遮罩明确导出区域；
+/// 自定义比例仍在控制器导出前校验，UI 只负责即时反馈和参数输入。
 class CropView extends GetView<CropController> {
   const CropView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('crop.title'.tr)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+    return Obx(() {
+      final image = controller.selectedImage.value;
+      final result = controller.result.value;
+      return ImageEditorScaffold(
+        title: 'crop.title'.tr,
+        selectedImage: image,
+        isBusy: controller.isBusy.value,
+        emptyIcon: Icons.crop_outlined,
+        emptyTitle: 'crop.image.title'.tr,
+        emptyMessage: 'crop.image.empty'.tr,
+        pickLabel: 'crop.action.pickSingle'.tr,
+        repickLabel: 'crop.action.repickSingle'.tr,
+        exportLabel: 'crop.action.crop'.tr,
+        exportIcon: Icons.ios_share_outlined,
+        onPickImage: controller.pickImage,
+        onExport: controller.crop,
+        imageMeta: image == null
+            ? null
+            : '${controller.formatDimensions(image)} · ${controller.currentRatioText()}',
+        previewBuilder: (context, previewImage) => EditorImagePreview(
+          image: previewImage,
+          child: _CropOverlay(aspectRatio: _previewAspectRatio()),
+        ),
+        toolbar: _CropToolbar(controller: controller),
+        appBarActions: [
+          IconButton(
+            tooltip: 'crop.action.pickBatch'.tr,
+            onPressed: controller.isBusy.value ? null : controller.pickImages,
+            icon: const Icon(Icons.photo_library_outlined),
+          ),
+        ],
+        resultSummary: result == null
+            ? null
+            : EditorResultPill(
+                title: 'crop.result.title'.tr,
+                detail:
+                    '${result.width} × ${result.height} px · ${controller.formatBytes(result.outputSizeBytes)}',
+                tooltip: result.outputPath,
+              ),
+      );
+    });
+  }
+
+  double _previewAspectRatio() {
+    final preset = controller.preset.value;
+    if (preset != CropPreset.custom) {
+      return preset.aspectRatio;
+    }
+    final width = double.tryParse(controller.customWidthController.text.trim());
+    final height = double.tryParse(
+      controller.customHeightController.text.trim(),
+    );
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return 1;
+    }
+    return (width / height).clamp(0.1, 10);
+  }
+}
+
+class _CropOverlay extends StatelessWidget {
+  const _CropOverlay({required this.aspectRatio});
+
+  final double aspectRatio;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stageWidth = constraints.maxWidth;
+        final stageHeight = constraints.maxHeight;
+        var frameWidth = stageWidth;
+        var frameHeight = frameWidth / aspectRatio;
+        if (frameHeight > stageHeight) {
+          frameHeight = stageHeight;
+          frameWidth = frameHeight * aspectRatio;
+        }
+        return Stack(
           children: [
-            _ImageCard(controller: controller),
-            const SizedBox(height: 16),
-            _RatioCard(controller: controller),
-            const SizedBox(height: 16),
-            _ProgressCard(controller: controller),
-            const SizedBox(height: 16),
-            Obx(
-              () => FilledButton.icon(
-                onPressed: controller.isBusy.value ? null : controller.crop,
-                icon: controller.isBusy.value
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.crop),
-                label: Text(
-                  controller.isBusy.value
-                      ? 'common.processing'.tr
-                      : 'crop.action.crop'.tr,
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.28),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            _ResultCard(controller: controller),
+            Center(
+              child: Container(
+                width: frameWidth,
+                height: frameHeight,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white, width: 2),
+                  color: Colors.transparent,
+                ),
+              ),
+            ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
-class _ImageCard extends StatelessWidget {
-  const _ImageCard({required this.controller});
+class _CropToolbar extends StatelessWidget {
+  const _CropToolbar({required this.controller});
 
   final CropController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(() {
-          final images = controller.selectedImages;
-          final image = controller.selectedImage.value;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'crop.ratio.title'.tr,
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        EditorOptionWrap<CropPreset>(
+          values: CropPreset.values,
+          selected: controller.preset.value,
+          labelFor: (value) => '${value.labelKey.tr} ${value.ratioText.tr}',
+          enabled: !controller.isBusy.value,
+          onSelected: controller.setPreset,
+        ),
+        if (controller.preset.value == CropPreset.custom) ...[
+          const SizedBox(height: 12),
+          Row(
             children: [
-              Text(
-                'crop.image.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              if (images.isEmpty)
-                Text('crop.image.empty'.tr)
-              else if (images.length == 1 && image != null) ...[
-                Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(controller.formatBytes(image.sizeBytes)),
-                Text(controller.formatDimensions(image)),
-              ] else ...[
-                Text(
-                  'crop.image.selectedCount'.trParams({
-                    'count': images.length.toString(),
-                  }),
+              Expanded(
+                child: TextField(
+                  controller: controller.customWidthController,
+                  enabled: !controller.isBusy.value,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => controller.preset.refresh(),
+                  decoration: InputDecoration(
+                    labelText: 'crop.ratio.width'.tr,
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'crop.image.totalSize'.trParams({
-                    'size': controller.formatBytes(
-                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
-                    ),
-                  }),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: controller.isBusy.value
-                        ? null
-                        : controller.pickImage,
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(
-                      image == null
-                          ? 'crop.action.pickSingle'.tr
-                          : 'crop.action.repickSingle'.tr,
-                    ),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: controller.isBusy.value
-                        ? null
-                        : controller.pickImages,
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: Text('crop.action.pickBatch'.tr),
-                  ),
-                ],
               ),
-              if (images.length > 1) ...[
-                const SizedBox(height: 12),
-                ...images
-                    .take(5)
-                    .map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                if (images.length > 5)
-                  Text(
-                    'crop.image.moreCount'.trParams({
-                      'count': (images.length - 5).toString(),
-                    }),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: controller.customHeightController,
+                  enabled: !controller.isBusy.value,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => controller.preset.refresh(),
+                  decoration: InputDecoration(
+                    labelText: 'crop.ratio.height'.tr,
+                    border: const OutlineInputBorder(),
                   ),
-              ],
+                ),
+              ),
             ],
-          );
-        }),
-      ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Text(
+          'crop.ratio.current'.trParams({
+            'ratio': controller.currentRatioText(),
+          }),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        if (controller.tasks.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: controller.progress),
+          const SizedBox(height: 6),
+          Text(
+            'crop.progress.processed'.trParams({
+              'processed': controller.processedCount.value.toString(),
+              'total': controller.selectedImages.length.toString(),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ],
     );
-  }
-}
-
-class _RatioCard extends StatelessWidget {
-  const _RatioCard({required this.controller});
-
-  final CropController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(
-          () => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'crop.ratio.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: CropPreset.values
-                    .map(
-                      (item) => ChoiceChip(
-                        label: Text('${item.labelKey.tr} ${item.ratioText.tr}'),
-                        selected: controller.preset.value == item,
-                        onSelected: controller.isBusy.value
-                            ? null
-                            : (_) => controller.setPreset(item),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-              if (controller.preset.value == CropPreset.custom) ...[
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: controller.customWidthController,
-                        enabled: !controller.isBusy.value,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          labelText: 'crop.ratio.width'.tr,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: controller.customHeightController,
-                        enabled: !controller.isBusy.value,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          labelText: 'crop.ratio.height'.tr,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 12),
-              Text(
-                'crop.ratio.current'.trParams({
-                  'ratio': controller.currentRatioText(),
-                }),
-              ),
-              Text('crop.ratio.centerHint'.tr),
-              if (controller.selectedImages.length > 1) ...[
-                const SizedBox(height: 8),
-                Text('crop.ratio.batchHint'.tr),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.controller});
-
-  final CropController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      if (controller.tasks.isEmpty) {
-        return const SizedBox.shrink();
-      }
-      final total = controller.selectedImages.length;
-      final processed = controller.processedCount.value;
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'crop.progress.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: controller.progress),
-              const SizedBox(height: 8),
-              Text(
-                'crop.progress.processed'.trParams({
-                  'processed': processed.toString(),
-                  'total': total.toString(),
-                }),
-              ),
-              const SizedBox(height: 12),
-              ...controller.tasks.map((task) {
-                final status = task.isCompleted
-                    ? task.isSuccess
-                          ? 'crop.task.success'.tr
-                          : 'crop.task.failed'.tr
-                    : 'crop.task.waiting'.tr;
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    task.isCompleted
-                        ? task.isSuccess
-                              ? Icons.check_circle_outline
-                              : Icons.error_outline
-                        : Icons.hourglass_empty,
-                  ),
-                  title: Text(
-                    task.source.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(task.errorMessage ?? status),
-                );
-              }),
-            ],
-          ),
-        ),
-      );
-    });
-  }
-}
-
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.controller});
-
-  final CropController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final result = controller.result.value;
-      if (result == null) {
-        return const SizedBox.shrink();
-      }
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'crop.result.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'crop.result.dimensions'.trParams({
-                  'width': result.width.toString(),
-                  'height': result.height.toString(),
-                }),
-              ),
-              Text(
-                'crop.result.aspectRatio'.trParams({
-                  'ratio': result.aspectRatio.toStringAsFixed(3),
-                }),
-              ),
-              Text(
-                'crop.result.outputSize'.trParams({
-                  'size': controller.formatBytes(result.outputSizeBytes),
-                }),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                result.outputPath,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      );
-    });
   }
 }

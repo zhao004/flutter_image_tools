@@ -1,0 +1,422 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../models/local_image_file.dart';
+
+/// 图片编辑页通用骨架：选图前显示空状态，选图后展示大图预览和底部工具栏。
+///
+/// 设计意图：滤镜、水印、裁剪、尺寸调整、翻转和旋转都遵循“先选图、
+/// 实时预览、底部调参、最后导出”的交互，统一布局可以减少重复代码并
+/// 保持后续工具扩展一致。异常策略：组件只负责展示与触发回调，不持有
+/// 文件处理状态，避免通用层吞掉各工具控制器自己的校验和错误处理。
+class ImageEditorScaffold extends StatelessWidget {
+  const ImageEditorScaffold({
+    super.key,
+    required this.title,
+    required this.selectedImage,
+    required this.isBusy,
+    required this.emptyIcon,
+    required this.emptyTitle,
+    required this.emptyMessage,
+    required this.pickLabel,
+    required this.repickLabel,
+    required this.exportLabel,
+    required this.exportIcon,
+    required this.onPickImage,
+    required this.onExport,
+    required this.previewBuilder,
+    required this.toolbar,
+    this.imageMeta,
+    this.resultSummary,
+    this.appBarActions = const [],
+  });
+
+  final String title;
+  final LocalImageFile? selectedImage;
+  final bool isBusy;
+  final IconData emptyIcon;
+  final String emptyTitle;
+  final String emptyMessage;
+  final String pickLabel;
+  final String repickLabel;
+  final String exportLabel;
+  final IconData exportIcon;
+  final VoidCallback onPickImage;
+  final VoidCallback onExport;
+  final Widget Function(BuildContext context, LocalImageFile image)
+  previewBuilder;
+  final Widget toolbar;
+  final String? imageMeta;
+  final Widget? resultSummary;
+  final List<Widget> appBarActions;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = selectedImage;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          IconButton(
+            tooltip: image == null ? pickLabel : repickLabel,
+            onPressed: isBusy ? null : onPickImage,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+          ),
+          ...appBarActions,
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: image == null
+                  ? _EditorEmptyState(
+                      icon: emptyIcon,
+                      title: emptyTitle,
+                      message: emptyMessage,
+                      buttonLabel: pickLabel,
+                      isBusy: isBusy,
+                      onPickImage: onPickImage,
+                    )
+                  : _EditorPreviewStage(
+                      image: image,
+                      meta: imageMeta,
+                      previewBuilder: previewBuilder,
+                      resultSummary: resultSummary,
+                    ),
+            ),
+            if (image != null)
+              _EditorToolbarSurface(
+                isBusy: isBusy,
+                exportLabel: exportLabel,
+                exportIcon: exportIcon,
+                onExport: onExport,
+                child: toolbar,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorEmptyState extends StatelessWidget {
+  const _EditorEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.buttonLabel,
+    required this.isBusy,
+    required this.onPickImage,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String buttonLabel;
+  final bool isBusy;
+  final VoidCallback onPickImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 72, color: colorScheme.primary),
+              const SizedBox(height: 18),
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: isBusy ? null : onPickImage,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: Text(buttonLabel),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorPreviewStage extends StatelessWidget {
+  const _EditorPreviewStage({
+    required this.image,
+    required this.previewBuilder,
+    required this.meta,
+    required this.resultSummary,
+  });
+
+  final LocalImageFile image;
+  final Widget Function(BuildContext context, LocalImageFile image)
+  previewBuilder;
+  final String? meta;
+  final Widget? resultSummary;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 920,
+                minHeight: constraints.maxHeight > 0
+                    ? constraints.maxHeight - 32
+                    : 0,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _PreviewFrame(child: previewBuilder(context, image)),
+                  const SizedBox(height: 12),
+                  Text(
+                    image.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  if (meta != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      meta!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (resultSummary != null) ...[
+                    const SizedBox(height: 10),
+                    resultSummary!,
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PreviewFrame extends StatelessWidget {
+  const _PreviewFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(24), child: child),
+    );
+  }
+}
+
+class _EditorToolbarSurface extends StatelessWidget {
+  const _EditorToolbarSurface({
+    required this.child,
+    required this.isBusy,
+    required this.exportLabel,
+    required this.exportIcon,
+    required this.onExport,
+  });
+
+  final Widget child;
+  final bool isBusy;
+  final String exportLabel;
+  final IconData exportIcon;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              child,
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: isBusy ? null : onExport,
+                icon: isBusy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(exportIcon),
+                label: Text(isBusy ? 'common.processing'.tr : exportLabel),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 按图片原始比例显示本地图片，外层按可用空间自适应最大宽高。
+class EditorImagePreview extends StatelessWidget {
+  const EditorImagePreview({
+    super.key,
+    required this.image,
+    this.colorFilter,
+    this.transform,
+    this.child,
+    this.fit = BoxFit.contain,
+  });
+
+  final LocalImageFile image;
+  final ColorFilter? colorFilter;
+  final Matrix4? transform;
+  final Widget? child;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    final aspectRatio = image.hasValidDimensions && image.height > 0
+        ? image.width / image.height
+        : 1.0;
+    final preview = Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.file(File(image.path), fit: fit),
+        ?child,
+      ],
+    );
+    final filteredPreview = colorFilter == null
+        ? preview
+        : ColorFiltered(colorFilter: colorFilter!, child: preview);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 900, maxHeight: 560),
+      child: AspectRatio(
+        aspectRatio: aspectRatio,
+        child: transform == null
+            ? filteredPreview
+            : Transform(
+                alignment: Alignment.center,
+                transform: transform!,
+                child: filteredPreview,
+              ),
+      ),
+    );
+  }
+}
+
+/// 底部工具栏通用横向选项组，适合滤镜、方向、比例等枚举选择。
+class EditorOptionWrap<T> extends StatelessWidget {
+  const EditorOptionWrap({
+    super.key,
+    required this.values,
+    required this.selected,
+    required this.labelFor,
+    required this.onSelected,
+    required this.enabled,
+  });
+
+  final List<T> values;
+  final T selected;
+  final String Function(T value) labelFor;
+  final ValueChanged<T> onSelected;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: values
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(labelFor(item)),
+                  selected: selected == item,
+                  onSelected: enabled ? (_) => onSelected(item) : null,
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+}
+
+/// 导出结果摘要，用于编辑页预览区下方展示最近一次输出。
+class EditorResultPill extends StatelessWidget {
+  const EditorResultPill({
+    super.key,
+    required this.title,
+    required this.detail,
+    required this.tooltip,
+  });
+
+  final String title;
+  final String detail;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            '$title · $detail',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

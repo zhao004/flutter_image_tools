@@ -228,6 +228,16 @@ class SettingsView extends GetView<SettingsController> {
             const SizedBox(height: 16),
             Card(
               child: ListTile(
+                leading: const Icon(Icons.history_outlined),
+                title: Text('settings.history.title'.tr),
+                subtitle: Text('settings.history.subtitle'.tr),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Get.toNamed(Routes.history),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
                 leading: const Icon(Icons.cleaning_services_outlined),
                 title: Text('settings.cache.title'.tr),
                 subtitle: Text('settings.cache.subtitle'.tr),

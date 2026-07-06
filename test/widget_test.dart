@@ -394,7 +394,7 @@ void main() {
   });
 
   testWidgets('显示英文图片滤镜页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证选图、滤镜类型和操作按钮文案国际化。
+    // 直接注入控制器依赖，仅验证统一编辑器选图空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
     Get.put(
       FilterController(
@@ -423,10 +423,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Filter Type'), findsOneWidget);
-    expect(find.text('Grayscale'), findsOneWidget);
-    expect(find.text('Sepia'), findsOneWidget);
-    expect(find.text('Apply Filter'), findsOneWidget);
+    expect(find.byIcon(Icons.add_photo_alternate_outlined), findsWidgets);
 
     await database.close();
     Get.reset();
@@ -520,7 +517,7 @@ void main() {
   });
 
   testWidgets('显示英文图片翻转页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证选图、方向和操作按钮文案国际化。
+    // 直接注入控制器依赖，仅验证统一编辑器选图空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
     Get.put(
       FlipController(
@@ -548,18 +545,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.text('Select Batch'), findsOneWidget);
-    expect(find.text('Flip Direction'), findsOneWidget);
-    expect(find.text('Horizontal Flip'), findsOneWidget);
-    expect(find.text('Vertical Flip'), findsOneWidget);
-    expect(find.text('Start Flip'), findsOneWidget);
+    expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
   });
 
   testWidgets('显示英文图片旋转页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证选图、角度和操作按钮文案国际化。
+    // 直接注入控制器依赖，仅验证统一编辑器选图空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
     Get.put(
       RotateController(
@@ -587,12 +580,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.text('Select Batch'), findsOneWidget);
-    expect(find.text('Rotation Angle'), findsOneWidget);
-    expect(find.text('Rotate Left 90°'), findsOneWidget);
-    expect(find.text('Rotate Right 90°'), findsOneWidget);
-    expect(find.text('Custom Angle: 90°'), findsOneWidget);
-    expect(find.text('Start Rotate'), findsOneWidget);
+    expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -680,7 +668,7 @@ void main() {
   });
 
   testWidgets('显示英文尺寸调整页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证选图、目标尺寸和操作按钮文案国际化。
+    // 直接注入控制器依赖，仅验证统一编辑器选图空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
     Get.put(
       ResizeController(
@@ -708,19 +696,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.text('Select Batch'), findsOneWidget);
-    expect(find.text('Target Size'), findsOneWidget);
-    expect(find.text('Keep Aspect Ratio'), findsOneWidget);
-    expect(find.text('Width'), findsOneWidget);
-    expect(find.text('Height'), findsOneWidget);
-    expect(find.text('Scale by Percentage: 100%'), findsOneWidget);
+    expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
   });
 
   testWidgets('显示英文图片裁剪页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证选图、比例和首屏说明文案国际化。
+    // 直接注入控制器依赖，仅验证统一编辑器选图空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
     Get.put(
       CropController(
@@ -750,17 +733,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.text('Select Batch'), findsOneWidget);
-    expect(find.text('Crop Ratio'), findsOneWidget);
-    expect(find.text('Square 1:1'), findsOneWidget);
-    expect(find.text('Landscape 16:9'), findsOneWidget);
-    expect(find.text('Current Ratio: 1:1'), findsOneWidget);
-    expect(
-      find.text(
-        'This version uses center crop and keeps the target ratio area from the image center.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -808,7 +781,7 @@ void main() {
   });
 
   testWidgets('显示英文文字水印页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证选图和水印配置首屏文案国际化。
+    // 直接注入控制器依赖，仅验证统一编辑器选图空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
     Get.put(
       WatermarkController(
@@ -838,17 +811,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.text('Select Batch'), findsOneWidget);
-    expect(find.text('Watermark Settings'), findsOneWidget);
-    expect(find.text('Watermark Text'), findsOneWidget);
-    expect(find.text('Bottom Right'), findsOneWidget);
+    expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
   });
 
   testWidgets('显示英文图片水印页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证底图、水印图和参数区域首屏文案国际化。
+    // 直接注入控制器依赖，仅验证统一编辑器底图选图空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
     Get.put(
       ImageWatermarkController(
@@ -870,21 +840,12 @@ void main() {
     await tester.pump();
 
     expect(find.text('Image Watermark'), findsOneWidget);
-    expect(find.text('Select Base Image'), findsNWidgets(2));
+    expect(find.text('Select Base Image'), findsWidgets);
     expect(
       find.text('Select a base image to add an image watermark.'),
       findsOneWidget,
     );
-    expect(find.text('Select Watermark Image'), findsOneWidget);
-    expect(
-      find.text('Select a PNG, logo, or QR code image as the watermark.'),
-      findsOneWidget,
-    );
-    expect(find.text('Select Watermark'), findsOneWidget);
-    expect(find.text('Watermark Settings'), findsOneWidget);
-    expect(find.text('Bottom Right'), findsOneWidget);
-    expect(find.text('Opacity: 70%'), findsOneWidget);
-    expect(find.text('Scale: 25%'), findsOneWidget);
+    expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
