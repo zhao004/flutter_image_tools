@@ -39,7 +39,9 @@ class MergeView extends GetView<MergeController> {
             ? null
             : '${'merge.image.selectedCount'.trParams({'count': images.length.toString()})} · ${controller.formatBytes(controller.totalSizeBytes)}',
         previewBuilder: (context, _) => _MergePreview(controller: controller),
-        toolbar: _MergeToolbar(controller: controller),
+        tabBar: _MergeToolTabs(controller: controller),
+        toolbar: _MergePropertyPanel(controller: controller),
+        bottomToolbar: _MergeActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -210,37 +212,17 @@ class _PreviewImageTile extends StatelessWidget {
   }
 }
 
-class _MergeToolbar extends StatelessWidget {
-  const _MergeToolbar({required this.controller});
+class _MergePropertyPanel extends StatelessWidget {
+  const _MergePropertyPanel({required this.controller});
 
   final MergeController controller;
 
   @override
   Widget build(BuildContext context) {
-    final maxToolbarHeight = math.min(
-      MediaQuery.sizeOf(context).height * 0.26,
-      220.0,
-    );
-    return SizedBox(
-      height: maxToolbarHeight,
-      child: Column(
-        children: [
-          _MergeToolTabs(controller: controller),
-          const SizedBox(height: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Obx(() {
-                final selectedTab = controller.toolbarTab.value;
-                return _MergeToolPanel(
-                  controller: controller,
-                  selectedTab: selectedTab,
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
+    return Obx(() {
+      final selectedTab = controller.toolbarTab.value;
+      return _MergeToolPanel(controller: controller, selectedTab: selectedTab);
+    });
   }
 }
 
@@ -288,6 +270,47 @@ class _MergeToolPanel extends StatelessWidget {
       MergeToolbarTab.style => _StyleToolPanel(controller: controller),
       MergeToolbarTab.order => _OrderToolPanel(controller: controller),
     };
+  }
+}
+
+class _MergeActionToolbar extends StatelessWidget {
+  const _MergeActionToolbar({required this.controller});
+
+  final MergeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final hasImages = controller.selectedImages.isNotEmpty;
+      return Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: controller.isBusy.value ? null : controller.pickImages,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: Text('merge.action.repickBatch'.tr),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: hasImages && !controller.isBusy.value
+                  ? controller.merge
+                  : null,
+              icon: controller.isBusy.value
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: Text(
+                controller.isBusy.value
+                    ? 'common.processing'.tr
+                    : 'common.saveToGallery'.tr,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 }
 

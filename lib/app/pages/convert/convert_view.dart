@@ -1,318 +1,249 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../widgets/image_editor_scaffold.dart';
 import 'convert_controller.dart';
 
-/// 图片格式转换页，支持 JPG、PNG、WebP 和 BMP 本地导出。
+/// 图片格式转换编辑页，选择图片后按统一五段式布局展示格式与质量参数。
 ///
-/// 构建设计：单图和批量共用目标格式与质量参数；批量任务顺序执行并展示
-/// 进度，避免多张大图同时编码造成内存峰值过高。
+/// 设计意图：格式转换与压缩一样属于图片导出属性编辑，画布展示当前源图，
+/// 标签栏固定为格式工具，属性面板负责格式和质量，底部工具栏负责批量选择
+/// 与导出。异常策略：页面只触发控制器方法，格式校验、批量任务、历史记录
+/// 和平台异常仍由控制器统一处理，避免 UI 层改变业务流程。
 class ConvertView extends GetView<ConvertController> {
   const ConvertView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('convert.title'.tr)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _ImageCard(controller: controller),
-            const SizedBox(height: 16),
-            _FormatCard(controller: controller),
-            const SizedBox(height: 16),
-            _ProgressCard(controller: controller),
-            const SizedBox(height: 16),
-            Obx(
-              () => FilledButton.icon(
-                onPressed: controller.isBusy.value ? null : controller.convert,
-                icon: controller.isBusy.value
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.swap_horiz),
-                label: Text(
-                  controller.isBusy.value
-                      ? 'common.processing'.tr
-                      : 'common.saveToGallery'.tr,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _ResultCard(controller: controller),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageCard extends StatelessWidget {
-  const _ImageCard({required this.controller});
-
-  final ConvertController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(() {
-          final images = controller.selectedImages;
-          final image = controller.selectedImage.value;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'convert.image.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              if (images.isEmpty)
-                Text('convert.image.empty'.tr)
-              else if (images.length == 1 && image != null) ...[
-                Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(controller.formatBytes(image.sizeBytes)),
-                Text(controller.formatDimensions(image)),
-              ] else ...[
-                Text(
-                  'convert.image.selectedCount'.trParams({
-                    'count': images.length.toString(),
-                  }),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'convert.image.totalSize'.trParams({
-                    'size': controller.formatBytes(
-                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
-                    ),
-                  }),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: controller.isBusy.value
-                        ? null
-                        : controller.pickImage,
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(
-                      image == null
-                          ? 'convert.action.pickSingle'.tr
-                          : 'convert.action.repickSingle'.tr,
-                    ),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: controller.isBusy.value
-                        ? null
-                        : controller.pickImages,
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: Text('convert.action.pickBatch'.tr),
-                  ),
-                ],
-              ),
-              if (images.length > 1) ...[
-                const SizedBox(height: 12),
-                ...images
-                    .take(5)
-                    .map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                if (images.length > 5)
-                  Text(
-                    'convert.image.moreCount'.trParams({
-                      'count': (images.length - 5).toString(),
-                    }),
-                  ),
-              ],
-            ],
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _FormatCard extends StatelessWidget {
-  const _FormatCard({required this.controller});
-
-  final ConvertController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(
-          () => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'convert.format.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ConvertFormat.values
-                    .map(
-                      (item) => ChoiceChip(
-                        label: Text(item.label),
-                        selected: controller.format.value == item,
-                        onSelected: controller.isBusy.value
-                            ? null
-                            : (_) => controller.setFormat(item),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'convert.quality.current'.trParams({
-                  'quality': controller.quality.value.toString(),
-                }),
-              ),
-              Slider(
-                value: controller.quality.value.toDouble(),
-                min: 1,
-                max: 100,
-                divisions: 99,
-                label: '${controller.quality.value}%',
-                onChanged: controller.isBusy.value
-                    ? null
-                    : controller.updateQuality,
-              ),
-              Text(controller.qualityHint()),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.controller});
-
-  final ConvertController controller;
-
-  @override
-  Widget build(BuildContext context) {
     return Obx(() {
-      if (controller.tasks.isEmpty) {
-        return const SizedBox.shrink();
-      }
-      final total = controller.selectedImages.length;
-      final processed = controller.processedCount.value;
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'convert.progress.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: controller.progress),
-              const SizedBox(height: 8),
-              Text(
-                'convert.progress.processed'.trParams({
-                  'processed': processed.toString(),
-                  'total': total.toString(),
-                }),
-              ),
-              const SizedBox(height: 12),
-              ...controller.tasks.map((task) {
-                final status = task.isCompleted
-                    ? task.isSuccess
-                          ? 'convert.task.success'.tr
-                          : 'convert.task.failed'.tr
-                    : 'convert.task.waiting'.tr;
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    task.isCompleted
-                        ? task.isSuccess
-                              ? Icons.check_circle_outline
-                              : Icons.error_outline
-                        : Icons.hourglass_empty,
-                  ),
-                  title: Text(
-                    task.source.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(task.errorMessage ?? status),
-                );
-              }),
-            ],
-          ),
+      final image = controller.selectedImage.value;
+      final result = controller.result.value;
+      return ImageEditorScaffold(
+        title: 'convert.title'.tr,
+        selectedImage: image,
+        isBusy: controller.isBusy.value,
+        emptyIcon: Icons.swap_horiz,
+        emptyTitle: 'convert.image.title'.tr,
+        emptyMessage: 'convert.image.empty'.tr,
+        pickLabel: 'convert.action.pickSingle'.tr,
+        repickLabel: 'convert.action.repickSingle'.tr,
+        exportLabel: 'common.saveToGallery'.tr,
+        exportIcon: Icons.swap_horiz,
+        onPickImage: controller.pickImage,
+        onExport: controller.convert,
+        imageMeta: image == null
+            ? null
+            : '${_selectedImageSummary()} · ${controller.format.value.label}',
+        previewBuilder: (context, previewImage) =>
+            EditorImagePreview(image: previewImage),
+        showEditingControlsWhenEmpty: true,
+        tabBar: EditorSingleToolTab(
+          icon: Icons.tune_outlined,
+          label: 'convert.format.title'.tr,
         ),
+        toolbar: _ConvertPropertyPanel(controller: controller),
+        bottomToolbar: _ConvertActionToolbar(controller: controller),
+        resultSummary: result == null
+            ? null
+            : EditorResultPill(
+                title: 'convert.result.title'.tr,
+                detail:
+                    '${result.format.toUpperCase()} · ${controller.formatBytes(result.outputSizeBytes)}',
+                tooltip: result.outputPath,
+              ),
       );
     });
   }
+
+  String _selectedImageSummary() {
+    final images = controller.selectedImages;
+    if (images.length <= 1) {
+      final image = controller.selectedImage.value;
+      if (image == null) {
+        return 'common.unknownSize'.tr;
+      }
+      return '${controller.formatBytes(image.sizeBytes)} · ${controller.formatDimensions(image)}';
+    }
+    final totalSize = images.fold<int>(0, (sum, item) => sum + item.sizeBytes);
+    return '${'convert.image.selectedCount'.trParams({'count': images.length.toString()})} · ${controller.formatBytes(totalSize)}';
+  }
 }
 
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.controller});
+class _ConvertPropertyPanel extends StatelessWidget {
+  const _ConvertPropertyPanel({required this.controller});
+
+  final ConvertController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          EditorOptionWrap<ConvertFormat>(
+            values: ConvertFormat.values,
+            selected: controller.format.value,
+            labelFor: (value) => value.label,
+            enabled: !controller.isBusy.value,
+            onSelected: controller.setFormat,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'convert.quality.current'.trParams({
+              'quality': controller.quality.value.toString(),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          Slider(
+            value: controller.quality.value.toDouble(),
+            min: 1,
+            max: 100,
+            divisions: 99,
+            label: '${controller.quality.value}%',
+            onChanged: controller.isBusy.value ? null : controller.updateQuality,
+          ),
+          Text(
+            controller.qualityHint(),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          _SelectedImagesSummary(controller: controller),
+          _ConvertProgress(controller: controller),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedImagesSummary extends StatelessWidget {
+  const _SelectedImagesSummary({required this.controller});
+
+  final ConvertController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final images = controller.selectedImages;
+    if (images.length <= 1) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'convert.image.totalSize'.trParams({
+              'size': controller.formatBytes(
+                images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
+              ),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 4),
+          ...images.take(3).map(
+                (item) => Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+          if (images.length > 3)
+            Text(
+              'convert.image.moreCount'.trParams({
+                'count': (images.length - 3).toString(),
+              }),
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConvertProgress extends StatelessWidget {
+  const _ConvertProgress({required this.controller});
+
+  final ConvertController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.tasks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final total = controller.selectedImages.length;
+    final processed = controller.processedCount.value;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LinearProgressIndicator(value: controller.progress),
+          const SizedBox(height: 6),
+          Text(
+            'convert.progress.processed'.trParams({
+              'processed': processed.toString(),
+              'total': total.toString(),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 4),
+          ...controller.tasks.take(3).map(
+                (task) => Text(
+                  '${task.source.name} · ${_taskStatus(task)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  String _taskStatus(ConvertTask task) {
+    if (!task.isCompleted) {
+      return 'convert.task.waiting'.tr;
+    }
+    return task.isSuccess ? 'convert.task.success'.tr : 'convert.task.failed'.tr;
+  }
+}
+
+class _ConvertActionToolbar extends StatelessWidget {
+  const _ConvertActionToolbar({required this.controller});
 
   final ConvertController controller;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final result = controller.result.value;
-      if (result == null) {
-        return const SizedBox.shrink();
-      }
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'convert.result.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'convert.result.format'.trParams({
-                  'format': result.format.toUpperCase(),
-                }),
-              ),
-              Text('convert.result.mime'.trParams({'mime': result.mimeType})),
-              Text(
-                'convert.result.outputSize'.trParams({
-                  'size': controller.formatBytes(result.outputSizeBytes),
-                }),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                result.outputPath,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+      final hasImage = controller.selectedImage.value != null;
+      return Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: controller.isBusy.value ? null : controller.pickImages,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: Text('convert.action.pickBatch'.tr),
           ),
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: hasImage && !controller.isBusy.value
+                  ? controller.convert
+                  : null,
+              icon: controller.isBusy.value
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.swap_horiz),
+              label: Text(
+                controller.isBusy.value
+                    ? 'common.processing'.tr
+                    : 'common.saveToGallery'.tr,
+              ),
+            ),
+          ),
+        ],
       );
     });
   }

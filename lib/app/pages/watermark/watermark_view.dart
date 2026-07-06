@@ -36,7 +36,12 @@ class WatermarkView extends GetView<WatermarkController> {
           image: previewImage,
           child: _TextWatermarkOverlay(controller: controller),
         ),
-        toolbar: _WatermarkToolbar(controller: controller),
+        tabBar: EditorSingleToolTab(
+          icon: Icons.text_fields_outlined,
+          label: 'watermark.config.title'.tr,
+        ),
+        toolbar: _WatermarkPropertyPanel(controller: controller),
+        bottomToolbar: _WatermarkActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -125,8 +130,8 @@ class _TextWatermarkOverlay extends StatelessWidget {
   }
 }
 
-class _WatermarkToolbar extends StatelessWidget {
-  const _WatermarkToolbar({required this.controller});
+class _WatermarkPropertyPanel extends StatelessWidget {
+  const _WatermarkPropertyPanel({required this.controller});
 
   final WatermarkController controller;
 
@@ -208,5 +213,46 @@ class _WatermarkToolbar extends StatelessWidget {
         ],
       ],
     );
+  }
+}
+
+class _WatermarkActionToolbar extends StatelessWidget {
+  const _WatermarkActionToolbar({required this.controller});
+
+  final WatermarkController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final hasImage = controller.selectedImage.value != null;
+      return Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: controller.isBusy.value ? null : controller.pickImages,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: Text('watermark.action.pickBatch'.tr),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: hasImage && !controller.isBusy.value
+                  ? controller.addWatermark
+                  : null,
+              icon: controller.isBusy.value
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: Text(
+                controller.isBusy.value
+                    ? 'common.processing'.tr
+                    : 'common.saveToGallery'.tr,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 }

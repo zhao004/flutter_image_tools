@@ -1,301 +1,236 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../widgets/image_editor_scaffold.dart';
 import 'compress_controller.dart';
 
-/// 图片压缩页，提供单图选择、质量调节、执行压缩和结果展示。
+/// 图片压缩编辑页，选择图片后按统一五段式布局展示压缩参数和任务状态。
 ///
-/// 构建设计：页面保持单任务闭环，批量队列后续独立抽取；按钮在处理中禁用，
-/// 避免重复触发原生压缩造成文件覆盖或状态错乱。
+/// 设计意图：压缩虽然不改变画面像素预览，但仍属于图片属性编辑流程；
+/// 使用统一骨架后，选图、画布、参数、进度和导出入口与其他编辑页一致。
+/// 异常策略：页面只读取控制器状态并触发控制器方法，校验、批量任务、
+/// 历史记录和平台异常仍由控制器处理，避免 UI 层复制业务逻辑。
 class CompressView extends GetView<CompressController> {
   const CompressView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('compress.title'.tr)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _ImagePickerCard(controller: controller),
-            const SizedBox(height: 16),
-            _QualityCard(controller: controller),
-            const SizedBox(height: 16),
-            _ProgressCard(controller: controller),
-            const SizedBox(height: 16),
-            Obx(
-              () => FilledButton.icon(
-                onPressed: controller.isBusy.value ? null : controller.compress,
-                icon: controller.isBusy.value
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.compress),
-                label: Text(
-                  controller.isBusy.value
-                      ? 'common.processing'.tr
-                      : 'common.saveToGallery'.tr,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _ResultCard(controller: controller),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ImagePickerCard extends StatelessWidget {
-  const _ImagePickerCard({required this.controller});
-
-  final CompressController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(() {
-          final images = controller.selectedImages;
-          final image = controller.selectedImage.value;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'compress.image.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              if (images.isEmpty)
-                Text('compress.image.empty'.tr)
-              else if (images.length == 1 && image != null) ...[
-                Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(controller.formatBytes(image.sizeBytes)),
-              ] else ...[
-                Text(
-                  'compress.image.selectedCount'.trParams({
-                    'count': images.length.toString(),
-                  }),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'compress.image.totalSize'.trParams({
-                    'size': controller.formatBytes(
-                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
-                    ),
-                  }),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: controller.isBusy.value
-                        ? null
-                        : controller.pickImage,
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(
-                      image == null
-                          ? 'compress.action.pickSingle'.tr
-                          : 'compress.action.repickSingle'.tr,
-                    ),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: controller.isBusy.value
-                        ? null
-                        : controller.pickImages,
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: Text('compress.action.pickBatch'.tr),
-                  ),
-                ],
-              ),
-              if (images.length > 1) ...[
-                const SizedBox(height: 12),
-                ...images
-                    .take(5)
-                    .map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                if (images.length > 5)
-                  Text(
-                    'compress.image.moreCount'.trParams({
-                      'count': (images.length - 5).toString(),
-                    }),
-                  ),
-              ],
-            ],
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.controller});
-
-  final CompressController controller;
-
-  @override
-  Widget build(BuildContext context) {
     return Obx(() {
-      if (controller.tasks.isEmpty) {
-        return const SizedBox.shrink();
-      }
-      final total = controller.selectedImages.length;
-      final processed = controller.processedCount.value;
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'compress.progress.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: controller.progress),
-              const SizedBox(height: 8),
-              Text(
-                'compress.progress.processed'.trParams({
-                  'processed': processed.toString(),
-                  'total': total.toString(),
-                }),
-              ),
-              const SizedBox(height: 12),
-              ...controller.tasks.map((task) {
-                final status = task.isCompleted
-                    ? task.isSuccess
-                          ? 'compress.task.success'.tr
-                          : 'compress.task.failed'.tr
-                    : 'compress.task.waiting'.tr;
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    task.isCompleted
-                        ? task.isSuccess
-                              ? Icons.check_circle_outline
-                              : Icons.error_outline
-                        : Icons.hourglass_empty,
-                  ),
-                  title: Text(
-                    task.source.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(task.errorMessage ?? status),
-                );
-              }),
-            ],
-          ),
+      final image = controller.selectedImage.value;
+      final result = controller.result.value;
+      return ImageEditorScaffold(
+        title: 'compress.title'.tr,
+        selectedImage: image,
+        isBusy: controller.isBusy.value,
+        emptyIcon: Icons.compress,
+        emptyTitle: 'compress.image.title'.tr,
+        emptyMessage: 'compress.image.empty'.tr,
+        pickLabel: 'compress.action.pickSingle'.tr,
+        repickLabel: 'compress.action.repickSingle'.tr,
+        exportLabel: 'common.saveToGallery'.tr,
+        exportIcon: Icons.compress,
+        onPickImage: controller.pickImage,
+        onExport: controller.compress,
+        imageMeta: image == null
+            ? null
+            : '${_selectedImageSummary()} · ${'compress.quality.current'.trParams({'quality': controller.quality.value.toString()})}',
+        previewBuilder: (context, previewImage) =>
+            EditorImagePreview(image: previewImage),
+        showEditingControlsWhenEmpty: true,
+        tabBar: EditorSingleToolTab(
+          icon: Icons.tune_outlined,
+          label: 'compress.quality.title'.tr,
         ),
+        toolbar: _CompressPropertyPanel(controller: controller),
+        bottomToolbar: _CompressActionToolbar(controller: controller),
+        resultSummary: result == null
+            ? null
+            : EditorResultPill(
+                title: 'compress.result.title'.tr,
+                detail:
+                    '${controller.formatBytes(result.outputSizeBytes)} · ${'compress.result.saved'.trParams({'percent': (result.savedRatio * 100).toStringAsFixed(1)})}',
+                tooltip: result.outputPath,
+              ),
       );
     });
   }
+
+  String _selectedImageSummary() {
+    final images = controller.selectedImages;
+    if (images.length <= 1) {
+      final image = controller.selectedImage.value;
+      return image == null
+          ? 'common.unknownSize'.tr
+          : controller.formatBytes(image.sizeBytes);
+    }
+    final totalSize = images.fold<int>(0, (sum, item) => sum + item.sizeBytes);
+    return '${'compress.image.selectedCount'.trParams({'count': images.length.toString()})} · ${controller.formatBytes(totalSize)}';
+  }
 }
 
-class _QualityCard extends StatelessWidget {
-  const _QualityCard({required this.controller});
+class _CompressPropertyPanel extends StatelessWidget {
+  const _CompressPropertyPanel({required this.controller});
 
   final CompressController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Obx(
-          () => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'compress.quality.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'compress.quality.current'.trParams({
-                  'quality': controller.quality.value.toString(),
-                }),
-              ),
-              Slider(
-                value: controller.quality.value.toDouble(),
-                min: 1,
-                max: 100,
-                divisions: 99,
-                label: '${controller.quality.value}%',
-                onChanged: controller.isBusy.value
-                    ? null
-                    : controller.updateQuality,
-              ),
-            ],
+    return Obx(
+      () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'compress.quality.current'.trParams({
+              'quality': controller.quality.value.toString(),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-        ),
+          Slider(
+            value: controller.quality.value.toDouble(),
+            min: 1,
+            max: 100,
+            divisions: 99,
+            label: '${controller.quality.value}%',
+            onChanged: controller.isBusy.value ? null : controller.updateQuality,
+          ),
+          _SelectedImagesSummary(controller: controller),
+          _CompressionProgress(controller: controller),
+        ],
       ),
     );
   }
 }
 
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.controller});
+class _SelectedImagesSummary extends StatelessWidget {
+  const _SelectedImagesSummary({required this.controller});
+
+  final CompressController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final images = controller.selectedImages;
+    if (images.length <= 1) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'compress.image.totalSize'.trParams({
+              'size': controller.formatBytes(
+                images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
+              ),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 4),
+          ...images.take(3).map(
+                (item) => Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+          if (images.length > 3)
+            Text(
+              'compress.image.moreCount'.trParams({
+                'count': (images.length - 3).toString(),
+              }),
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompressionProgress extends StatelessWidget {
+  const _CompressionProgress({required this.controller});
+
+  final CompressController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.tasks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final total = controller.selectedImages.length;
+    final processed = controller.processedCount.value;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LinearProgressIndicator(value: controller.progress),
+          const SizedBox(height: 6),
+          Text(
+            'compress.progress.processed'.trParams({
+              'processed': processed.toString(),
+              'total': total.toString(),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 4),
+          ...controller.tasks.take(3).map(
+                (task) => Text(
+                  '${task.source.name} · ${_taskStatus(task)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  String _taskStatus(CompressionTask task) {
+    if (!task.isCompleted) {
+      return 'compress.task.waiting'.tr;
+    }
+    return task.isSuccess ? 'compress.task.success'.tr : 'compress.task.failed'.tr;
+  }
+}
+
+class _CompressActionToolbar extends StatelessWidget {
+  const _CompressActionToolbar({required this.controller});
 
   final CompressController controller;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final result = controller.result.value;
-      if (result == null) {
-        return const SizedBox.shrink();
-      }
-      final savedPercent = (result.savedRatio * 100).toStringAsFixed(1);
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'compress.result.title'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'compress.result.sourceSize'.trParams({
-                  'size': controller.formatBytes(result.source.sizeBytes),
-                }),
-              ),
-              Text(
-                'compress.result.outputSize'.trParams({
-                  'size': controller.formatBytes(result.outputSizeBytes),
-                }),
-              ),
-              Text('compress.result.saved'.trParams({'percent': savedPercent})),
-              const SizedBox(height: 8),
-              Text(
-                result.outputPath,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+      final hasImage = controller.selectedImage.value != null;
+      return Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: controller.isBusy.value ? null : controller.pickImages,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: Text('compress.action.pickBatch'.tr),
           ),
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: hasImage && !controller.isBusy.value
+                  ? controller.compress
+                  : null,
+              icon: controller.isBusy.value
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.compress),
+              label: Text(
+                controller.isBusy.value
+                    ? 'common.processing'.tr
+                    : 'common.saveToGallery'.tr,
+              ),
+            ),
+          ),
+        ],
       );
     });
   }

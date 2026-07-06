@@ -37,7 +37,12 @@ class ResizeView extends GetView<ResizeController> {
           image: previewImage,
           child: _ResizeOverlay(aspectRatio: _targetAspectRatio(previewImage)),
         ),
-        toolbar: _ResizeToolbar(controller: controller),
+        tabBar: EditorSingleToolTab(
+          icon: Icons.aspect_ratio_outlined,
+          label: 'resize.size.title'.tr,
+        ),
+        toolbar: _ResizePropertyPanel(controller: controller),
+        bottomToolbar: _ResizeActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -113,8 +118,8 @@ class _ResizeOverlay extends StatelessWidget {
   }
 }
 
-class _ResizeToolbar extends StatelessWidget {
-  const _ResizeToolbar({required this.controller});
+class _ResizePropertyPanel extends StatelessWidget {
+  const _ResizePropertyPanel({required this.controller});
 
   final ResizeController controller;
 
@@ -200,5 +205,46 @@ class _ResizeToolbar extends StatelessWidget {
         ],
       ],
     );
+  }
+}
+
+class _ResizeActionToolbar extends StatelessWidget {
+  const _ResizeActionToolbar({required this.controller});
+
+  final ResizeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final hasImage = controller.selectedImage.value != null;
+      return Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: controller.isBusy.value ? null : controller.pickImages,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: Text('resize.action.pickBatch'.tr),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: hasImage && !controller.isBusy.value
+                  ? controller.resize
+                  : null,
+              icon: controller.isBusy.value
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: Text(
+                controller.isBusy.value
+                    ? 'common.processing'.tr
+                    : 'common.saveToGallery'.tr,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 }

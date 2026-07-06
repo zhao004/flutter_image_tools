@@ -35,6 +35,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.tabBar,
     this.bottomToolbar,
     this.toolbarMaxHeight,
+    this.showEditingControlsWhenEmpty = false,
   });
 
   final String title;
@@ -60,10 +61,12 @@ class ImageEditorScaffold extends StatelessWidget {
   final Widget? tabBar;
   final Widget? bottomToolbar;
   final double? toolbarMaxHeight;
+  final bool showEditingControlsWhenEmpty;
 
   @override
   Widget build(BuildContext context) {
     final image = selectedImage;
+    final showEditingControls = image != null || showEditingControlsWhenEmpty;
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -109,7 +112,7 @@ class ImageEditorScaffold extends StatelessWidget {
                       lockPreviewScroll: lockPreviewScroll,
                     ),
             ),
-            if (image != null) ...[
+            if (showEditingControls) ...[
               if (tabBar != null) _EditorTabBarSurface(child: tabBar!),
               _EditorPropertyPanelSurface(
                 maxHeight: toolbarMaxHeight,
@@ -145,35 +148,39 @@ class _EditorEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 72, color: colorScheme.primary),
-              const SizedBox(height: 18),
-              Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 72, color: colorScheme.primary),
+                  const SizedBox(height: 18),
+                  Text(title, style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: isBusy ? null : onPickImage,
+                    icon: const Icon(Icons.add_photo_alternate_outlined),
+                    label: Text(buttonLabel),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: isBusy ? null : onPickImage,
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: Text(buttonLabel),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -249,7 +256,6 @@ class _EditorPreviewStage extends StatelessWidget {
     );
   }
 }
-
 class _PreviewFrame extends StatelessWidget {
   const _PreviewFrame({required this.child, required this.borderRadius});
 
@@ -442,6 +448,38 @@ class EditorOptionWrap<T> extends StatelessWidget {
               ),
             )
             .toList(growable: false),
+      ),
+    );
+  }
+}
+
+/// 单工具编辑页通用标签栏，用于压缩、格式转换、裁剪等只有一个参数面板的页面。
+///
+/// 设计意图：这些页面仍遵循五段式结构，但不需要多标签切换；用固定选中的
+/// Chip 保持视觉层级一致，同时避免每个页面重复实现相同的横向容器。
+class EditorSingleToolTab extends StatelessWidget {
+  const EditorSingleToolTab({
+    super.key,
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          ChoiceChip(
+            avatar: Icon(icon, size: 18),
+            label: Text(label),
+            selected: true,
+            onSelected: (_) {},
+          ),
+        ],
       ),
     );
   }
