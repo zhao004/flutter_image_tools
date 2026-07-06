@@ -14,7 +14,7 @@ class BatchView extends GetView<BatchController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('批量处理')),
+      appBar: AppBar(title: Text('batch.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -52,15 +52,24 @@ class _PickerCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('批量任务队列', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'batch.queue.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择多张 JPG、PNG、WebP 或 BMP 图片，任务会按顺序本地处理。')
+                Text('batch.queue.empty'.tr)
               else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'batch.queue.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(controller.totalSizeBytes)}',
+                  'batch.queue.totalSize'.trParams({
+                    'size': controller.formatBytes(controller.totalSizeBytes),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -69,7 +78,11 @@ class _PickerCard extends StatelessWidget {
                     ? null
                     : controller.pickImages,
                 icon: const Icon(Icons.photo_library_outlined),
-                label: Text(images.isEmpty ? '批量选择' : '重新选择'),
+                label: Text(
+                  images.isEmpty
+                      ? 'batch.action.pickImages'.tr
+                      : 'batch.action.repickImages'.tr,
+                ),
               ),
             ],
           );
@@ -93,7 +106,10 @@ class _OperationCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('处理类型', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'batch.operation.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -101,7 +117,7 @@ class _OperationCard extends StatelessWidget {
                 children: BatchOperation.values
                     .map(
                       (item) => ChoiceChip(
-                        label: Text(item.label),
+                        label: Text(controller.operationLabel(item)),
                         selected: controller.operation.value == item,
                         onSelected: controller.isRunning.value
                             ? null
@@ -112,7 +128,7 @@ class _OperationCard extends StatelessWidget {
               ),
               if (controller.operation.value == BatchOperation.convert) ...[
                 const SizedBox(height: 16),
-                const Text('目标格式'),
+                Text('batch.convert.targetFormat'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -132,7 +148,7 @@ class _OperationCard extends StatelessWidget {
               ],
               if (controller.operation.value == BatchOperation.rotate) ...[
                 const SizedBox(height: 16),
-                const Text('旋转角度'),
+                Text('batch.rotate.angle'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -152,7 +168,7 @@ class _OperationCard extends StatelessWidget {
               ],
               if (controller.operation.value == BatchOperation.flip) ...[
                 const SizedBox(height: 16),
-                const Text('翻转方向'),
+                Text('batch.flip.title'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -160,7 +176,7 @@ class _OperationCard extends StatelessWidget {
                   children: BatchFlipDirection.values
                       .map(
                         (item) => ChoiceChip(
-                          label: Text(item.label),
+                          label: Text(controller.flipLabel(item)),
                           selected: controller.flipDirection.value == item,
                           onSelected: controller.isRunning.value
                               ? null
@@ -172,7 +188,7 @@ class _OperationCard extends StatelessWidget {
               ],
               if (controller.operation.value == BatchOperation.resize) ...[
                 const SizedBox(height: 16),
-                const Text('尺寸模式'),
+                Text('batch.resize.mode'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -180,7 +196,7 @@ class _OperationCard extends StatelessWidget {
                   children: BatchResizeMode.values
                       .map(
                         (item) => ChoiceChip(
-                          label: Text(item.label),
+                          label: Text(controller.resizeModeLabel(item)),
                           selected: controller.resizeMode.value == item,
                           onSelected: controller.isRunning.value
                               ? null
@@ -193,7 +209,7 @@ class _OperationCard extends StatelessWidget {
               if (controller.operation.value ==
                   BatchOperation.textWatermark) ...[
                 const SizedBox(height: 16),
-                const Text('水印位置'),
+                Text('batch.watermark.position'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -201,7 +217,7 @@ class _OperationCard extends StatelessWidget {
                   children: BatchWatermarkPosition.values
                       .map(
                         (item) => ChoiceChip(
-                          label: Text(item.label),
+                          label: Text(controller.watermarkPositionLabel(item)),
                           selected: controller.watermarkPosition.value == item,
                           onSelected: controller.isRunning.value
                               ? null
@@ -211,7 +227,7 @@ class _OperationCard extends StatelessWidget {
                       .toList(growable: false),
                 ),
                 const SizedBox(height: 16),
-                const Text('水印颜色'),
+                Text('batch.watermark.color'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -219,7 +235,7 @@ class _OperationCard extends StatelessWidget {
                   children: BatchWatermarkColor.values
                       .map(
                         (item) => ChoiceChip(
-                          label: Text(item.label),
+                          label: Text(controller.watermarkColorLabel(item)),
                           selected: controller.watermarkColor.value == item,
                           onSelected: controller.isRunning.value
                               ? null
@@ -232,13 +248,14 @@ class _OperationCard extends StatelessWidget {
               if (controller.operation.value ==
                   BatchOperation.imageWatermark) ...[
                 const SizedBox(height: 16),
-                const Text('水印图片'),
+                Text('batch.imageWatermark.image'.tr),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        controller.imageWatermark.value?.name ?? '尚未选择水印图片',
+                        controller.imageWatermark.value?.name ??
+                            'batch.imageWatermark.notSelected'.tr,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -249,12 +266,12 @@ class _OperationCard extends StatelessWidget {
                           ? null
                           : controller.pickImageWatermark,
                       icon: const Icon(Icons.add_photo_alternate_outlined),
-                      label: const Text('选择水印'),
+                      label: Text('batch.action.pickWatermark'.tr),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text('水印位置'),
+                Text('batch.watermark.position'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -262,7 +279,7 @@ class _OperationCard extends StatelessWidget {
                   children: BatchWatermarkPosition.values
                       .map(
                         (item) => ChoiceChip(
-                          label: Text(item.label),
+                          label: Text(controller.watermarkPositionLabel(item)),
                           selected:
                               controller.imageWatermarkPosition.value == item,
                           onSelected: controller.isRunning.value
@@ -276,7 +293,7 @@ class _OperationCard extends StatelessWidget {
               ],
               if (controller.operation.value == BatchOperation.filter) ...[
                 const SizedBox(height: 16),
-                const Text('滤镜类型'),
+                Text('batch.filter.title'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -284,7 +301,7 @@ class _OperationCard extends StatelessWidget {
                   children: BatchFilterType.values
                       .map(
                         (item) => ChoiceChip(
-                          label: Text(item.label),
+                          label: Text(controller.filterLabel(item)),
                           selected: controller.filter.value == item,
                           onSelected: controller.isRunning.value
                               ? null
@@ -296,7 +313,7 @@ class _OperationCard extends StatelessWidget {
               ],
               if (controller.operation.value == BatchOperation.crop) ...[
                 const SizedBox(height: 16),
-                const Text('裁剪比例'),
+                Text('batch.crop.ratio'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -304,7 +321,10 @@ class _OperationCard extends StatelessWidget {
                   children: BatchCropPreset.values
                       .map(
                         (item) => ChoiceChip(
-                          label: Text('${item.label} ${item.ratioText}'),
+                          label: Text(
+                            '${controller.cropPresetLabel(item)} '
+                            '${controller.cropPresetRatioLabel(item)}',
+                          ),
                           selected: controller.cropPreset.value == item,
                           onSelected: controller.isRunning.value
                               ? null
@@ -316,7 +336,7 @@ class _OperationCard extends StatelessWidget {
               ],
               if (controller.operation.value == BatchOperation.grid) ...[
                 const SizedBox(height: 16),
-                const Text('网格大小'),
+                Text('batch.grid.size'.tr),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -356,10 +376,17 @@ class _SettingsCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('导出参数', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'batch.settings.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               if (controller.operation.value == BatchOperation.rotate) ...[
-                Text('角度：${controller.degrees.value}°'),
+                Text(
+                  'batch.settings.angle'.trParams({
+                    'value': controller.degrees.value.toString(),
+                  }),
+                ),
                 Slider(
                   value: controller.degrees.value.toDouble(),
                   min: -360,
@@ -371,11 +398,21 @@ class _SettingsCard extends StatelessWidget {
                       : (value) => controller.setDegrees(value.round()),
                 ),
               ] else if (controller.operation.value == BatchOperation.flip) ...[
-                Text('方向：${controller.flipDirection.value.label}'),
+                Text(
+                  'batch.settings.direction'.trParams({
+                    'value': controller.flipLabel(
+                      controller.flipDirection.value,
+                    ),
+                  }),
+                ),
               ] else if (controller.operation.value ==
                   BatchOperation.resize) ...[
                 if (controller.resizeMode.value == BatchResizeMode.percent) ...[
-                  Text('缩放比例：${controller.resizePercent.value}%'),
+                  Text(
+                    'batch.settings.scalePercent'.trParams({
+                      'value': controller.resizePercent.value.toString(),
+                    }),
+                  ),
                   Slider(
                     value: controller.resizePercent.value.toDouble(),
                     min: 10,
@@ -398,10 +435,10 @@ class _SettingsCard extends StatelessWidget {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          decoration: const InputDecoration(
-                            labelText: '宽度',
+                          decoration: InputDecoration(
+                            labelText: 'batch.resize.width'.tr,
                             suffixText: 'px',
-                            border: OutlineInputBorder(),
+                            border: const OutlineInputBorder(),
                           ),
                           onChanged: controller.updateResizeWidth,
                         ),
@@ -417,10 +454,10 @@ class _SettingsCard extends StatelessWidget {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          decoration: const InputDecoration(
-                            labelText: '高度',
+                          decoration: InputDecoration(
+                            labelText: 'batch.resize.height'.tr,
                             suffixText: 'px',
-                            border: OutlineInputBorder(),
+                            border: const OutlineInputBorder(),
                           ),
                           onChanged: controller.updateResizeHeight,
                         ),
@@ -437,14 +474,18 @@ class _SettingsCard extends StatelessWidget {
                   maxLength: 80,
                   minLines: 1,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: '水印文字',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'batch.watermark.text'.tr,
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: controller.updateWatermarkText,
                 ),
                 const SizedBox(height: 8),
-                Text('字号：${controller.watermarkFontSize.value}px'),
+                Text(
+                  'batch.settings.fontSize'.trParams({
+                    'value': controller.watermarkFontSize.value.toString(),
+                  }),
+                ),
                 Slider(
                   value: controller.watermarkFontSize.value.toDouble(),
                   min: 12,
@@ -455,7 +496,11 @@ class _SettingsCard extends StatelessWidget {
                       ? null
                       : controller.updateWatermarkFontSize,
                 ),
-                Text('透明度：${controller.watermarkOpacity.value}%'),
+                Text(
+                  'batch.settings.opacity'.trParams({
+                    'value': controller.watermarkOpacity.value.toString(),
+                  }),
+                ),
                 Slider(
                   value: controller.watermarkOpacity.value.toDouble(),
                   min: 10,
@@ -468,7 +513,11 @@ class _SettingsCard extends StatelessWidget {
                 ),
               ] else if (controller.operation.value ==
                   BatchOperation.imageWatermark) ...[
-                Text('透明度：${controller.imageWatermarkOpacity.value}%'),
+                Text(
+                  'batch.settings.opacity'.trParams({
+                    'value': controller.imageWatermarkOpacity.value.toString(),
+                  }),
+                ),
                 Slider(
                   value: controller.imageWatermarkOpacity.value.toDouble(),
                   min: 10,
@@ -479,7 +528,11 @@ class _SettingsCard extends StatelessWidget {
                       ? null
                       : controller.updateImageWatermarkOpacity,
                 ),
-                Text('缩放：${controller.imageWatermarkScale.value}%'),
+                Text(
+                  'batch.settings.scale'.trParams({
+                    'value': controller.imageWatermarkScale.value.toString(),
+                  }),
+                ),
                 Slider(
                   value: controller.imageWatermarkScale.value.toDouble(),
                   min: 5,
@@ -490,7 +543,11 @@ class _SettingsCard extends StatelessWidget {
                       ? null
                       : controller.updateImageWatermarkScale,
                 ),
-                Text('旋转：${controller.imageWatermarkRotation.value}°'),
+                Text(
+                  'batch.settings.rotation'.trParams({
+                    'value': controller.imageWatermarkRotation.value.toString(),
+                  }),
+                ),
                 Slider(
                   value: controller.imageWatermarkRotation.value.toDouble(),
                   min: -180,
@@ -503,7 +560,11 @@ class _SettingsCard extends StatelessWidget {
                 ),
               ] else if (controller.operation.value ==
                   BatchOperation.filter) ...[
-                Text('滤镜：${controller.filter.value.label}'),
+                Text(
+                  'batch.settings.filter'.trParams({
+                    'value': controller.filterLabel(controller.filter.value),
+                  }),
+                ),
               ] else if (controller.operation.value == BatchOperation.crop) ...[
                 if (controller.cropPreset.value == BatchCropPreset.custom) ...[
                   Row(
@@ -518,9 +579,9 @@ class _SettingsCard extends StatelessWidget {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          decoration: const InputDecoration(
-                            labelText: '比例宽',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: 'batch.crop.ratioWidth'.tr,
+                            border: const OutlineInputBorder(),
                           ),
                           onChanged: controller.updateCropRatioWidth,
                         ),
@@ -536,9 +597,9 @@ class _SettingsCard extends StatelessWidget {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          decoration: const InputDecoration(
-                            labelText: '比例高',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: 'batch.crop.ratioHeight'.tr,
+                            border: const OutlineInputBorder(),
                           ),
                           onChanged: controller.updateCropRatioHeight,
                         ),
@@ -546,23 +607,36 @@ class _SettingsCard extends StatelessWidget {
                     ],
                   ),
                 ] else ...[
-                  Text('当前比例：${controller.cropPreset.value.ratioText}'),
+                  Text(
+                    'batch.settings.currentRatio'.trParams({
+                      'value': controller.cropPresetRatioLabel(
+                        controller.cropPreset.value,
+                      ),
+                    }),
+                  ),
                 ],
               ] else if (controller.operation.value ==
                   BatchOperation.removeExif) ...[
-                const Text('模式：导出去除 EXIF 的图片副本'),
+                Text('batch.mode.removeExif'.tr),
               ] else if (controller.operation.value == BatchOperation.grid) ...[
                 Text(
-                  '网格：${controller.gridSize.value} × ${controller.gridSize.value}',
+                  'batch.settings.grid'.trParams({
+                    'value':
+                        '${controller.gridSize.value} × ${controller.gridSize.value}',
+                  }),
                 ),
               ] else if (controller.operation.value ==
                   BatchOperation.scanCode) ...[
-                const Text('模式：逐张识别二维码或条形码内容'),
+                Text('batch.mode.scanCode'.tr),
               ] else if (controller.operation.value ==
                   BatchOperation.base64Encode) ...[
-                const Text('模式：为每张图片导出独立 Base64 TXT 文件'),
+                Text('batch.mode.base64Encode'.tr),
               ] else ...[
-                Text('质量：${controller.quality.value}%'),
+                Text(
+                  'batch.settings.quality'.trParams({
+                    'value': controller.quality.value.toString(),
+                  }),
+                ),
                 Slider(
                   value: controller.quality.value.toDouble(),
                   min: 1,
@@ -600,33 +674,33 @@ class _QueueActions extends StatelessWidget {
                 ? null
                 : controller.startQueue,
             icon: const Icon(Icons.play_arrow),
-            label: const Text('开始队列'),
+            label: Text('batch.action.start'.tr),
           ),
           FilledButton.tonalIcon(
             onPressed: controller.isRunning.value && !controller.isPaused.value
                 ? controller.pauseQueue
                 : null,
             icon: const Icon(Icons.pause),
-            label: const Text('暂停'),
+            label: Text('batch.action.pause'.tr),
           ),
           FilledButton.tonalIcon(
             onPressed: controller.isPaused.value
                 ? controller.resumeQueue
                 : null,
             icon: const Icon(Icons.play_circle_outline),
-            label: const Text('继续'),
+            label: Text('batch.action.resume'.tr),
           ),
           OutlinedButton.icon(
             onPressed: controller.tasks.isEmpty ? null : controller.cancelQueue,
             icon: const Icon(Icons.stop_circle_outlined),
-            label: const Text('取消'),
+            label: Text('batch.action.cancel'.tr),
           ),
           OutlinedButton.icon(
             onPressed: controller.failedCount > 0 && !controller.isRunning.value
                 ? controller.retryFailed
                 : null,
             icon: const Icon(Icons.refresh),
-            label: const Text('重试失败'),
+            label: Text('batch.action.retryFailed'.tr),
           ),
         ],
       ),
@@ -651,16 +725,27 @@ class _QueueStatusCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('队列进度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'batch.queueStatus.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: controller.progress),
               const SizedBox(height: 8),
               Text(
-                '已结束 ${controller.processedCount.value} / ${controller.tasks.length} 个任务',
+                'batch.queueStatus.processed'.trParams({
+                  'processed': controller.processedCount.value.toString(),
+                  'total': controller.tasks.length.toString(),
+                }),
               ),
               const SizedBox(height: 8),
               Text(
-                '成功 ${controller.successCount}，失败 ${controller.failedCount}，暂停 ${controller.pausedCount}，取消 ${controller.canceledCount}',
+                'batch.queueStatus.summary'.trParams({
+                  'success': controller.successCount.toString(),
+                  'failed': controller.failedCount.toString(),
+                  'paused': controller.pausedCount.toString(),
+                  'canceled': controller.canceledCount.toString(),
+                }),
               ),
             ],
           ),
@@ -687,7 +772,10 @@ class _TaskListCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('任务明细', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'batch.tasks.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               ...controller.tasks.map(
                 (task) => ListTile(
@@ -700,7 +788,7 @@ class _TaskListCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    _subtitleForTask(task),
+                    _subtitleForTask(controller, task),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -727,17 +815,20 @@ class _TaskListCard extends StatelessWidget {
     };
   }
 
-  String _subtitleForTask(BatchImageTask task) {
+  String _subtitleForTask(BatchController controller, BatchImageTask task) {
     final error = task.errorMessage;
     if (error != null && error.isNotEmpty) {
       return error;
     }
     if (task.resultText.isNotEmpty) {
-      return '${task.resultLabel}：${task.resultText}';
+      return 'batch.tasks.resultText'.trParams({
+        'label': task.resultLabel,
+        'text': task.resultText,
+      });
     }
     if (task.resultLabel.isNotEmpty && task.status == BatchTaskStatus.success) {
       return task.resultLabel;
     }
-    return task.status.label;
+    return controller.taskStatusLabel(task.status);
   }
 }

@@ -12,24 +12,54 @@ import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
 enum BatchOperation {
-  compress(label: '批量压缩', featureName: '批量压缩'),
-  convert(label: '格式转换', featureName: '批量格式转换'),
-  rotate(label: '批量旋转', featureName: '批量旋转'),
-  flip(label: '批量翻转', featureName: '批量翻转'),
-  resize(label: '尺寸调整', featureName: '批量尺寸调整'),
-  textWatermark(label: '文字水印', featureName: '批量文字水印'),
-  imageWatermark(label: '图片水印', featureName: '批量图片水印'),
-  filter(label: '图片滤镜', featureName: '批量图片滤镜'),
-  crop(label: '图片裁剪', featureName: '批量图片裁剪'),
-  removeExif(label: '删除 EXIF', featureName: '批量删除 EXIF'),
-  grid(label: '九宫格切图', featureName: '批量九宫格切图'),
-  scanCode(label: '批量识别', featureName: '批量二维码识别'),
-  base64Encode(label: 'Base64 导出', featureName: '批量 Base64');
+  compress(
+    labelKey: 'batch.operation.compress',
+    featureKey: 'batch.feature.compress',
+  ),
+  convert(
+    labelKey: 'batch.operation.convert',
+    featureKey: 'batch.feature.convert',
+  ),
+  rotate(
+    labelKey: 'batch.operation.rotate',
+    featureKey: 'batch.feature.rotate',
+  ),
+  flip(labelKey: 'batch.operation.flip', featureKey: 'batch.feature.flip'),
+  resize(
+    labelKey: 'batch.operation.resize',
+    featureKey: 'batch.feature.resize',
+  ),
+  textWatermark(
+    labelKey: 'batch.operation.textWatermark',
+    featureKey: 'batch.feature.textWatermark',
+  ),
+  imageWatermark(
+    labelKey: 'batch.operation.imageWatermark',
+    featureKey: 'batch.feature.imageWatermark',
+  ),
+  filter(
+    labelKey: 'batch.operation.filter',
+    featureKey: 'batch.feature.filter',
+  ),
+  crop(labelKey: 'batch.operation.crop', featureKey: 'batch.feature.crop'),
+  removeExif(
+    labelKey: 'batch.operation.removeExif',
+    featureKey: 'batch.feature.removeExif',
+  ),
+  grid(labelKey: 'batch.operation.grid', featureKey: 'batch.feature.grid'),
+  scanCode(
+    labelKey: 'batch.operation.scanCode',
+    featureKey: 'batch.feature.scanCode',
+  ),
+  base64Encode(
+    labelKey: 'batch.operation.base64Encode',
+    featureKey: 'batch.feature.base64Encode',
+  );
 
-  const BatchOperation({required this.label, required this.featureName});
+  const BatchOperation({required this.labelKey, required this.featureKey});
 
-  final String label;
-  final String featureName;
+  final String labelKey;
+  final String featureKey;
 }
 
 enum BatchConvertFormat {
@@ -45,98 +75,114 @@ enum BatchConvertFormat {
 }
 
 enum BatchFlipDirection {
-  horizontal(label: '水平翻转', value: 'horizontal'),
-  vertical(label: '垂直翻转', value: 'vertical');
+  horizontal(labelKey: 'batch.flip.horizontal', value: 'horizontal'),
+  vertical(labelKey: 'batch.flip.vertical', value: 'vertical');
 
-  const BatchFlipDirection({required this.label, required this.value});
+  const BatchFlipDirection({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum BatchResizeMode {
-  percent(label: '按百分比', value: 'percent'),
-  exact(label: '固定宽高', value: 'exact');
+  percent(labelKey: 'batch.resizeMode.percent', value: 'percent'),
+  exact(labelKey: 'batch.resizeMode.exact', value: 'exact');
 
-  const BatchResizeMode({required this.label, required this.value});
+  const BatchResizeMode({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum BatchWatermarkPosition {
-  topLeft(label: '左上', value: 'topLeft'),
-  topRight(label: '右上', value: 'topRight'),
-  bottomLeft(label: '左下', value: 'bottomLeft'),
-  bottomRight(label: '右下', value: 'bottomRight'),
-  center(label: '居中', value: 'center'),
-  tile(label: '平铺', value: 'tile');
+  topLeft(labelKey: 'batch.position.topLeft', value: 'topLeft'),
+  topRight(labelKey: 'batch.position.topRight', value: 'topRight'),
+  bottomLeft(labelKey: 'batch.position.bottomLeft', value: 'bottomLeft'),
+  bottomRight(labelKey: 'batch.position.bottomRight', value: 'bottomRight'),
+  center(labelKey: 'batch.position.center', value: 'center'),
+  tile(labelKey: 'batch.position.tile', value: 'tile');
 
-  const BatchWatermarkPosition({required this.label, required this.value});
+  const BatchWatermarkPosition({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum BatchWatermarkColor {
-  white(label: '白色', value: '#FFFFFF'),
-  black(label: '黑色', value: '#000000'),
-  red(label: '红色', value: '#E53935'),
-  yellow(label: '黄色', value: '#FDD835');
+  white(labelKey: 'batch.color.white', value: '#FFFFFF'),
+  black(labelKey: 'batch.color.black', value: '#000000'),
+  red(labelKey: 'batch.color.red', value: '#E53935'),
+  yellow(labelKey: 'batch.color.yellow', value: '#FDD835');
 
-  const BatchWatermarkColor({required this.label, required this.value});
+  const BatchWatermarkColor({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum BatchFilterType {
-  grayscale(label: '灰度', value: 'grayscale'),
-  monochrome(label: '黑白', value: 'monochrome'),
-  sepia(label: '怀旧', value: 'sepia'),
-  invert(label: '反色', value: 'invert'),
-  warm(label: '暖色', value: 'warm'),
-  cool(label: '冷色', value: 'cool'),
-  hdr(label: 'HDR', value: 'hdr'),
-  film(label: '胶片', value: 'film'),
-  sharpen(label: '锐化', value: 'sharpen'),
-  soften(label: '柔化', value: 'soften');
+  grayscale(labelKey: 'batch.filter.grayscale', value: 'grayscale'),
+  monochrome(labelKey: 'batch.filter.monochrome', value: 'monochrome'),
+  sepia(labelKey: 'batch.filter.sepia', value: 'sepia'),
+  invert(labelKey: 'batch.filter.invert', value: 'invert'),
+  warm(labelKey: 'batch.filter.warm', value: 'warm'),
+  cool(labelKey: 'batch.filter.cool', value: 'cool'),
+  hdr(labelKey: 'batch.filter.hdr', value: 'hdr'),
+  film(labelKey: 'batch.filter.film', value: 'film'),
+  sharpen(labelKey: 'batch.filter.sharpen', value: 'sharpen'),
+  soften(labelKey: 'batch.filter.soften', value: 'soften');
 
-  const BatchFilterType({required this.label, required this.value});
+  const BatchFilterType({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum BatchCropPreset {
-  square(label: '正方形', ratioText: '1:1', aspectRatio: 1),
-  landscape16x9(label: '横版', ratioText: '16:9', aspectRatio: 16 / 9),
-  landscape4x3(label: '经典', ratioText: '4:3', aspectRatio: 4 / 3),
-  portrait9x16(label: '竖版', ratioText: '9:16', aspectRatio: 9 / 16),
-  custom(label: '自定义', ratioText: '自定义', aspectRatio: 1);
+  square(labelKey: 'batch.cropPreset.square', ratioText: '1:1', aspectRatio: 1),
+  landscape16x9(
+    labelKey: 'batch.cropPreset.landscape16x9',
+    ratioText: '16:9',
+    aspectRatio: 16 / 9,
+  ),
+  landscape4x3(
+    labelKey: 'batch.cropPreset.landscape4x3',
+    ratioText: '4:3',
+    aspectRatio: 4 / 3,
+  ),
+  portrait9x16(
+    labelKey: 'batch.cropPreset.portrait9x16',
+    ratioText: '9:16',
+    aspectRatio: 9 / 16,
+  ),
+  custom(
+    labelKey: 'batch.cropPreset.custom',
+    ratioText: 'batch.cropPreset.customRatio',
+    aspectRatio: 1,
+  );
 
   const BatchCropPreset({
-    required this.label,
+    required this.labelKey,
     required this.ratioText,
     required this.aspectRatio,
   });
 
-  final String label;
+  final String labelKey;
   final String ratioText;
   final double aspectRatio;
 }
 
 enum BatchTaskStatus {
-  pending(label: '等待'),
-  running(label: '处理中'),
-  paused(label: '已暂停'),
-  success(label: '成功'),
-  failed(label: '失败'),
-  canceled(label: '已取消');
+  pending(labelKey: 'batch.status.pending'),
+  running(labelKey: 'batch.status.running'),
+  paused(labelKey: 'batch.status.paused'),
+  success(labelKey: 'batch.status.success'),
+  failed(labelKey: 'batch.status.failed'),
+  canceled(labelKey: 'batch.status.canceled');
 
-  const BatchTaskStatus({required this.label});
+  const BatchTaskStatus({required this.labelKey});
 
-  final String label;
+  final String labelKey;
 }
 
 class BatchImageTask {
@@ -287,7 +333,7 @@ class BatchController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('batch.error.recentFileFailed'.tr);
     }
   }
 
@@ -305,7 +351,7 @@ class BatchController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('batch.error.recentFileFailed'.tr);
     }
   }
 
@@ -486,7 +532,12 @@ class BatchController extends GetxController {
     }
     if (value < LocalImageChannel.minGridSize ||
         value > LocalImageChannel.maxGridSize) {
-      _showError('网格大小必须在 2 到 5 之间');
+      _showError(
+        'batch.error.gridSizeRange'.trParams({
+          'min': LocalImageChannel.minGridSize.toString(),
+          'max': LocalImageChannel.maxGridSize.toString(),
+        }),
+      );
       return;
     }
     gridSize.value = value;
@@ -497,11 +548,11 @@ class BatchController extends GetxController {
       return;
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('batch.error.pickImagesFirst'.tr);
       return;
     }
     if (operation.value == BatchOperation.rotate && degrees.value == 0) {
-      _showError('旋转角度不能为 0');
+      _showError('batch.error.zeroRotation'.tr);
       return;
     }
     if (operation.value == BatchOperation.resize &&
@@ -569,7 +620,7 @@ class BatchController extends GetxController {
       return;
     }
     if (!tasks.any((task) => task.canRetry)) {
-      _showError('暂无失败任务可重试');
+      _showError('batch.error.noFailedTasks'.tr);
       return;
     }
     for (var index = 0; index < tasks.length; index++) {
@@ -649,7 +700,7 @@ class BatchController extends GetxController {
         errorMessage: error.message,
       );
       await _historyRepository.recordOperationFailure(
-        featureName: operation.value.featureName,
+        featureName: operationFeatureName(operation.value),
         inputPath: task.source.path,
         parameters: _historyParameters,
         errorMessage: error.message,
@@ -667,7 +718,7 @@ class BatchController extends GetxController {
     tasks[index] = tasks[index].copyWith(
       outputPath: compressed.outputPath,
       outputSizeBytes: compressed.outputSizeBytes,
-      resultLabel: '压缩',
+      resultLabel: operationLabel(BatchOperation.compress),
       status: BatchTaskStatus.success,
       clearError: true,
     );
@@ -692,7 +743,7 @@ class BatchController extends GetxController {
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: converted.outputPath,
       parameters: _historyParameters,
@@ -712,7 +763,7 @@ class BatchController extends GetxController {
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: rotated.outputPath,
       parameters: _historyParameters,
@@ -727,12 +778,12 @@ class BatchController extends GetxController {
     tasks[index] = tasks[index].copyWith(
       outputPath: flipped.outputPath,
       outputSizeBytes: flipped.outputSizeBytes,
-      resultLabel: flipDirection.value.label,
+      resultLabel: flipLabel(flipDirection.value),
       status: BatchTaskStatus.success,
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: flipped.outputPath,
       parameters: _historyParameters,
@@ -754,7 +805,7 @@ class BatchController extends GetxController {
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: resized.outputPath,
       parameters: _historyParametersForResize(dimensions),
@@ -777,12 +828,12 @@ class BatchController extends GetxController {
     tasks[index] = tasks[index].copyWith(
       outputPath: watermarked.outputPath,
       outputSizeBytes: watermarked.outputSizeBytes,
-      resultLabel: watermarkPosition.value.label,
+      resultLabel: watermarkPositionLabel(watermarkPosition.value),
       status: BatchTaskStatus.success,
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: watermarked.outputPath,
       parameters: _historyParameters,
@@ -795,7 +846,7 @@ class BatchController extends GetxController {
   ) async {
     final watermark = imageWatermark.value;
     if (watermark == null) {
-      throw const AppException('请先选择水印图片');
+      throw AppException('batch.error.pickWatermarkFirst'.tr);
     }
     final watermarked = await _imageChannel.addImageWatermark(
       source: source,
@@ -808,12 +859,12 @@ class BatchController extends GetxController {
     tasks[index] = tasks[index].copyWith(
       outputPath: watermarked.outputPath,
       outputSizeBytes: watermarked.outputSizeBytes,
-      resultLabel: imageWatermarkPosition.value.label,
+      resultLabel: watermarkPositionLabel(imageWatermarkPosition.value),
       status: BatchTaskStatus.success,
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: watermarked.outputPath,
       parameters: _historyParameters,
@@ -828,12 +879,12 @@ class BatchController extends GetxController {
     tasks[index] = tasks[index].copyWith(
       outputPath: filtered.outputPath,
       outputSizeBytes: filtered.outputSizeBytes,
-      resultLabel: filter.value.label,
+      resultLabel: filterLabel(filter.value),
       status: BatchTaskStatus.success,
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: filtered.outputPath,
       parameters: _historyParameters,
@@ -843,7 +894,7 @@ class BatchController extends GetxController {
   Future<void> _processCropTask(int index, LocalImageFile source) async {
     final aspectRatio = _cropAspectRatio();
     if (aspectRatio == null) {
-      throw const AppException('裁剪比例无效');
+      throw AppException('batch.error.invalidCropRatio'.tr);
     }
     final cropped = await _imageChannel.cropImage(
       source: source,
@@ -857,7 +908,7 @@ class BatchController extends GetxController {
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: cropped.outputPath,
       parameters: _historyParametersForCrop(aspectRatio),
@@ -869,12 +920,12 @@ class BatchController extends GetxController {
     tasks[index] = tasks[index].copyWith(
       outputPath: cleaned.outputPath,
       outputSizeBytes: cleaned.outputSizeBytes,
-      resultLabel: 'EXIF 已删除',
+      resultLabel: 'batch.result.exifRemoved'.tr,
       status: BatchTaskStatus.success,
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: cleaned.outputPath,
       parameters: _historyParameters,
@@ -894,7 +945,7 @@ class BatchController extends GetxController {
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: gridImage.outputDirectory,
       parameters: _historyParametersForGrid(gridImage.pieceCount),
@@ -912,7 +963,7 @@ class BatchController extends GetxController {
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: source.path,
       parameters: <String, Object>{
@@ -930,14 +981,14 @@ class BatchController extends GetxController {
   ) async {
     final file = File(source.path);
     if (!await file.exists()) {
-      throw const AppException('图片文件不存在，请重新选择');
+      throw AppException('batch.error.imageFileMissing'.tr);
     }
     final sizeBytes = await file.length();
     if (sizeBytes <= 0) {
-      throw const AppException('图片文件为空，无法编码');
+      throw AppException('batch.error.imageFileEmpty'.tr);
     }
     if (sizeBytes > _maxBase64InputBytes) {
-      throw const AppException('图片超过 12 MB，请先压缩后再转 Base64');
+      throw AppException('batch.error.base64FileTooLarge'.tr);
     }
 
     final bytes = await file.readAsBytes();
@@ -954,7 +1005,7 @@ class BatchController extends GetxController {
       clearError: true,
     );
     await _historyRepository.recordOperationSuccess(
-      featureName: operation.value.featureName,
+      featureName: operationFeatureName(operation.value),
       inputPath: source.path,
       outputPath: output.path,
       parameters: <String, Object>{
@@ -999,8 +1050,19 @@ class BatchController extends GetxController {
     final success = successCount;
     final failed = failedCount;
     final canceled = canceledCount;
-    final title = onlyRetryFailed ? '失败重试完成' : '${operation.value.label}完成';
-    Get.snackbar(title, '成功 $success 张，失败 $failed 张，取消 $canceled 张');
+    final title = onlyRetryFailed
+        ? 'batch.completion.retryTitle'.tr
+        : 'batch.completion.title'.trParams({
+            'operation': operationLabel(operation.value),
+          });
+    Get.snackbar(
+      title,
+      'batch.completion.message'.trParams({
+        'success': success.toString(),
+        'failed': failed.toString(),
+        'canceled': canceled.toString(),
+      }),
+    );
   }
 
   void _resetTasksForCurrentSelection() {
@@ -1119,57 +1181,79 @@ class BatchController extends GetxController {
     };
   }
 
+  String operationLabel(BatchOperation value) => value.labelKey.tr;
+
+  String operationFeatureName(BatchOperation value) => value.featureKey.tr;
+
+  String flipLabel(BatchFlipDirection value) => value.labelKey.tr;
+
+  String resizeModeLabel(BatchResizeMode value) => value.labelKey.tr;
+
+  String watermarkPositionLabel(BatchWatermarkPosition value) =>
+      value.labelKey.tr;
+
+  String watermarkColorLabel(BatchWatermarkColor value) => value.labelKey.tr;
+
+  String filterLabel(BatchFilterType value) => value.labelKey.tr;
+
+  String cropPresetLabel(BatchCropPreset value) => value.labelKey.tr;
+
+  String cropPresetRatioLabel(BatchCropPreset value) =>
+      value == BatchCropPreset.custom ? value.ratioText.tr : value.ratioText;
+
+  String taskStatusLabel(BatchTaskStatus value) => value.labelKey.tr;
+
   String qualityHint() {
     if (operation.value == BatchOperation.compress) {
-      return '压缩会按当前质量导出，质量越低文件越小。';
+      return 'batch.hint.compress'.tr;
     }
     if (operation.value == BatchOperation.rotate) {
-      return '旋转会按当前角度导出新图片，不会覆盖原文件。';
+      return 'batch.hint.rotate'.tr;
     }
     if (operation.value == BatchOperation.flip) {
-      return '翻转会按当前方向导出新图片，不会覆盖原文件。';
+      return 'batch.hint.flip'.tr;
     }
     if (operation.value == BatchOperation.resize) {
       return switch (resizeMode.value) {
-        BatchResizeMode.percent => '按百分比模式会基于每张图片原始尺寸分别缩放。',
-        BatchResizeMode.exact => '固定宽高模式会把所有图片导出为相同目标尺寸。',
+        BatchResizeMode.percent => 'batch.hint.resizePercent'.tr,
+        BatchResizeMode.exact => 'batch.hint.resizeExact'.tr,
       };
     }
     if (operation.value == BatchOperation.textWatermark) {
-      return '文字水印会按当前文本、位置、颜色、字号和透明度批量导出新图片。';
+      return 'batch.hint.textWatermark'.tr;
     }
     if (operation.value == BatchOperation.imageWatermark) {
-      return '图片水印会用同一张水印图按当前位置、透明度、缩放和旋转参数批量导出。';
+      return 'batch.hint.imageWatermark'.tr;
     }
     if (operation.value == BatchOperation.filter) {
-      return '滤镜会按当前类型批量导出新图片，不会覆盖原文件。';
+      return 'batch.hint.filter'.tr;
     }
     if (operation.value == BatchOperation.crop) {
-      return '裁剪会从每张图片中心保留当前比例区域并导出新图片。';
+      return 'batch.hint.crop'.tr;
     }
     if (operation.value == BatchOperation.removeExif) {
-      return '删除 EXIF 会重新导出去除元数据的图片副本，不会覆盖原文件。';
+      return 'batch.hint.removeExif'.tr;
     }
     if (operation.value == BatchOperation.grid) {
-      return '九宫格切图会为每张图片生成独立切片目录，支持 2×2 到 5×5。';
+      return 'batch.hint.grid'.tr;
     }
     if (operation.value == BatchOperation.scanCode) {
-      return '批量识别会逐张读取二维码或条形码内容，结果只记录文本，不会生成新图片。';
+      return 'batch.hint.scanCode'.tr;
     }
     if (operation.value == BatchOperation.base64Encode) {
-      return 'Base64 导出会为每张图片生成独立 TXT，单张图片最大 12 MB。';
+      return 'batch.hint.base64Encode'.tr;
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
-      BatchConvertFormat.webp => 'JPG 和 WebP 会使用导出质量。',
+      BatchConvertFormat.webp => 'batch.hint.convertLossy'.tr,
       BatchConvertFormat.png ||
-      BatchConvertFormat.bmp => 'PNG 和 BMP 为无损导出，质量参数会被忽略。',
+      BatchConvertFormat.bmp => 'batch.hint.convertLossless'.tr,
     };
   }
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -1184,7 +1268,7 @@ class BatchController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('batch.error.title'.tr, message);
   }
 
   BatchConvertFormat _batchConvertFormatForValue(String value) {
@@ -1198,7 +1282,7 @@ class BatchController extends GetxController {
   String _summarizeScanText(String text) {
     final normalized = text.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (normalized.isEmpty) {
-      return '未识别到文本内容';
+      return 'batch.result.noScanText'.tr;
     }
     return normalized.length > 60
         ? '${normalized.substring(0, 60)}...'
@@ -1245,7 +1329,7 @@ class BatchController extends GetxController {
         return output;
       }
     }
-    throw const AppException('导出文件名冲突过多，请清理缓存后重试');
+    throw AppException('batch.error.fileNameConflict'.tr);
   }
 
   String _safeFileStem(String name) {
@@ -1262,31 +1346,37 @@ class BatchController extends GetxController {
 
   String _formatTextLength(int length) {
     if (length < 1000) {
-      return '$length 字符';
+      return 'batch.result.textLength'.trParams({'length': length.toString()});
     }
-    return '${(length / 1000).toStringAsFixed(1)}K 字符';
+    return 'batch.result.textLengthK'.trParams({
+      'lengthK': (length / 1000).toStringAsFixed(1),
+    });
   }
 
   bool _hasValidResizeSettings() {
     if (resizeMode.value == BatchResizeMode.percent) {
       if (resizePercent.value < 10 || resizePercent.value > 300) {
-        _showError('缩放比例必须在 10% 到 300% 之间');
+        _showError('batch.error.resizePercentRange'.tr);
         return false;
       }
       if (!selectedImages.every((image) => image.hasValidDimensions)) {
-        _showError('按百分比缩放需要所有图片都有有效尺寸');
+        _showError('batch.error.resizePercentNeedsDimensions'.tr);
         return false;
       }
       return true;
     }
     if (resizeWidth.value < _minResizeDimension ||
         resizeHeight.value < _minResizeDimension) {
-      _showError('目标宽高必须大于 0');
+      _showError('batch.error.resizePositive'.tr);
       return false;
     }
     if (resizeWidth.value > _maxResizeDimension ||
         resizeHeight.value > _maxResizeDimension) {
-      _showError('目标宽高不能超过 $_maxResizeDimension 像素');
+      _showError(
+        'batch.error.resizeMaxDimension'.trParams({
+          'max': _maxResizeDimension.toString(),
+        }),
+      );
       return false;
     }
     return true;
@@ -1295,19 +1385,19 @@ class BatchController extends GetxController {
   bool _hasValidWatermarkSettings() {
     final text = watermarkText.value.trim();
     if (text.isEmpty) {
-      _showError('请输入水印文字');
+      _showError('batch.error.watermarkTextRequired'.tr);
       return false;
     }
     if (text.length > 80) {
-      _showError('水印文字不能超过 80 个字符');
+      _showError('batch.error.watermarkTextTooLong'.tr);
       return false;
     }
     if (watermarkFontSize.value < 12 || watermarkFontSize.value > 160) {
-      _showError('字号必须在 12 到 160 之间');
+      _showError('batch.error.fontSizeRange'.tr);
       return false;
     }
     if (watermarkOpacity.value < 10 || watermarkOpacity.value > 100) {
-      _showError('透明度必须在 10 到 100 之间');
+      _showError('batch.error.opacityRange'.tr);
       return false;
     }
     return true;
@@ -1316,20 +1406,20 @@ class BatchController extends GetxController {
   bool _hasValidImageWatermarkSettings() {
     final watermark = imageWatermark.value;
     if (watermark == null) {
-      _showError('请先选择水印图片');
+      _showError('batch.error.pickWatermarkFirst'.tr);
       return false;
     }
     if (imageWatermarkOpacity.value < 10 || imageWatermarkOpacity.value > 100) {
-      _showError('透明度必须在 10 到 100 之间');
+      _showError('batch.error.opacityRange'.tr);
       return false;
     }
     if (imageWatermarkScale.value < 5 || imageWatermarkScale.value > 100) {
-      _showError('水印缩放必须在 5% 到 100% 之间');
+      _showError('batch.error.imageWatermarkScaleRange'.tr);
       return false;
     }
     if (imageWatermarkRotation.value < -180 ||
         imageWatermarkRotation.value > 180) {
-      _showError('旋转角度必须在 -180 到 180 之间');
+      _showError('batch.error.imageWatermarkRotationRange'.tr);
       return false;
     }
     return true;
@@ -1342,12 +1432,12 @@ class BatchController extends GetxController {
     final width = cropRatioWidth.value;
     final height = cropRatioHeight.value;
     if (width <= 0 || height <= 0) {
-      _showError('自定义比例必须大于 0');
+      _showError('batch.error.cropRatioPositive'.tr);
       return null;
     }
     final ratio = width / height;
     if (ratio < 0.1 || ratio > 10) {
-      _showError('自定义比例必须在 0.1 到 10 之间');
+      _showError('batch.error.cropRatioRange'.tr);
       return null;
     }
     return ratio;

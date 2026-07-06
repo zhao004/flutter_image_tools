@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 
 import 'package:flutter_image_tools/app/database/database.dart';
 import 'package:flutter_image_tools/app/core/models/cache_summary.dart';
+import 'package:flutter_image_tools/app/pages/batch/batch_controller.dart';
+import 'package:flutter_image_tools/app/pages/batch/batch_view.dart';
 import 'package:flutter_image_tools/app/pages/annotation/annotation_controller.dart';
 import 'package:flutter_image_tools/app/pages/annotation/annotation_view.dart';
 import 'package:flutter_image_tools/app/pages/base64/base64_controller.dart';
@@ -958,6 +960,61 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Create GIF'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文批量处理页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证批量队列、处理类型和默认参数文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      BatchController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        settingsRepository: AppSettingsRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const BatchView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Batch Processing'), findsOneWidget);
+    expect(find.text('Batch Queue'), findsOneWidget);
+    expect(
+      find.text(
+        'Select multiple JPG, PNG, WebP, or BMP images. Tasks are processed locally in order.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Operation Type'), findsOneWidget);
+    expect(find.text('Compress'), findsOneWidget);
+    expect(find.text('Convert Format'), findsOneWidget);
+    expect(find.text('Text Watermark'), findsOneWidget);
+    expect(find.text('Base64 Export'), findsOneWidget);
+    expect(find.text('Export Settings'), findsOneWidget);
+    expect(find.text('Quality: 80%'), findsOneWidget);
+    expect(
+      find.text(
+        'Compression exports with the current quality. Lower quality creates smaller files.',
+      ),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Start Queue'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Start Queue'), findsOneWidget);
 
     await database.close();
     Get.reset();
