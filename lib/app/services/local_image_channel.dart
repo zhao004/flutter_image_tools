@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math' as math;
-
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:gal/gal.dart';
@@ -488,6 +487,52 @@ class LocalImageChannel {
         aspectRatio: aspectRatio,
       );
       return cropped;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('裁剪图片失败，请重试', cause: error);
+    }
+  }
+
+  Future<CroppedImageFile> saveCroppedImageBytes({
+    required LocalImageFile source,
+    required Uint8List bytes,
+    required double aspectRatio,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法裁剪');
+    }
+    if (bytes.isEmpty) {
+      throw const AppException('裁剪结果为空，请重试');
+    }
+    if (!aspectRatio.isFinite || aspectRatio <= 0) {
+      throw const AppException('裁剪比例必须大于 0');
+    }
+    if (aspectRatio < 0.1 || aspectRatio > 10) {
+      throw const AppException('裁剪比例必须在 0.1 到 10 之间');
+    }
+
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null || decoded.width <= 0 || decoded.height <= 0) {
+        throw const AppException('裁剪结果格式异常，请重试');
+      }
+      final output = await _createOutputFile(
+        prefix: 'cropped',
+        extension: 'png',
+      );
+      await output.writeAsBytes(bytes, flush: true);
+      await saveImageToGallery(output.path);
+      return CroppedImageFile(
+        source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
+        width: decoded.width,
+        height: decoded.height,
+        aspectRatio: aspectRatio,
+      );
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
     } on AppException {

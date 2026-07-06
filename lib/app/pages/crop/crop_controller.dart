@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:crop_your_image/crop_your_image.dart' as cropper;
 import 'package:get/get.dart';
 
 import '../../utils/latest_snackbar.dart';
@@ -116,7 +118,9 @@ class CropController extends GetxController {
   final preset = CropPreset.square.obs;
   final cropCenterXRatio = 0.5.obs;
   final cropCenterYRatio = 0.5.obs;
+  final isWaitingForCropResult = false.obs;
   final isBusy = false.obs;
+  final cropEditorController = cropper.CropController();
   final customWidthController = TextEditingController(text: '1');
   final customHeightController = TextEditingController(text: '1');
 
@@ -312,6 +316,92 @@ class CropController extends GetxController {
     }
   }
 
+  bool prepareSingleCrop() {
+    if (isBusy.value || isWaitingForCropResult.value) {
+      return false;
+    }
+    final source = selectedImage.value;
+    if (source == null) {
+      _showError('crop.error.pickImageFirst'.tr);
+      return false;
+    }
+    if (_readAspectRatio() == null) {
+      return false;
+    }
+    isWaitingForCropResult.value = true;
+    isBusy.value = true;
+    selectedImages.assignAll([source]);
+    tasks.assignAll([CropTask(source: source)]);
+    processedCount.value = 0;
+    return true;
+  }
+
+  void cropCurrentImage() {
+    if (!prepareSingleCrop()) {
+      return;
+    }
+    try {
+      cropEditorController.crop();
+    } catch (error) {
+      failSingleCrop(error);
+    }
+  }
+
+  Future<void> completeSingleCrop(Uint8List croppedBytes) async {
+    final source = selectedImage.value;
+    final aspectRatio = _readAspectRatio();
+    if (source == null || aspectRatio == null) {
+      isWaitingForCropResult.value = false;
+      isBusy.value = false;
+      return;
+    }
+
+    final cropFrame = frameRatiosForImage(source, aspectRatio);
+    try {
+      final cropped = await _imageChannel.saveCroppedImageBytes(
+        source: source,
+        bytes: croppedBytes,
+        aspectRatio: aspectRatio,
+      );
+      result.value = cropped;
+      if (tasks.isEmpty) {
+        tasks.assignAll([CropTask(source: source)]);
+      }
+      tasks[0] = tasks[0].copyWith(result: cropped, isCompleted: true);
+      processedCount.value = 1;
+      await _historyRepository.recordOperationSuccess(
+        featureName: 'crop.featureName'.tr,
+        inputPath: source.path,
+        outputPath: cropped.outputPath,
+        parameters: _historyParameters(aspectRatio, cropFrame),
+      );
+      showLatestSnackbar('crop.success.title'.tr, 'crop.success.message'.tr);
+    } on AppException catch (error) {
+      await _recordSingleCropFailure(source, aspectRatio, cropFrame, error);
+      _showError(error.message);
+    } finally {
+      isWaitingForCropResult.value = false;
+      isBusy.value = false;
+    }
+  }
+
+  Future<void> failSingleCrop(Object error) async {
+    final source = selectedImage.value;
+    final aspectRatio = _readAspectRatio() ?? 1;
+    final cropFrame = source == null
+        ? const CropFrameRatios(left: 0, top: 0, width: 1, height: 1)
+        : frameRatiosForImage(source, aspectRatio);
+    final appError = error is AppException
+        ? error
+        : AppException('裁剪图片失败，请重试', cause: error);
+    if (source != null) {
+      await _recordSingleCropFailure(source, aspectRatio, cropFrame, appError);
+    }
+    _showError(appError.message);
+    isWaitingForCropResult.value = false;
+    isBusy.value = false;
+  }
+
   double get progress {
     final total = selectedImages.length;
     if (total <= 0) {
@@ -388,6 +478,28 @@ class CropController extends GetxController {
       'cropWidthRatio': cropFrame.width,
       'cropHeightRatio': cropFrame.height,
     };
+  }
+
+  Future<void> _recordSingleCropFailure(
+    LocalImageFile source,
+    double aspectRatio,
+    CropFrameRatios cropFrame,
+    AppException error,
+  ) async {
+    if (tasks.isEmpty) {
+      tasks.assignAll([CropTask(source: source)]);
+    }
+    tasks[0] = tasks[0].copyWith(
+      errorMessage: error.message,
+      isCompleted: true,
+    );
+    processedCount.value = 1;
+    await _historyRepository.recordOperationFailure(
+      featureName: 'crop.featureName'.tr,
+      inputPath: source.path,
+      parameters: _historyParameters(aspectRatio, cropFrame),
+      errorMessage: error.message,
+    );
   }
 
   void _showError(String message) {

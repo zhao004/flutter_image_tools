@@ -24,7 +24,7 @@ class ImageEditorScaffold extends StatelessWidget {
     required this.exportLabel,
     required this.exportIcon,
     required this.onPickImage,
-    required this.onExport,
+    this.onExport,
     required this.previewBuilder,
     required this.toolbar,
     this.imageMeta,
@@ -45,7 +45,7 @@ class ImageEditorScaffold extends StatelessWidget {
   final String exportLabel;
   final IconData exportIcon;
   final VoidCallback onPickImage;
-  final VoidCallback onExport;
+  final VoidCallback? onExport;
   final Widget Function(BuildContext context, LocalImageFile image)
   previewBuilder;
   final Widget toolbar;

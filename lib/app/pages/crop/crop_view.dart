@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:crop_your_image/crop_your_image.dart' as cropper;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -6,10 +8,10 @@ import '../../models/local_image_file.dart';
 import '../../widgets/image_editor_scaffold.dart';
 import 'crop_controller.dart';
 
-/// 图片裁剪编辑页：选择图片后在画布上实时显示可拖动裁剪比例框。
+/// 图片裁剪编辑页：选择图片后使用第三方裁剪组件处理裁剪框交互。
 ///
-/// 设计意图：裁剪框位置使用归一化比例同步到控制器，预览层只负责手势和
-/// 即时反馈；导出前仍由控制器和服务层校验比例与边界，避免无效区域。
+/// 设计意图：裁剪框拖动、缩放和比例约束交给 `crop_your_image` 管理，
+/// 页面只负责把当前比例传给组件，并在用户点击保存时触发裁剪结果落盘。
 class CropView extends GetView<CropController> {
   const CropView({super.key});
 
@@ -30,19 +32,19 @@ class CropView extends GetView<CropController> {
         exportLabel: 'common.saveToGallery'.tr,
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
-        onExport: controller.crop,
+        onExport: controller.cropCurrentImage,
         previewBorderRadius: 12,
         lockPreviewScroll: true,
         imageMeta: image == null
             ? null
             : '${controller.formatDimensions(image)} · ${controller.currentRatioText()}',
-        previewBuilder: (context, previewImage) => EditorImagePreview(
-          image: previewImage,
-          child: _CropOverlay(
-            image: previewImage,
-            controller: controller,
-            aspectRatio: _previewAspectRatio(),
+        previewBuilder: (context, previewImage) => _CropEditor(
+          key: ValueKey(
+            '${previewImage.path}-${controller.preset.value.name}-${controller.currentRatioText()}',
           ),
+          image: previewImage,
+          controller: controller,
+          aspectRatio: _previewAspectRatio(),
         ),
         toolbar: _CropToolbar(controller: controller),
         resultSummary: result == null
@@ -73,8 +75,9 @@ class CropView extends GetView<CropController> {
   }
 }
 
-class _CropOverlay extends StatelessWidget {
-  const _CropOverlay({
+class _CropEditor extends StatefulWidget {
+  const _CropEditor({
+    super.key,
     required this.image,
     required this.controller,
     required this.aspectRatio,
@@ -85,105 +88,96 @@ class _CropOverlay extends StatelessWidget {
   final double aspectRatio;
 
   @override
+  State<_CropEditor> createState() => _CropEditorState();
+}
+
+class _CropEditorState extends State<_CropEditor> {
+  late Future<Uint8List> _imageBytesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _imageBytesFuture = _readImageBytes(widget.image);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CropEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.image.path != widget.image.path) {
+      _imageBytesFuture = _readImageBytes(widget.image);
+    }
+    if (oldWidget.aspectRatio != widget.aspectRatio) {
+      widget.controller.cropEditorController.aspectRatio = widget.aspectRatio;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Obx(() {
-          final stageWidth = constraints.maxWidth;
-          final stageHeight = constraints.maxHeight;
-          final frameRatios = controller.frameRatiosForImage(
-            image,
-            aspectRatio,
-          );
-          final frameWidth = stageWidth * frameRatios.width;
-          final frameHeight = stageHeight * frameRatios.height;
-          final frameLeft = stageWidth * frameRatios.left;
-          final frameTop = stageHeight * frameRatios.top;
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.28),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: frameLeft,
-                top: frameTop,
-                width: frameWidth,
-                height: frameHeight,
-                child: _DraggableCropFrame(
-                  enabled: !controller.isBusy.value,
-                  onDrag: (delta) {
-                    if (stageWidth <= 0 || stageHeight <= 0) {
-                      return;
+    return FutureBuilder<Uint8List>(
+      future: _imageBytesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || snapshot.data == null) {
+          return Center(child: Text('crop.error.pickImageFirst'.tr));
+        }
+        final imageBytes = snapshot.data!;
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: cropper.Crop(
+                  image: imageBytes,
+                  controller: widget.controller.cropEditorController,
+                  aspectRatio: widget.aspectRatio,
+                  initialRectBuilder:
+                      cropper.InitialRectBuilder.withSizeAndRatio(
+                        size: 0.88,
+                        aspectRatio: widget.aspectRatio,
+                      ),
+                  interactive: true,
+                  fixCropRect: false,
+                  baseColor: Colors.black,
+                  maskColor: Colors.black.withValues(alpha: 0.42),
+                  radius: 6,
+                  cornerDotBuilder: (size, edgeAlignment) =>
+                      const cropper.DotControl(color: Colors.white),
+                  progressIndicator: const CircularProgressIndicator(),
+                  onCropped: (cropResult) {
+                    switch (cropResult) {
+                      case cropper.CropSuccess(:final croppedImage):
+                        widget.controller.completeSingleCrop(croppedImage);
+                      case cropper.CropFailure(:final cause):
+                        widget.controller.failSingleCrop(cause);
                     }
-                    controller.updateCropFrame(
-                      centerXRatio:
-                          controller.cropCenterXRatio.value +
-                          delta.dx / stageWidth,
-                      centerYRatio:
-                          controller.cropCenterYRatio.value +
-                          delta.dy / stageHeight,
-                      frameWidthRatio: frameRatios.width,
-                      frameHeightRatio: frameRatios.height,
-                    );
                   },
                 ),
               ),
-            ],
-          );
-        });
+            ),
+            Positioned(top: 12, right: 12, child: const SizedBox.shrink()),
+          ],
+        );
       },
     );
   }
-}
 
-class _DraggableCropFrame extends StatelessWidget {
-  const _DraggableCropFrame({required this.enabled, required this.onDrag});
-
-  final bool enabled;
-  final ValueChanged<Offset> onDrag;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onPanUpdate: enabled ? (details) => onDrag(details.delta) : null,
-      child: MouseRegion(
-        cursor: enabled ? SystemMouseCursors.move : MouseCursor.defer,
-        child: CustomPaint(
-          painter: const _CropFramePainter(),
-          child: const SizedBox.expand(),
-        ),
-      ),
-    );
+  Future<Uint8List> _readImageBytes(LocalImageFile image) async {
+    final path = image.path.trim();
+    if (path.isEmpty) {
+      throw const FormatException('图片路径为空');
+    }
+    final file = File(path);
+    if (!file.existsSync()) {
+      throw const FileSystemException('图片文件不存在');
+    }
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
+      throw const FormatException('图片文件为空');
+    }
+    return bytes;
   }
-}
-
-class _CropFramePainter extends CustomPainter {
-  const _CropFramePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final outerPaint = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-    final innerPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    // 黑色外描边用于亮色图片，白色内描边用于暗色图片，保证裁剪框始终可见。
-    canvas.drawRect(rect.deflate(2), outerPaint);
-    canvas.drawRect(rect.deflate(3), innerPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CropFramePainter oldDelegate) => false;
 }
 
 class _CropToolbar extends StatelessWidget {
