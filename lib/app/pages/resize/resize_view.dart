@@ -27,7 +27,7 @@ class ResizeView extends GetView<ResizeController> {
         pickLabel: 'resize.action.pickSingle'.tr,
         repickLabel: 'resize.action.repickSingle'.tr,
         exportLabel: 'resize.action.resize'.tr,
-        exportIcon: Icons.ios_share_outlined,
+        exportIcon: Icons.save_alt_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.resize,
         imageMeta: image == null
@@ -38,13 +38,6 @@ class ResizeView extends GetView<ResizeController> {
           child: _ResizeOverlay(aspectRatio: _targetAspectRatio(previewImage)),
         ),
         toolbar: _ResizeToolbar(controller: controller),
-        appBarActions: [
-          IconButton(
-            tooltip: 'resize.action.pickBatch'.tr,
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-          ),
-        ],
         resultSummary: result == null
             ? null
             : EditorResultPill(

@@ -1,14 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 
 import '../models/local_image_file.dart';
 
 /// 图片编辑页通用骨架：选图前显示空状态，选图后展示大图预览和底部工具栏。
 ///
 /// 设计意图：滤镜、水印、裁剪、尺寸调整、翻转和旋转都遵循“先选图、
-/// 实时预览、底部调参、最后导出”的交互，统一布局可以减少重复代码并
+/// 实时预览、底部调参、右上角保存”的交互，统一布局可以减少重复代码并
 /// 保持后续工具扩展一致。异常策略：组件只负责展示与触发回调，不持有
 /// 文件处理状态，避免通用层吞掉各工具控制器自己的校验和错误处理。
 class ImageEditorScaffold extends StatelessWidget {
@@ -64,6 +63,16 @@ class ImageEditorScaffold extends StatelessWidget {
             onPressed: isBusy ? null : onPickImage,
             icon: const Icon(Icons.add_photo_alternate_outlined),
           ),
+          IconButton(
+            tooltip: exportLabel,
+            onPressed: image == null || isBusy ? null : onExport,
+            icon: isBusy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(exportIcon),
+          ),
           ...appBarActions,
         ],
       ),
@@ -87,14 +96,7 @@ class ImageEditorScaffold extends StatelessWidget {
                       resultSummary: resultSummary,
                     ),
             ),
-            if (image != null)
-              _EditorToolbarSurface(
-                isBusy: isBusy,
-                exportLabel: exportLabel,
-                exportIcon: exportIcon,
-                onExport: onExport,
-                child: toolbar,
-              ),
+            if (image != null) _EditorToolbarSurface(child: toolbar),
           ],
         ),
       ),
@@ -244,19 +246,9 @@ class _PreviewFrame extends StatelessWidget {
 }
 
 class _EditorToolbarSurface extends StatelessWidget {
-  const _EditorToolbarSurface({
-    required this.child,
-    required this.isBusy,
-    required this.exportLabel,
-    required this.exportIcon,
-    required this.onExport,
-  });
+  const _EditorToolbarSurface({required this.child});
 
   final Widget child;
-  final bool isBusy;
-  final String exportLabel;
-  final IconData exportIcon;
-  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -271,24 +263,7 @@ class _EditorToolbarSurface extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              child,
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: isBusy ? null : onExport,
-                icon: isBusy
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(exportIcon),
-                label: Text(isBusy ? 'common.processing'.tr : exportLabel),
-              ),
-            ],
-          ),
+          child: child,
         ),
       ),
     );

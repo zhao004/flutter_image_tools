@@ -26,7 +26,7 @@ class WatermarkView extends GetView<WatermarkController> {
         pickLabel: 'watermark.action.pickSingle'.tr,
         repickLabel: 'watermark.action.repickSingle'.tr,
         exportLabel: 'watermark.action.add'.tr,
-        exportIcon: Icons.ios_share_outlined,
+        exportIcon: Icons.save_alt_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.addWatermark,
         imageMeta: image == null
@@ -37,13 +37,6 @@ class WatermarkView extends GetView<WatermarkController> {
           child: _TextWatermarkOverlay(controller: controller),
         ),
         toolbar: _WatermarkToolbar(controller: controller),
-        appBarActions: [
-          IconButton(
-            tooltip: 'watermark.action.pickBatch'.tr,
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-          ),
-        ],
         resultSummary: result == null
             ? null
             : EditorResultPill(

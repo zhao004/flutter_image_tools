@@ -6,8 +6,8 @@ import 'flip_controller.dart';
 
 /// 图片翻转编辑页，选择图片后在画布中实时预览翻转方向。
 ///
-/// 设计意图：单图编辑优先展示即时效果，批量能力仍保留在控制器中；
-/// 用户点击导出时继续复用原有顺序处理和历史记录逻辑。
+/// 设计意图：单图编辑优先展示即时效果，底部只保留方向选择；
+/// 用户点击右上角保存时继续复用原有处理和历史记录逻辑。
 class FlipView extends GetView<FlipController> {
   const FlipView({super.key});
 
@@ -26,7 +26,7 @@ class FlipView extends GetView<FlipController> {
         pickLabel: 'flip.action.pickSingle'.tr,
         repickLabel: 'flip.action.repickSingle'.tr,
         exportLabel: 'flip.action.flip'.tr,
-        exportIcon: Icons.ios_share_outlined,
+        exportIcon: Icons.save_alt_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.flip,
         imageMeta: image == null
@@ -41,13 +41,6 @@ class FlipView extends GetView<FlipController> {
           ),
         ),
         toolbar: _FlipToolbar(controller: controller),
-        appBarActions: [
-          IconButton(
-            tooltip: 'flip.action.pickBatch'.tr,
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-          ),
-        ],
         resultSummary: result == null
             ? null
             : EditorResultPill(

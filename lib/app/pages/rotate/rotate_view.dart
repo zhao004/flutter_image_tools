@@ -8,8 +8,8 @@ import 'rotate_controller.dart';
 
 /// 图片旋转编辑页：选择图片后在画布中实时预览旋转角度。
 ///
-/// 设计意图：角度调节集中在底部工具栏，单图实时预览，批量导出沿用控制器
-/// 顺序处理能力，避免 UI 层重复实现文件处理与异常记录逻辑。
+/// 设计意图：角度调节集中在底部工具栏，单图实时预览，右上角保存沿用
+/// 控制器导出能力，避免 UI 层重复实现文件处理与异常记录逻辑。
 class RotateView extends GetView<RotateController> {
   const RotateView({super.key});
 
@@ -28,7 +28,7 @@ class RotateView extends GetView<RotateController> {
         pickLabel: 'rotate.action.pickSingle'.tr,
         repickLabel: 'rotate.action.repickSingle'.tr,
         exportLabel: 'rotate.action.rotate'.tr,
-        exportIcon: Icons.ios_share_outlined,
+        exportIcon: Icons.save_alt_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.rotate,
         imageMeta: image == null
@@ -41,13 +41,6 @@ class RotateView extends GetView<RotateController> {
           ),
         ),
         toolbar: _RotateToolbar(controller: controller),
-        appBarActions: [
-          IconButton(
-            tooltip: 'rotate.action.pickBatch'.tr,
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-          ),
-        ],
         resultSummary: result == null
             ? null
             : EditorResultPill(

@@ -36,7 +36,7 @@ class AnnotationView extends GetView<AnnotationController> {
                       dimension: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.ios_share_outlined),
+                  : const Icon(Icons.save_alt_outlined),
             ),
           ),
         ],

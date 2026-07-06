@@ -10,7 +10,7 @@ import 'image_watermark_controller.dart';
 /// 图片水印编辑页：选择底图后在画布中实时预览水印图样式。
 ///
 /// 设计意图：底图作为主编辑对象，水印图和样式参数集中在底部工具栏；
-/// 导出继续复用控制器的原生合成与批量处理逻辑。
+/// 右上角保存继续复用控制器的原生合成逻辑。
 class ImageWatermarkView extends GetView<ImageWatermarkController> {
   const ImageWatermarkView({super.key});
 
@@ -30,7 +30,7 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
         pickLabel: 'imageWatermark.action.pickSource'.tr,
         repickLabel: 'imageWatermark.action.repickSource'.tr,
         exportLabel: 'imageWatermark.action.add'.tr,
-        exportIcon: Icons.ios_share_outlined,
+        exportIcon: Icons.save_alt_outlined,
         onPickImage: controller.pickSourceImage,
         onExport: controller.addWatermark,
         imageMeta: image == null
@@ -41,15 +41,6 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
           child: _ImageWatermarkOverlay(controller: controller),
         ),
         toolbar: _ImageWatermarkToolbar(controller: controller),
-        appBarActions: [
-          IconButton(
-            tooltip: 'imageWatermark.action.pickBatch'.tr,
-            onPressed: controller.isBusy.value
-                ? null
-                : controller.pickSourceImages,
-            icon: const Icon(Icons.photo_library_outlined),
-          ),
-        ],
         resultSummary: result == null
             ? null
             : EditorResultPill(

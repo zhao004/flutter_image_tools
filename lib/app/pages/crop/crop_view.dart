@@ -27,7 +27,7 @@ class CropView extends GetView<CropController> {
         pickLabel: 'crop.action.pickSingle'.tr,
         repickLabel: 'crop.action.repickSingle'.tr,
         exportLabel: 'crop.action.crop'.tr,
-        exportIcon: Icons.ios_share_outlined,
+        exportIcon: Icons.save_alt_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.crop,
         imageMeta: image == null
@@ -38,13 +38,6 @@ class CropView extends GetView<CropController> {
           child: _CropOverlay(aspectRatio: _previewAspectRatio()),
         ),
         toolbar: _CropToolbar(controller: controller),
-        appBarActions: [
-          IconButton(
-            tooltip: 'crop.action.pickBatch'.tr,
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-          ),
-        ],
         resultSummary: result == null
             ? null
             : EditorResultPill(

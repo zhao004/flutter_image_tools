@@ -65,8 +65,6 @@ class AppTranslations extends Translations {
       'compress.error.title': '操作失败',
       'compress.error.recentFileFailed': '记录最近文件失败，请重试',
       'compress.error.pickImageFirst': '请先选择图片',
-      'home.tool.batch.title': '批量处理',
-      'home.tool.batch.description': '队列、暂停、重试和取消',
       'batch.title': '批量处理',
       'batch.queue.title': '批量任务队列',
       'batch.queue.empty': '请选择多张 JPG、PNG、WebP 或 BMP 图片，任务会按顺序本地处理。',
@@ -1118,8 +1116,6 @@ class AppTranslations extends Translations {
       'compress.error.title': '操作失敗',
       'compress.error.recentFileFailed': '記錄最近檔案失敗，請重試',
       'compress.error.pickImageFirst': '請先選擇圖片',
-      'home.tool.batch.title': '批次處理',
-      'home.tool.batch.description': '佇列、暫停、重試和取消',
       'batch.title': '批次處理',
       'batch.queue.title': '批次任務佇列',
       'batch.queue.empty': '請選擇多張 JPG、PNG、WebP 或 BMP 圖片，任務會依序在本機處理。',
@@ -2178,8 +2174,6 @@ class AppTranslations extends Translations {
       'compress.error.recentFileFailed':
           'Failed to record the recent file. Please try again',
       'compress.error.pickImageFirst': 'Select an image first',
-      'home.tool.batch.title': 'Batch Processing',
-      'home.tool.batch.description': 'Queue, pause, retry, and cancel',
       'batch.title': 'Batch Processing',
       'batch.queue.title': 'Batch Queue',
       'batch.queue.empty':

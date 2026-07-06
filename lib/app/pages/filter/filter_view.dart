@@ -26,7 +26,7 @@ class FilterView extends GetView<FilterController> {
         pickLabel: 'filter.action.pickImage'.tr,
         repickLabel: 'filter.action.repickImage'.tr,
         exportLabel: 'filter.action.apply'.tr,
-        exportIcon: Icons.ios_share_outlined,
+        exportIcon: Icons.save_alt_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.applyFilter,
         imageMeta: image == null

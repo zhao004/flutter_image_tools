@@ -56,13 +56,6 @@ class HomeController extends GetxController {
       route: Routes.compress,
     ),
     const HomeToolItem(
-      titleKey: 'home.tool.batch.title',
-      descriptionKey: 'home.tool.batch.description',
-      icon: 'batch',
-      availability: ToolAvailability.available,
-      route: Routes.batch,
-    ),
-    const HomeToolItem(
       titleKey: 'home.tool.crop.title',
       descriptionKey: 'home.tool.crop.description',
       icon: 'crop',
