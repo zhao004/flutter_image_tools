@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/exceptions/app_exception.dart';
 import '../../core/models/local_image_file.dart';
@@ -19,7 +23,8 @@ enum BatchOperation {
   crop(label: '图片裁剪', featureName: '批量图片裁剪'),
   removeExif(label: '删除 EXIF', featureName: '批量删除 EXIF'),
   grid(label: '九宫格切图', featureName: '批量九宫格切图'),
-  scanCode(label: '批量识别', featureName: '批量二维码识别');
+  scanCode(label: '批量识别', featureName: '批量二维码识别'),
+  base64Encode(label: 'Base64 导出', featureName: '批量 Base64');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -189,6 +194,7 @@ class BatchImageTask {
 class BatchController extends GetxController {
   static const int _minResizeDimension = 1;
   static const int _maxResizeDimension = LocalImageChannel.maxResizeDimension;
+  static const int _maxBase64InputBytes = 12 * 1024 * 1024;
 
   BatchController({
     required LocalImageChannel imageChannel,
@@ -634,6 +640,8 @@ class BatchController extends GetxController {
           await _processGridTask(index, task.source);
         case BatchOperation.scanCode:
           await _processScanCodeTask(index, task.source);
+        case BatchOperation.base64Encode:
+          await _processBase64EncodeTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -916,6 +924,48 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processBase64EncodeTask(
+    int index,
+    LocalImageFile source,
+  ) async {
+    final file = File(source.path);
+    if (!await file.exists()) {
+      throw const AppException('图片文件不存在，请重新选择');
+    }
+    final sizeBytes = await file.length();
+    if (sizeBytes <= 0) {
+      throw const AppException('图片文件为空，无法编码');
+    }
+    if (sizeBytes > _maxBase64InputBytes) {
+      throw const AppException('图片超过 12 MB，请先压缩后再转 Base64');
+    }
+
+    final bytes = await file.readAsBytes();
+    final text = base64Encode(bytes);
+    final output = await _createBase64TextFile(source.name);
+    await output.writeAsString(text, encoding: utf8, flush: true);
+    final outputSizeBytes = await output.length();
+    tasks[index] = tasks[index].copyWith(
+      outputPath: output.path,
+      outputSizeBytes: outputSizeBytes,
+      resultLabel: 'TXT',
+      resultText: _formatTextLength(text.length),
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: output.path,
+      parameters: <String, Object>{
+        'operation': operation.value.name,
+        'mode': 'encode',
+        'length': text.length,
+        'mimeType': source.mimeType,
+      },
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -1031,6 +1081,11 @@ class BatchController extends GetxController {
         });
       case BatchOperation.scanCode:
         parameters['mode'] = 'scan_image';
+      case BatchOperation.base64Encode:
+        parameters.addAll(<String, Object>{
+          'mode': 'encode',
+          'maxInputBytes': _maxBase64InputBytes,
+        });
     }
     return parameters;
   }
@@ -1100,6 +1155,9 @@ class BatchController extends GetxController {
     if (operation.value == BatchOperation.scanCode) {
       return '批量识别会逐张读取二维码或条形码内容，结果只记录文本，不会生成新图片。';
     }
+    if (operation.value == BatchOperation.base64Encode) {
+      return 'Base64 导出会为每张图片生成独立 TXT，单张图片最大 12 MB。';
+    }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
       BatchConvertFormat.webp => 'JPG 和 WebP 会使用导出质量。',
@@ -1144,6 +1202,36 @@ class BatchController extends GetxController {
     return normalized.length > 60
         ? '${normalized.substring(0, 60)}...'
         : normalized;
+  }
+
+  Future<File> _createBase64TextFile(String sourceName) async {
+    final root = await getTemporaryDirectory();
+    final directory = Directory('${root.path}/batch_base64_texts');
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final safeName = _safeFileStem(sourceName);
+    return File('${directory.path}/${safeName}_$timestamp.txt');
+  }
+
+  String _safeFileStem(String name) {
+    final stem = name.trim().replaceFirst(RegExp(r'\.[^.]+$'), '');
+    final sanitized = stem.replaceAll(
+      RegExp(r'[^A-Za-z0-9_\-\u4e00-\u9fa5]+'),
+      '_',
+    );
+    if (sanitized.isEmpty) {
+      return 'image_base64';
+    }
+    return sanitized.length > 48 ? sanitized.substring(0, 48) : sanitized;
+  }
+
+  String _formatTextLength(int length) {
+    if (length < 1000) {
+      return '$length 字符';
+    }
+    return '${(length / 1000).toStringAsFixed(1)}K 字符';
   }
 
   bool _hasValidResizeSettings() {
