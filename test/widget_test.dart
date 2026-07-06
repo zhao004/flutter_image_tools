@@ -43,6 +43,8 @@ import 'package:flutter_image_tools/app/pages/rotate/rotate_controller.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_view.dart';
 import 'package:flutter_image_tools/app/pages/resize/resize_controller.dart';
 import 'package:flutter_image_tools/app/pages/resize/resize_view.dart';
+import 'package:flutter_image_tools/app/pages/watermark/watermark_controller.dart';
+import 'package:flutter_image_tools/app/pages/watermark/watermark_view.dart';
 import 'package:flutter_image_tools/app/repositories/app_settings_repository.dart';
 import 'package:flutter_image_tools/app/repositories/cache_repository.dart';
 import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
@@ -778,6 +780,46 @@ void main() {
     expect(find.text('Vertical'), findsOneWidget);
     expect(find.text('Grid'), findsOneWidget);
     expect(find.text('Image Spacing: 8px'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文文字水印页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图和水印配置首屏文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      WatermarkController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const WatermarkView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Text Watermark'), findsOneWidget);
+    expect(find.text('Select Image'), findsOneWidget);
+    expect(
+      find.text(
+        'Select a JPG, PNG, WebP, or BMP image to add a local text watermark.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Select One'), findsOneWidget);
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Watermark Settings'), findsOneWidget);
+    expect(find.text('Watermark Text'), findsOneWidget);
+    expect(find.text('Bottom Right'), findsOneWidget);
 
     await database.close();
     Get.reset();

@@ -13,7 +13,7 @@ class WatermarkView extends GetView<WatermarkController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('文字水印')),
+      appBar: AppBar(title: Text('watermark.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -35,7 +35,11 @@ class WatermarkView extends GetView<WatermarkController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.branding_watermark_outlined),
-                label: Text(controller.isBusy.value ? '处理中' : '添加水印'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'watermark.action.add'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -63,20 +67,31 @@ class _ImageCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'watermark.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择 JPG、PNG、WebP 或 BMP 图片添加本地文字水印。')
+                Text('watermark.image.empty'.tr)
               else if (images.length == 1 && image != null) ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(controller.formatBytes(image.sizeBytes)),
                 Text(controller.formatDimensions(image)),
               ] else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'watermark.image.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(images.fold<int>(0, (sum, item) => sum + item.sizeBytes))}',
+                  'watermark.image.totalSize'.trParams({
+                    'size': controller.formatBytes(
+                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
+                    ),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -89,14 +104,18 @@ class _ImageCard extends StatelessWidget {
                         ? null
                         : controller.pickImage,
                     icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(image == null ? '选择单张' : '重新选择单张'),
+                    label: Text(
+                      image == null
+                          ? 'watermark.action.pickSingle'.tr
+                          : 'watermark.action.repickSingle'.tr,
+                    ),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: controller.isBusy.value
                         ? null
                         : controller.pickImages,
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('批量选择'),
+                    label: Text('watermark.action.pickBatch'.tr),
                   ),
                 ],
               ),
@@ -114,7 +133,12 @@ class _ImageCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                if (images.length > 5) Text('还有 ${images.length - 5} 张图片'),
+                if (images.length > 5)
+                  Text(
+                    'watermark.image.moreCount'.trParams({
+                      'count': (images.length - 5).toString(),
+                    }),
+                  ),
               ],
             ],
           );
@@ -138,7 +162,10 @@ class _WatermarkCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('水印配置', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'watermark.config.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller.textController,
@@ -146,9 +173,9 @@ class _WatermarkCard extends StatelessWidget {
                 maxLength: 80,
                 minLines: 1,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: '水印文字',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'watermark.config.text'.tr,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
@@ -158,7 +185,7 @@ class _WatermarkCard extends StatelessWidget {
                 children: WatermarkPosition.values
                     .map(
                       (item) => ChoiceChip(
-                        label: Text(item.label),
+                        label: Text(item.labelKey.tr),
                         selected: controller.position.value == item,
                         onSelected: controller.isBusy.value
                             ? null
@@ -168,14 +195,14 @@ class _WatermarkCard extends StatelessWidget {
                     .toList(growable: false),
               ),
               const SizedBox(height: 16),
-              Text('颜色'),
+              Text('watermark.config.color'.tr),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: WatermarkColor.values
                     .map(
                       (item) => ChoiceChip(
-                        label: Text(item.label),
+                        label: Text(item.labelKey.tr),
                         selected: controller.color.value == item,
                         onSelected: controller.isBusy.value
                             ? null
@@ -185,7 +212,11 @@ class _WatermarkCard extends StatelessWidget {
                     .toList(growable: false),
               ),
               const SizedBox(height: 16),
-              Text('字号：${controller.fontSize.value}px'),
+              Text(
+                'watermark.config.fontSize'.trParams({
+                  'size': controller.fontSize.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.fontSize.value.toDouble(),
                 min: 12,
@@ -196,7 +227,11 @@ class _WatermarkCard extends StatelessWidget {
                     ? null
                     : controller.updateFontSize,
               ),
-              Text('透明度：${controller.opacity.value}%'),
+              Text(
+                'watermark.config.opacity'.trParams({
+                  'opacity': controller.opacity.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.opacity.value.toDouble(),
                 min: 10,
@@ -234,18 +269,26 @@ class _ProgressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('批量进度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'watermark.progress.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: controller.progress),
               const SizedBox(height: 8),
-              Text('已处理 $processed / $total 张'),
+              Text(
+                'watermark.progress.processed'.trParams({
+                  'processed': processed.toString(),
+                  'total': total.toString(),
+                }),
+              ),
               const SizedBox(height: 12),
               ...controller.tasks.map((task) {
                 final status = task.isCompleted
                     ? task.isSuccess
-                          ? '成功'
-                          : '失败'
-                    : '等待';
+                          ? 'watermark.task.success'.tr
+                          : 'watermark.task.failed'.tr
+                    : 'watermark.task.waiting'.tr;
                 return ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -290,11 +333,22 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('水印结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'watermark.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('水印文字：${result.text}'),
-              Text('水印位置：${result.position}'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text('watermark.result.text'.trParams({'text': result.text})),
+              Text(
+                'watermark.result.position'.trParams({
+                  'position': controller.positionLabel(result.position),
+                }),
+              ),
+              Text(
+                'watermark.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

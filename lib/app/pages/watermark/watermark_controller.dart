@@ -38,28 +38,28 @@ class WatermarkTask {
 }
 
 enum WatermarkPosition {
-  topLeft(label: '左上', value: 'topLeft'),
-  topRight(label: '右上', value: 'topRight'),
-  bottomLeft(label: '左下', value: 'bottomLeft'),
-  bottomRight(label: '右下', value: 'bottomRight'),
-  center(label: '居中', value: 'center'),
-  tile(label: '平铺', value: 'tile');
+  topLeft(labelKey: 'watermark.position.topLeft', value: 'topLeft'),
+  topRight(labelKey: 'watermark.position.topRight', value: 'topRight'),
+  bottomLeft(labelKey: 'watermark.position.bottomLeft', value: 'bottomLeft'),
+  bottomRight(labelKey: 'watermark.position.bottomRight', value: 'bottomRight'),
+  center(labelKey: 'watermark.position.center', value: 'center'),
+  tile(labelKey: 'watermark.position.tile', value: 'tile');
 
-  const WatermarkPosition({required this.label, required this.value});
+  const WatermarkPosition({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum WatermarkColor {
-  white(label: '白色', value: '#FFFFFF'),
-  black(label: '黑色', value: '#000000'),
-  red(label: '红色', value: '#E53935'),
-  yellow(label: '黄色', value: '#FDD835');
+  white(labelKey: 'watermark.color.white', value: '#FFFFFF'),
+  black(labelKey: 'watermark.color.black', value: '#000000'),
+  red(labelKey: 'watermark.color.red', value: '#E53935'),
+  yellow(labelKey: 'watermark.color.yellow', value: '#FDD835');
 
-  const WatermarkColor({required this.label, required this.value});
+  const WatermarkColor({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
@@ -117,7 +117,7 @@ class WatermarkController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('watermark.error.recentFileFailed'.tr);
     }
   }
 
@@ -141,7 +141,7 @@ class WatermarkController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('watermark.error.recentFileFailed'.tr);
     }
   }
 
@@ -172,16 +172,16 @@ class WatermarkController extends GetxController {
       }
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('watermark.error.pickImageFirst'.tr);
       return;
     }
     final text = textController.text.trim();
     if (text.isEmpty) {
-      _showError('请输入水印文字');
+      _showError('watermark.error.textRequired'.tr);
       return;
     }
     if (text.length > 80) {
-      _showError('水印文字不能超过 80 个字符');
+      _showError('watermark.error.textTooLong'.trParams({'max': '80'}));
       return;
     }
 
@@ -208,7 +208,7 @@ class WatermarkController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationSuccess(
-            featureName: '文字水印',
+            featureName: 'watermark.featureName'.tr,
             inputPath: source.path,
             outputPath: watermarked.outputPath,
             parameters: _historyParameters(text),
@@ -219,7 +219,7 @@ class WatermarkController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationFailure(
-            featureName: '文字水印',
+            featureName: 'watermark.featureName'.tr,
             inputPath: source.path,
             parameters: _historyParameters(text),
             errorMessage: error.message,
@@ -230,11 +230,19 @@ class WatermarkController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar('水印完成', '已成功添加 $successCount 张图片');
+        Get.snackbar(
+          'watermark.success.title'.tr,
+          'watermark.success.message'.trParams({
+            'count': successCount.toString(),
+          }),
+        );
       } else {
         Get.snackbar(
-          '批量水印完成',
-          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+          'watermark.batch.success.title'.tr,
+          'watermark.batch.success.message'.trParams({
+            'success': successCount.toString(),
+            'failed': (selectedImages.length - successCount).toString(),
+          }),
         );
       }
     } finally {
@@ -262,7 +270,7 @@ class WatermarkController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -278,12 +286,19 @@ class WatermarkController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'watermark.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
   }
 
+  String positionLabel(String value) {
+    return WatermarkPosition.values
+        .firstWhere((item) => item.value == value, orElse: () => position.value)
+        .labelKey
+        .tr;
+  }
+
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('watermark.error.title'.tr, message);
   }
 }
