@@ -18,6 +18,8 @@ import 'package:flutter_image_tools/app/pages/compress/compress_controller.dart'
 import 'package:flutter_image_tools/app/pages/compress/compress_view.dart';
 import 'package:flutter_image_tools/app/pages/convert/convert_controller.dart';
 import 'package:flutter_image_tools/app/pages/convert/convert_view.dart';
+import 'package:flutter_image_tools/app/pages/crop/crop_controller.dart';
+import 'package:flutter_image_tools/app/pages/crop/crop_view.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_controller.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
@@ -686,6 +688,53 @@ void main() {
     expect(find.text('Width'), findsOneWidget);
     expect(find.text('Height'), findsOneWidget);
     expect(find.text('Scale by Percentage: 100%'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文图片裁剪页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、比例和首屏说明文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      CropController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const CropView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Image Crop'), findsOneWidget);
+    expect(find.text('Select Image'), findsOneWidget);
+    expect(
+      find.text(
+        'Select a JPG, PNG, WebP, or BMP image for local center cropping.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Select One'), findsOneWidget);
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Crop Ratio'), findsOneWidget);
+    expect(find.text('Square 1:1'), findsOneWidget);
+    expect(find.text('Landscape 16:9'), findsOneWidget);
+    expect(find.text('Current Ratio: 1:1'), findsOneWidget);
+    expect(
+      find.text(
+        'This version uses center crop and keeps the target ratio area from the image center.',
+      ),
+      findsOneWidget,
+    );
 
     await database.close();
     Get.reset();

@@ -38,19 +38,35 @@ class CropTask {
 }
 
 enum CropPreset {
-  square(label: '正方形', ratioText: '1:1', aspectRatio: 1),
-  landscape16x9(label: '横版', ratioText: '16:9', aspectRatio: 16 / 9),
-  landscape4x3(label: '经典', ratioText: '4:3', aspectRatio: 4 / 3),
-  portrait9x16(label: '竖版', ratioText: '9:16', aspectRatio: 9 / 16),
-  custom(label: '自定义', ratioText: '自定义', aspectRatio: 1);
+  square(labelKey: 'crop.preset.square', ratioText: '1:1', aspectRatio: 1),
+  landscape16x9(
+    labelKey: 'crop.preset.landscape16x9',
+    ratioText: '16:9',
+    aspectRatio: 16 / 9,
+  ),
+  landscape4x3(
+    labelKey: 'crop.preset.landscape4x3',
+    ratioText: '4:3',
+    aspectRatio: 4 / 3,
+  ),
+  portrait9x16(
+    labelKey: 'crop.preset.portrait9x16',
+    ratioText: '9:16',
+    aspectRatio: 9 / 16,
+  ),
+  custom(
+    labelKey: 'crop.preset.custom',
+    ratioText: 'crop.preset.customRatio',
+    aspectRatio: 1,
+  );
 
   const CropPreset({
-    required this.label,
+    required this.labelKey,
     required this.ratioText,
     required this.aspectRatio,
   });
 
-  final String label;
+  final String labelKey;
   final String ratioText;
   final double aspectRatio;
 }
@@ -108,7 +124,7 @@ class CropController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('crop.error.recentFileFailed'.tr);
     }
   }
 
@@ -132,7 +148,7 @@ class CropController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('crop.error.recentFileFailed'.tr);
     }
   }
 
@@ -151,7 +167,7 @@ class CropController extends GetxController {
       }
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('crop.error.pickImageFirst'.tr);
       return;
     }
     final aspectRatio = _readAspectRatio();
@@ -176,7 +192,7 @@ class CropController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationSuccess(
-            featureName: '图片裁剪',
+            featureName: 'crop.featureName'.tr,
             inputPath: source.path,
             outputPath: cropped.outputPath,
             parameters: _historyParameters(aspectRatio),
@@ -187,7 +203,7 @@ class CropController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationFailure(
-            featureName: '图片裁剪',
+            featureName: 'crop.featureName'.tr,
             inputPath: source.path,
             parameters: _historyParameters(aspectRatio),
             errorMessage: error.message,
@@ -198,11 +214,17 @@ class CropController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar('裁剪完成', '已成功裁剪 $successCount 张图片');
+        Get.snackbar(
+          'crop.success.title'.tr,
+          'crop.success.message'.trParams({'count': successCount.toString()}),
+        );
       } else {
         Get.snackbar(
-          '批量裁剪完成',
-          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+          'crop.batch.success.title'.tr,
+          'crop.batch.success.message'.trParams({
+            'success': successCount.toString(),
+            'failed': (selectedImages.length - successCount).toString(),
+          }),
         );
       }
     } finally {
@@ -220,7 +242,7 @@ class CropController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -236,7 +258,7 @@ class CropController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'crop.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
   }
@@ -244,7 +266,7 @@ class CropController extends GetxController {
   String currentRatioText() {
     final currentPreset = preset.value;
     if (currentPreset != CropPreset.custom) {
-      return currentPreset.ratioText;
+      return currentPreset.ratioText.tr;
     }
     final width = customWidthController.text.trim();
     final height = customHeightController.text.trim();
@@ -259,16 +281,16 @@ class CropController extends GetxController {
     final width = double.tryParse(customWidthController.text.trim());
     final height = double.tryParse(customHeightController.text.trim());
     if (width == null || height == null) {
-      _showError('请输入有效的自定义比例');
+      _showError('crop.error.invalidCustomRatio'.tr);
       return null;
     }
     if (width <= 0 || height <= 0) {
-      _showError('自定义比例必须大于 0');
+      _showError('crop.error.nonPositiveCustomRatio'.tr);
       return null;
     }
     final ratio = width / height;
     if (ratio < 0.1 || ratio > 10) {
-      _showError('自定义比例必须在 0.1 到 10 之间');
+      _showError('crop.error.customRatioOutOfRange'.tr);
       return null;
     }
     return ratio;
@@ -282,6 +304,6 @@ class CropController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('crop.error.title'.tr, message);
   }
 }

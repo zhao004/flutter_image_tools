@@ -14,7 +14,7 @@ class CropView extends GetView<CropController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('图片裁剪')),
+      appBar: AppBar(title: Text('crop.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -34,7 +34,11 @@ class CropView extends GetView<CropController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.crop),
-                label: Text(controller.isBusy.value ? '裁剪中' : '开始裁剪'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'crop.action.crop'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -62,20 +66,31 @@ class _ImageCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'crop.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择 JPG、PNG、WebP 或 BMP 图片进行本地居中裁剪。')
+                Text('crop.image.empty'.tr)
               else if (images.length == 1 && image != null) ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(controller.formatBytes(image.sizeBytes)),
                 Text(controller.formatDimensions(image)),
               ] else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'crop.image.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(images.fold<int>(0, (sum, item) => sum + item.sizeBytes))}',
+                  'crop.image.totalSize'.trParams({
+                    'size': controller.formatBytes(
+                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
+                    ),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -88,14 +103,18 @@ class _ImageCard extends StatelessWidget {
                         ? null
                         : controller.pickImage,
                     icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(image == null ? '选择单张' : '重新选择单张'),
+                    label: Text(
+                      image == null
+                          ? 'crop.action.pickSingle'.tr
+                          : 'crop.action.repickSingle'.tr,
+                    ),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: controller.isBusy.value
                         ? null
                         : controller.pickImages,
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('批量选择'),
+                    label: Text('crop.action.pickBatch'.tr),
                   ),
                 ],
               ),
@@ -113,7 +132,12 @@ class _ImageCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                if (images.length > 5) Text('还有 ${images.length - 5} 张图片'),
+                if (images.length > 5)
+                  Text(
+                    'crop.image.moreCount'.trParams({
+                      'count': (images.length - 5).toString(),
+                    }),
+                  ),
               ],
             ],
           );
@@ -137,7 +161,10 @@ class _RatioCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('裁剪比例', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'crop.ratio.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -145,7 +172,7 @@ class _RatioCard extends StatelessWidget {
                 children: CropPreset.values
                     .map(
                       (item) => ChoiceChip(
-                        label: Text('${item.label} ${item.ratioText}'),
+                        label: Text('${item.labelKey.tr} ${item.ratioText.tr}'),
                         selected: controller.preset.value == item,
                         onSelected: controller.isBusy.value
                             ? null
@@ -166,9 +193,9 @@ class _RatioCard extends StatelessWidget {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
-                        decoration: const InputDecoration(
-                          labelText: '比例宽',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: 'crop.ratio.width'.tr,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -181,9 +208,9 @@ class _RatioCard extends StatelessWidget {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
-                        decoration: const InputDecoration(
-                          labelText: '比例高',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: 'crop.ratio.height'.tr,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -191,11 +218,15 @@ class _RatioCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
-              Text('当前比例：${controller.currentRatioText()}'),
-              const Text('当前阶段采用居中裁剪，会从图片中心保留目标比例区域。'),
+              Text(
+                'crop.ratio.current'.trParams({
+                  'ratio': controller.currentRatioText(),
+                }),
+              ),
+              Text('crop.ratio.centerHint'.tr),
               if (controller.selectedImages.length > 1) ...[
                 const SizedBox(height: 8),
-                const Text('批量裁剪会对每张图片应用同一个目标比例。'),
+                Text('crop.ratio.batchHint'.tr),
               ],
             ],
           ),
@@ -224,18 +255,26 @@ class _ProgressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('批量进度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'crop.progress.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: controller.progress),
               const SizedBox(height: 8),
-              Text('已处理 $processed / $total 张'),
+              Text(
+                'crop.progress.processed'.trParams({
+                  'processed': processed.toString(),
+                  'total': total.toString(),
+                }),
+              ),
               const SizedBox(height: 12),
               ...controller.tasks.map((task) {
                 final status = task.isCompleted
                     ? task.isSuccess
-                          ? '成功'
-                          : '失败'
-                    : '等待';
+                          ? 'crop.task.success'.tr
+                          : 'crop.task.failed'.tr
+                    : 'crop.task.waiting'.tr;
                 return ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -280,11 +319,27 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('裁剪结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'crop.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('输出尺寸：${result.width} × ${result.height} px'),
-              Text('裁剪比例：${result.aspectRatio.toStringAsFixed(3)}'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'crop.result.dimensions'.trParams({
+                  'width': result.width.toString(),
+                  'height': result.height.toString(),
+                }),
+              ),
+              Text(
+                'crop.result.aspectRatio'.trParams({
+                  'ratio': result.aspectRatio.toStringAsFixed(3),
+                }),
+              ),
+              Text(
+                'crop.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,
