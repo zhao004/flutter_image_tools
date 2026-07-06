@@ -1,4 +1,4 @@
-package com.example.flutter_image_tools
+package com.zhao.imagetoolkit
 
 import android.app.Activity
 import android.content.Intent

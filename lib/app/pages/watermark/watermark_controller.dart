@@ -92,7 +92,7 @@ class WatermarkController extends GetxController {
   final fontSize = 36.obs;
   final opacity = 70.obs;
   final isBusy = false.obs;
-  final textController = TextEditingController(text: 'Image Toolkit');
+  final textController = TextEditingController(text: 'ImageToolKit');
 
   @override
   void onClose() {

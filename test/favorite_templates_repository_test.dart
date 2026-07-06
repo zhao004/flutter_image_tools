@@ -41,7 +41,7 @@ void main() {
       await repository.createTemplate(
         featureName: '文字水印',
         templateName: '默认水印',
-        parameters: const <String, Object?>{'text': 'Image Toolkit'},
+        parameters: const <String, Object?>{'text': 'ImageToolKit'},
       );
       final created = await repository.getFavoriteTemplates();
 

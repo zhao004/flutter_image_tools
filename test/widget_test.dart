@@ -72,7 +72,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Image Toolkit'), findsOneWidget);
+    expect(find.text('ImageToolKit'), findsOneWidget);
     expect(find.text('收藏工具'), findsOneWidget);
     expect(find.text('最近使用'), findsNothing);
     expect(find.text('选择图片后会显示在这里'), findsNothing);
@@ -86,7 +86,7 @@ void main() {
     await tester.pumpWidget(const ImageToolsApp(initialLocale: Locale('en')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Image Toolkit'), findsOneWidget);
+    expect(find.text('ImageToolKit'), findsOneWidget);
     expect(find.text('Favorite Tools'), findsOneWidget);
     expect(find.text('Recent Tools'), findsNothing);
     expect(find.text('Selected images will appear here'), findsNothing);

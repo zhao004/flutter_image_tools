@@ -55,7 +55,7 @@ class LocalImageChannel {
   static const int maxGifScalePercent = 100;
   static const int minGridSize = 2;
   static const int maxGridSize = 5;
-  static const String _defaultAlbum = 'Image Toolkit';
+  static const String _defaultAlbum = 'ImageToolKit';
   static const int _maxDecodedPixels = 120000000;
   static const Set<String> supportedFilters = {
     'grayscale',

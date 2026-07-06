@@ -189,7 +189,7 @@ class FavoritesController extends GetxController {
         'keepAspectRatio': true,
       },
       FavoriteFeaturePreset.watermark => <String, Object>{
-        'text': 'Image Toolkit',
+        'text': 'ImageToolKit',
         'position': 'bottomRight',
         'opacity': 70,
       },

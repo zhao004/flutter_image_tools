@@ -76,7 +76,7 @@ class ImageToolsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Image Toolkit',
+      title: 'ImageToolKit',
       debugShowCheckedModeBanner: false,
       translations: AppTranslations(),
       locale: resolveSupportedLocale(initialLocale ?? Get.deviceLocale),

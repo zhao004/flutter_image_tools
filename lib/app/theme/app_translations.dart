@@ -8,7 +8,7 @@ class AppTranslations extends Translations {
   @override
   Map<String, Map<String, String>> get keys => const {
     'zh_CN': {
-      'app.title': 'Image Toolkit',
+      'app.title': 'ImageToolKit',
       'home.search.hint': '搜索工具',
       'home.more.tooltip': '更多',
       'home.section.favorites': '收藏工具',
@@ -1063,7 +1063,7 @@ class AppTranslations extends Translations {
       'cache.clear.failed.message': '部分缓存文件无法删除，请稍后重试',
     },
     'zh_TW': {
-      'app.title': 'Image Toolkit',
+      'app.title': 'ImageToolKit',
       'home.search.hint': '搜尋工具',
       'home.more.tooltip': '更多',
       'home.section.favorites': '收藏工具',
@@ -2118,7 +2118,7 @@ class AppTranslations extends Translations {
       'cache.clear.failed.message': '部分快取檔案無法刪除，請稍後重試',
     },
     'en': {
-      'app.title': 'Image Toolkit',
+      'app.title': 'ImageToolKit',
       'home.search.hint': 'Search tools',
       'home.more.tooltip': 'More',
       'home.section.favorites': 'Favorite Tools',
@@ -2138,7 +2138,7 @@ class AppTranslations extends Translations {
       'home.favorite.remove': 'Remove favorite',
       'home.recentImages.empty': 'Selected images will appear here',
       'home.header.eyebrow': 'Privacy-first · Local processing',
-      'home.header.title': 'Offline Local Image Toolkit',
+      'home.header.title': 'Offline Local ImageToolKit',
       'home.header.subtitle':
           'Images are processed only on this phone and never uploaded. Compression, crop, merge, filters, and more are available locally.',
       'home.header.privacy.title': 'No Uploads',
