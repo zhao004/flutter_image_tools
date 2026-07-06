@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import 'package:flutter_image_tools/app/database/database.dart';
 import 'package:flutter_image_tools/app/models/cache_summary.dart';
+import 'package:flutter_image_tools/app/models/local_image_file.dart';
 import 'package:flutter_image_tools/app/pages/annotation/annotation_controller.dart';
 import 'package:flutter_image_tools/app/pages/annotation/annotation_view.dart';
 import 'package:flutter_image_tools/app/pages/base64/base64_controller.dart';
@@ -824,6 +825,41 @@ void main() {
     expect(find.text('Select One'), findsOneWidget);
     expect(find.byIcon(Icons.save_alt_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
+
+    await database.close();
+    Get.reset();
+  });
+
+  test('裁剪框拖动更新位置并限制在图片范围内', () async {
+    // 控制器使用归一化中心点记录拖动位置，边界钳制避免导出区域越界。
+    final database = AppDatabase(NativeDatabase.memory());
+    final controller = CropController(
+      imageChannel: LocalImageChannel(),
+      historyRepository: OperationHistoryRepository(database: database),
+      recentFilesRepository: RecentFilesRepository(database: database),
+    );
+    const image = LocalImageFile(
+      path: 'preview.png',
+      name: 'preview.png',
+      sizeBytes: 100,
+      mimeType: 'image/png',
+      width: 1600,
+      height: 900,
+    );
+
+    final initialFrame = controller.frameRatiosForImage(image, 1);
+    controller.updateCropFrame(
+      centerXRatio: 0.9,
+      centerYRatio: 0.9,
+      frameWidthRatio: initialFrame.width,
+      frameHeightRatio: initialFrame.height,
+    );
+    final movedFrame = controller.frameRatiosForImage(image, 1);
+
+    expect(movedFrame.left, greaterThan(initialFrame.left));
+    expect(movedFrame.top, equals(0));
+    expect(movedFrame.left + movedFrame.width, lessThanOrEqualTo(1));
+    expect(movedFrame.top + movedFrame.height, lessThanOrEqualTo(1));
 
     await database.close();
     Get.reset();

@@ -31,6 +31,7 @@ class CropView extends GetView<CropController> {
         exportIcon: Icons.save_alt_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.crop,
+        previewBorderRadius: 12,
         imageMeta: image == null
             ? null
             : '${controller.formatDimensions(image)} · ${controller.currentRatioText()}',
@@ -84,61 +85,64 @@ class _CropOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final stageWidth = constraints.maxWidth;
-        final stageHeight = constraints.maxHeight;
-        final frameRatios = controller.frameRatiosForImage(image, aspectRatio);
-        final frameWidth = stageWidth * frameRatios.width;
-        final frameHeight = stageHeight * frameRatios.height;
-        final frameLeft = stageWidth * frameRatios.left;
-        final frameTop = stageHeight * frameRatios.top;
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.28),
-                ),
-              ),
-            ),
-            Positioned(
-              left: frameLeft,
-              top: frameTop,
-              width: frameWidth,
-              height: frameHeight,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanUpdate: controller.isBusy.value
-                    ? null
-                    : (details) {
-                        if (stageWidth <= 0 || stageHeight <= 0) {
-                          return;
-                        }
-                        final centerXRatio =
-                            (frameLeft + frameWidth / 2 + details.delta.dx) /
-                            stageWidth;
-                        final centerYRatio =
-                            (frameTop + frameHeight / 2 + details.delta.dy) /
-                            stageHeight;
-                        controller.updateCropFrame(
-                          centerXRatio: centerXRatio,
-                          centerYRatio: centerYRatio,
-                          frameWidthRatio: frameRatios.width,
-                          frameHeightRatio: frameRatios.height,
-                        );
-                      },
+    return Obx(
+      () => LayoutBuilder(
+        builder: (context, constraints) {
+          final stageWidth = constraints.maxWidth;
+          final stageHeight = constraints.maxHeight;
+          final frameRatios = controller.frameRatiosForImage(
+            image,
+            aspectRatio,
+          );
+          final frameWidth = stageWidth * frameRatios.width;
+          final frameHeight = stageHeight * frameRatios.height;
+          final frameLeft = stageWidth * frameRatios.left;
+          final frameTop = stageHeight * frameRatios.top;
+          return Stack(
+            children: [
+              Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white, width: 2),
-                    color: Colors.transparent,
+                    color: Colors.black.withValues(alpha: 0.28),
                   ),
                 ),
               ),
-            ),
-          ],
-        );
-      },
+              Positioned(
+                left: frameLeft,
+                top: frameTop,
+                width: frameWidth,
+                height: frameHeight,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: controller.isBusy.value
+                      ? null
+                      : (details) {
+                          if (stageWidth <= 0 || stageHeight <= 0) {
+                            return;
+                          }
+                          controller.updateCropFrame(
+                            centerXRatio:
+                                controller.cropCenterXRatio.value +
+                                details.delta.dx / stageWidth,
+                            centerYRatio:
+                                controller.cropCenterYRatio.value +
+                                details.delta.dy / stageHeight,
+                            frameWidthRatio: frameRatios.width,
+                            frameHeightRatio: frameRatios.height,
+                          );
+                        },
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white, width: 2),
+                      color: Colors.transparent,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

@@ -30,6 +30,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.imageMeta,
     this.resultSummary,
     this.appBarActions = const [],
+    this.previewBorderRadius = 24,
   });
 
   final String title;
@@ -50,6 +51,7 @@ class ImageEditorScaffold extends StatelessWidget {
   final String? imageMeta;
   final Widget? resultSummary;
   final List<Widget> appBarActions;
+  final double previewBorderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +97,7 @@ class ImageEditorScaffold extends StatelessWidget {
                       meta: imageMeta,
                       previewBuilder: previewBuilder,
                       resultSummary: resultSummary,
+                      previewBorderRadius: previewBorderRadius,
                     ),
             ),
             if (image != null) _EditorToolbarSurface(child: toolbar),
@@ -164,6 +167,7 @@ class _EditorPreviewStage extends StatelessWidget {
     required this.previewBuilder,
     required this.meta,
     required this.resultSummary,
+    required this.previewBorderRadius,
   });
 
   final LocalImageFile image;
@@ -171,6 +175,7 @@ class _EditorPreviewStage extends StatelessWidget {
   previewBuilder;
   final String? meta;
   final Widget? resultSummary;
+  final double previewBorderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +194,10 @@ class _EditorPreviewStage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _PreviewFrame(child: previewBuilder(context, image)),
+                  _PreviewFrame(
+                    borderRadius: previewBorderRadius,
+                    child: previewBuilder(context, image),
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     image.name,
@@ -221,9 +229,10 @@ class _EditorPreviewStage extends StatelessWidget {
 }
 
 class _PreviewFrame extends StatelessWidget {
-  const _PreviewFrame({required this.child});
+  const _PreviewFrame({required this.child, required this.borderRadius});
 
   final Widget child;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -231,7 +240,7 @@ class _PreviewFrame extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(color: colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
@@ -241,7 +250,10 @@ class _PreviewFrame extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(borderRadius: BorderRadius.circular(24), child: child),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: child,
+      ),
     );
   }
 }
