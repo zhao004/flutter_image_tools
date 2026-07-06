@@ -15,10 +15,10 @@ class HistoryView extends GetView<HistoryController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('历史记录'),
+        title: Text('history.title'.tr),
         actions: [
           IconButton(
-            tooltip: '清理历史',
+            tooltip: 'history.clear.tooltip'.tr,
             onPressed: () => _confirmClearHistory(context),
             icon: const Icon(Icons.delete_outline),
           ),
@@ -48,11 +48,11 @@ class HistoryView extends GetView<HistoryController> {
                         children: [
                           const Icon(Icons.history, size: 48),
                           const SizedBox(height: 12),
-                          const Text('暂无处理记录'),
+                          Text('history.empty'.tr),
                           const SizedBox(height: 12),
                           OutlinedButton(
                             onPressed: controller.loadHistory,
-                            child: const Text('刷新'),
+                            child: Text('common.refresh'.tr),
                           ),
                         ],
                       ),
@@ -83,9 +83,13 @@ class HistoryView extends GetView<HistoryController> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(isSuccess ? '成功' : '失败'),
+                                  Text(
+                                    isSuccess
+                                        ? 'history.status.success'.tr
+                                        : 'history.status.failed'.tr,
+                                  ),
                                   IconButton(
-                                    tooltip: '删除记录',
+                                    tooltip: 'history.delete.tooltip'.tr,
                                     onPressed: () =>
                                         _confirmDeleteHistory(context, item),
                                     icon: const Icon(Icons.delete_outline),
@@ -110,16 +114,16 @@ class HistoryView extends GetView<HistoryController> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清理历史记录'),
-        content: const Text('此操作只清理本地历史记录，不会删除已导出的图片。'),
+        title: Text('history.clear.title'.tr),
+        content: Text('history.clear.message'.tr),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text('common.cancel'.tr),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('清理'),
+            child: Text('common.clear'.tr),
           ),
         ],
       ),
@@ -136,16 +140,18 @@ class HistoryView extends GetView<HistoryController> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除历史记录'),
-        content: Text('确定删除“${item.featureName}”这条记录吗？'),
+        title: Text('history.delete.title'.tr),
+        content: Text(
+          'history.delete.message'.trParams({'feature': item.featureName}),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text('common.cancel'.tr),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
+            child: Text('common.delete'.tr),
           ),
         ],
       ),
@@ -171,9 +177,9 @@ class _HistoryFilters extends StatelessWidget {
           children: [
             TextField(
               onChanged: controller.updateKeyword,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: '搜索功能、路径或参数',
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'history.search.hint'.tr,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -184,7 +190,7 @@ class _HistoryFilters extends StatelessWidget {
                     .map(
                       (filter) => ButtonSegment(
                         value: filter,
-                        label: Text(filter.label),
+                        label: Text(filter.labelKey.tr),
                       ),
                     )
                     .toList(growable: false),
@@ -201,7 +207,7 @@ class _HistoryFilters extends StatelessWidget {
                 children: HistoryDateFilter.values
                     .map(
                       (filter) => ChoiceChip(
-                        label: Text(filter.label),
+                        label: Text(filter.labelKey.tr),
                         selected: controller.dateFilter.value == filter,
                         onSelected: (_) => controller.updateDateFilter(filter),
                       ),

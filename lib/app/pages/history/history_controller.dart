@@ -4,25 +4,25 @@ import '../../database/database.dart';
 import '../../repositories/operation_history_repository.dart';
 
 enum HistoryStatusFilter {
-  all(label: '全部', value: ''),
-  success(label: '成功', value: 'success'),
-  failed(label: '失败', value: 'failed');
+  all(labelKey: 'history.filter.all', value: ''),
+  success(labelKey: 'history.status.success', value: 'success'),
+  failed(labelKey: 'history.status.failed', value: 'failed');
 
-  const HistoryStatusFilter({required this.label, required this.value});
+  const HistoryStatusFilter({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum HistoryDateFilter {
-  all(label: '全部', days: 0),
-  today(label: '今天', days: 1),
-  sevenDays(label: '近 7 天', days: 7),
-  thirtyDays(label: '近 30 天', days: 30);
+  all(labelKey: 'history.filter.all', days: 0),
+  today(labelKey: 'history.date.today', days: 1),
+  sevenDays(labelKey: 'history.date.sevenDays', days: 7),
+  thirtyDays(labelKey: 'history.date.thirtyDays', days: 30);
 
-  const HistoryDateFilter({required this.label, required this.days});
+  const HistoryDateFilter({required this.labelKey, required this.days});
 
-  final String label;
+  final String labelKey;
   final int days;
 }
 
@@ -93,9 +93,15 @@ class HistoryController extends GetxController {
     try {
       await _repository.deleteHistoryItem(item.id);
       items.removeWhere((history) => history.id == item.id);
-      Get.snackbar('删除完成', '该条历史记录已删除');
+      Get.snackbar(
+        'history.delete.success.title'.tr,
+        'history.delete.success.message'.tr,
+      );
     } catch (_) {
-      Get.snackbar('删除失败', '历史记录删除失败，请稍后重试');
+      Get.snackbar(
+        'history.delete.failed.title'.tr,
+        'history.delete.failed.message'.tr,
+      );
     } finally {
       isLoading.value = false;
     }
