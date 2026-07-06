@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import '../../routes/app_pages.dart';
 import 'settings_controller.dart';
 
-/// 设置页，展示离线隐私说明和默认压缩参数。
+/// 设置页，展示离线隐私说明、默认压缩参数和导出偏好。
 ///
 /// 构建设计：设置项直接写入本地 Drift，保证离线可用；未接入目录选择前，
 /// 导出目录只展示当前策略，避免提供无法生效的编辑入口。
@@ -56,6 +56,42 @@ class SettingsView extends GetView<SettingsController> {
                         divisions: 99,
                         label: '${controller.defaultQuality.value}%',
                         onChanged: controller.updateDefaultQuality,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Obx(
+                  () => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '默认保存规则',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('用于后续导出功能生成文件名和目录结构。'),
+                      const SizedBox(height: 12),
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: 'timestamp', label: Text('时间戳')),
+                          ButtonSegment(
+                            value: 'source_name',
+                            label: Text('原文件名'),
+                          ),
+                          ButtonSegment(
+                            value: 'feature_folder',
+                            label: Text('功能目录'),
+                          ),
+                        ],
+                        selected: {controller.defaultSaveRule.value},
+                        onSelectionChanged: (values) =>
+                            controller.updateDefaultSaveRule(values.first),
                       ),
                     ],
                   ),

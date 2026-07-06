@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import '../../repositories/app_settings_repository.dart';
 import '../../theme/theme_mode_parser.dart';
 
-/// 设置控制器，承载默认压缩参数、导出格式和主题模式。
+/// 设置控制器，承载默认压缩参数、导出格式、保存规则和主题模式。
 ///
 /// 异常策略：读取失败回退安全默认值并提示用户；写入失败保留当前界面值，
 /// 避免本地数据库异常导致设置页不可用。
@@ -15,6 +15,7 @@ class SettingsController extends GetxController {
 
   final defaultQuality = 80.obs;
   final defaultExportFormat = 'jpg'.obs;
+  final defaultSaveRule = 'timestamp'.obs;
   final themeMode = 'system'.obs;
   final defaultExportDirectory = RxnString();
   final isLoading = false.obs;
@@ -31,6 +32,7 @@ class SettingsController extends GetxController {
       defaultQuality.value = await _settingsRepository.getDefaultQuality();
       defaultExportFormat.value = await _settingsRepository
           .getDefaultExportFormat();
+      defaultSaveRule.value = await _settingsRepository.getDefaultSaveRule();
       themeMode.value = await _settingsRepository.getThemeMode();
       defaultExportDirectory.value = await _settingsRepository
           .getDefaultExportDirectory();
@@ -57,6 +59,15 @@ class SettingsController extends GetxController {
       defaultExportFormat.value = format;
     } catch (_) {
       Get.snackbar('保存失败', '默认导出格式未保存');
+    }
+  }
+
+  Future<void> updateDefaultSaveRule(String rule) async {
+    try {
+      await _settingsRepository.setDefaultSaveRule(rule);
+      defaultSaveRule.value = rule;
+    } catch (_) {
+      Get.snackbar('保存失败', '默认保存规则未保存');
     }
   }
 

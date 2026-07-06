@@ -10,6 +10,7 @@ class AppSettingsRepository {
   static const String defaultQualityKey = 'default_quality';
   static const String defaultExportFormatKey = 'default_export_format';
   static const String defaultExportDirectoryKey = 'default_export_directory';
+  static const String defaultSaveRuleKey = 'default_save_rule';
   static const String themeModeKey = 'theme_mode';
 
   final AppDatabase _database;
@@ -47,6 +48,19 @@ class AppSettingsRepository {
       throw ArgumentError.value(directory, 'directory', '默认导出目录不能为空');
     }
     await _setValue(defaultExportDirectoryKey, normalized, 'string');
+  }
+
+  Future<String> getDefaultSaveRule() async {
+    return await _getString(defaultSaveRuleKey) ?? 'timestamp';
+  }
+
+  Future<void> setDefaultSaveRule(String rule) async {
+    final normalized = rule.trim().toLowerCase();
+    final supportedRules = {'timestamp', 'source_name', 'feature_folder'};
+    if (!supportedRules.contains(normalized)) {
+      throw ArgumentError.value(rule, 'rule', '不支持的默认保存规则');
+    }
+    await _setValue(defaultSaveRuleKey, normalized, 'string');
   }
 
   Future<String> getThemeMode() async {
