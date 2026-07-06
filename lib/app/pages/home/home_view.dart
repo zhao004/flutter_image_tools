@@ -18,35 +18,10 @@ class HomeView extends GetView<HomeController> {
       appBar: AppBar(
         title: Text('app.title'.tr),
         actions: [
-          PopupMenuButton<_HomeMenuAction>(
-            tooltip: 'home.more.tooltip'.tr,
-            icon: const Icon(Icons.more_vert),
-            onSelected: (action) {
-              switch (action) {
-                case _HomeMenuAction.favorites:
-                  controller.openFavorites();
-                case _HomeMenuAction.settings:
-                  controller.openSettings();
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: _HomeMenuAction.favorites,
-                child: ListTile(
-                  leading: const Icon(Icons.star_outline),
-                  title: Text('home.section.favorites'.tr),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _HomeMenuAction.settings,
-                child: ListTile(
-                  leading: const Icon(Icons.settings_outlined),
-                  title: Text('home.tool.settings.title'.tr),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
+          IconButton(
+            tooltip: 'home.tool.settings.title'.tr,
+            onPressed: controller.openSettings,
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
@@ -146,12 +121,14 @@ class HomeView extends GetView<HomeController> {
                       itemCount: controller.filteredTools.length,
                       itemBuilder: (context, index) {
                         final tool = controller.filteredTools[index];
-                        return _ToolCard(
-                          tool: tool,
-                          isFavorite: controller.isFavoriteTool(tool),
-                          onToggleFavorite: () =>
-                              controller.toggleFavoriteTool(tool),
-                          onTap: () => controller.openTool(tool),
+                        return Obx(
+                          () => _ToolCard(
+                            tool: tool,
+                            isFavorite: controller.isFavoriteTool(tool),
+                            onToggleFavorite: () =>
+                                controller.toggleFavoriteTool(tool),
+                            onTap: () => controller.openTool(tool),
+                          ),
                         );
                       },
                     ),
@@ -165,8 +142,6 @@ class HomeView extends GetView<HomeController> {
     );
   }
 }
-
-enum _HomeMenuAction { favorites, settings }
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({

@@ -77,24 +77,23 @@ class SettingsView extends GetView<SettingsController> {
                       const SizedBox(height: 8),
                       Text('settings.saveRule.body'.tr),
                       const SizedBox(height: 12),
-                      SegmentedButton<String>(
-                        segments: [
-                          ButtonSegment(
+                      _SettingsDropdown(
+                        value: controller.defaultSaveRule.value,
+                        options: [
+                          _SettingsOption(
                             value: 'timestamp',
-                            label: Text('settings.saveRule.timestamp'.tr),
+                            label: 'settings.saveRule.timestamp'.tr,
                           ),
-                          ButtonSegment(
+                          _SettingsOption(
                             value: 'source_name',
-                            label: Text('settings.saveRule.sourceName'.tr),
+                            label: 'settings.saveRule.sourceName'.tr,
                           ),
-                          ButtonSegment(
+                          _SettingsOption(
                             value: 'feature_folder',
-                            label: Text('settings.saveRule.featureFolder'.tr),
+                            label: 'settings.saveRule.featureFolder'.tr,
                           ),
                         ],
-                        selected: {controller.defaultSaveRule.value},
-                        onSelectionChanged: (values) =>
-                            controller.updateDefaultSaveRule(values.first),
+                        onChanged: controller.updateDefaultSaveRule,
                       ),
                     ],
                   ),
@@ -114,15 +113,14 @@ class SettingsView extends GetView<SettingsController> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'jpg', label: Text('JPG')),
-                          ButtonSegment(value: 'png', label: Text('PNG')),
-                          ButtonSegment(value: 'webp', label: Text('WebP')),
+                      _SettingsDropdown(
+                        value: controller.defaultExportFormat.value,
+                        options: const [
+                          _SettingsOption(value: 'jpg', label: 'JPG'),
+                          _SettingsOption(value: 'png', label: 'PNG'),
+                          _SettingsOption(value: 'webp', label: 'WebP'),
                         ],
-                        selected: {controller.defaultExportFormat.value},
-                        onSelectionChanged: (values) =>
-                            controller.updateDefaultExportFormat(values.first),
+                        onChanged: controller.updateDefaultExportFormat,
                       ),
                     ],
                   ),
@@ -142,24 +140,23 @@ class SettingsView extends GetView<SettingsController> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
-                      SegmentedButton<String>(
-                        segments: [
-                          ButtonSegment(
+                      _SettingsDropdown(
+                        value: controller.themeMode.value,
+                        options: [
+                          _SettingsOption(
                             value: 'system',
-                            label: Text('settings.theme.system'.tr),
+                            label: 'settings.theme.system'.tr,
                           ),
-                          ButtonSegment(
+                          _SettingsOption(
                             value: 'light',
-                            label: Text('settings.theme.light'.tr),
+                            label: 'settings.theme.light'.tr,
                           ),
-                          ButtonSegment(
+                          _SettingsOption(
                             value: 'dark',
-                            label: Text('settings.theme.dark'.tr),
+                            label: 'settings.theme.dark'.tr,
                           ),
                         ],
-                        selected: {controller.themeMode.value},
-                        onSelectionChanged: (values) =>
-                            controller.updateThemeMode(values.first),
+                        onChanged: controller.updateThemeMode,
                       ),
                     ],
                   ),
@@ -179,28 +176,27 @@ class SettingsView extends GetView<SettingsController> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
-                      SegmentedButton<String>(
-                        segments: [
-                          ButtonSegment(
+                      _SettingsDropdown(
+                        value: controller.language.value,
+                        options: [
+                          _SettingsOption(
                             value: 'system',
-                            label: Text('settings.language.system'.tr),
+                            label: 'settings.language.system'.tr,
                           ),
-                          ButtonSegment(
+                          _SettingsOption(
                             value: 'zh_cn',
-                            label: Text('settings.language.zhCn'.tr),
+                            label: 'settings.language.zhCn'.tr,
                           ),
-                          ButtonSegment(
+                          _SettingsOption(
                             value: 'zh_tw',
-                            label: Text('settings.language.zhTw'.tr),
+                            label: 'settings.language.zhTw'.tr,
                           ),
-                          ButtonSegment(
+                          _SettingsOption(
                             value: 'en',
-                            label: Text('settings.language.en'.tr),
+                            label: 'settings.language.en'.tr,
                           ),
                         ],
-                        selected: {controller.language.value},
-                        onSelectionChanged: (values) =>
-                            controller.updateLanguage(values.first),
+                        onChanged: controller.updateLanguage,
                       ),
                     ],
                   ),
@@ -262,6 +258,53 @@ class SettingsView extends GetView<SettingsController> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SettingsOption {
+  const _SettingsOption({required this.value, required this.label});
+
+  final String value;
+  final String label;
+}
+
+class _SettingsDropdown extends StatelessWidget {
+  const _SettingsDropdown({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String value;
+  final List<_SettingsOption> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: options.any((option) => option.value == value)
+          ? value
+          : options.first.value,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      ),
+      items: options
+          .map(
+            (option) => DropdownMenuItem<String>(
+              value: option.value,
+              child: Text(option.label, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: (nextValue) {
+        if (nextValue == null || nextValue == value) {
+          return;
+        }
+        onChanged(nextValue);
+      },
     );
   }
 }
