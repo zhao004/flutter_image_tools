@@ -15,7 +15,7 @@ class QrcodeView extends GetView<QrcodeController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('二维码')),
+      appBar: AppBar(title: Text('qrcode.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -51,14 +51,22 @@ class _ScanCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('识别二维码/条形码', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'qrcode.scan.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (image == null)
-                const Text('请选择包含二维码或条形码的图片，识别过程完全在本地完成。')
+                Text('qrcode.scan.empty'.tr)
               else ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                Text('尺寸：${image.width} × ${image.height} px'),
+                Text(
+                  'qrcode.result.imageSize'.trParams({
+                    'width': '${image.width}',
+                    'height': '${image.height}',
+                  }),
+                ),
               ],
               const SizedBox(height: 12),
               FilledButton.tonalIcon(
@@ -71,7 +79,11 @@ class _ScanCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.document_scanner_outlined),
-                label: Text(image == null ? '选择并识别' : '重新选择并识别'),
+                label: Text(
+                  image == null
+                      ? 'qrcode.action.pickScan'.tr
+                      : 'qrcode.action.repickScan'.tr,
+                ),
               ),
             ],
           );
@@ -99,19 +111,30 @@ class _ScanResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('识别结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'qrcode.scan.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('格式：${result.format}'),
-              Text('内容长度：${result.text.length} 字符'),
+              Text('qrcode.result.format'.trParams({'format': result.format})),
+              Text(
+                'qrcode.result.contentLength'.trParams({
+                  'length': '${result.text.length}',
+                }),
+              ),
               if (result.rawBytesLength > 0)
-                Text('原始字节：${result.rawBytesLength}'),
+                Text(
+                  'qrcode.result.rawBytes'.trParams({
+                    'bytes': '${result.rawBytesLength}',
+                  }),
+                ),
               const SizedBox(height: 8),
               SelectableText(result.text),
               const SizedBox(height: 12),
               FilledButton.tonalIcon(
                 onPressed: controller.copyScanText,
                 icon: const Icon(Icons.copy_outlined),
-                label: const Text('复制内容'),
+                label: Text('qrcode.action.copyContent'.tr),
               ),
             ],
           ),
@@ -135,7 +158,10 @@ class _GenerateCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('生成二维码/条形码', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'qrcode.generate.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller.inputController,
@@ -143,9 +169,11 @@ class _GenerateCard extends StatelessWidget {
                 minLines: 3,
                 maxLines: 5,
                 decoration: InputDecoration(
-                  hintText: '输入文本、链接或短备注',
-                  helperText:
-                      '二维码最多 ${QrcodeController.maxContentBytes} 字节；条形码最多 ${QrcodeController.maxBarcodeLength} 个可打印 ASCII 字符。',
+                  hintText: 'qrcode.generate.hint'.tr,
+                  helperText: 'qrcode.generate.helper'.trParams({
+                    'qrBytes': '${QrcodeController.maxContentBytes}',
+                    'barcodeChars': '${QrcodeController.maxBarcodeLength}',
+                  }),
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -164,14 +192,18 @@ class _GenerateCard extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.qr_code_2),
-                    label: Text(controller.isBusy.value ? '生成中' : '生成二维码'),
+                    label: Text(
+                      controller.isBusy.value
+                          ? 'qrcode.action.generating'.tr
+                          : 'qrcode.action.generateQr'.tr,
+                    ),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: controller.isBusy.value
                         ? null
                         : controller.generateBarcode,
                     icon: const Icon(Icons.view_week_outlined),
-                    label: const Text('生成条形码'),
+                    label: Text('qrcode.action.generateBarcode'.tr),
                   ),
                 ],
               ),
@@ -201,7 +233,10 @@ class _BarcodeResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('条形码结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'qrcode.barcode.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               Center(
                 child: Container(
@@ -217,9 +252,18 @@ class _BarcodeResultCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Text('格式：${result.format}'),
-              Text('像素：${result.pixelWidth} × ${result.pixelHeight}'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text('qrcode.result.format'.trParams({'format': result.format})),
+              Text(
+                'qrcode.result.pixels'.trParams({
+                  'width': '${result.pixelWidth}',
+                  'height': '${result.pixelHeight}',
+                }),
+              ),
+              Text(
+                'qrcode.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,
@@ -252,7 +296,10 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('二维码结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'qrcode.qr.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               Center(
                 child: Container(
@@ -269,10 +316,27 @@ class _ResultCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Text('版本：${result.version}'),
-              Text('模块：${result.moduleCount} × ${result.moduleCount}'),
-              Text('像素：${result.pixelSize} × ${result.pixelSize}'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'qrcode.result.version'.trParams({
+                  'version': '${result.version}',
+                }),
+              ),
+              Text(
+                'qrcode.result.modules'.trParams({
+                  'count': '${result.moduleCount}',
+                }),
+              ),
+              Text(
+                'qrcode.result.pixels'.trParams({
+                  'width': '${result.pixelSize}',
+                  'height': '${result.pixelSize}',
+                }),
+              ),
+              Text(
+                'qrcode.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

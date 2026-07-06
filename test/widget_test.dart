@@ -16,6 +16,8 @@ import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
+import 'package:flutter_image_tools/app/pages/qrcode/qrcode_controller.dart';
+import 'package:flutter_image_tools/app/pages/qrcode/qrcode_view.dart';
 import 'package:flutter_image_tools/app/repositories/cache_repository.dart';
 import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_history_repository.dart';
@@ -217,6 +219,46 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Restore Image'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文二维码页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证生成和识别区域文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      QrcodeController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const QrcodeView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('QR Code'), findsOneWidget);
+    expect(find.text('Generate QR Code / Barcode'), findsOneWidget);
+    expect(find.text('Enter text, a link, or a short note'), findsOneWidget);
+    expect(find.text('Generate QR Code'), findsOneWidget);
+    expect(find.text('Generate Barcode'), findsOneWidget);
+    expect(find.text('Scan QR Code / Barcode'), findsOneWidget);
+    expect(
+      find.text(
+        'Select an image containing a QR code or barcode. Scanning stays fully local.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Select and Scan'), findsOneWidget);
 
     await database.close();
     Get.reset();

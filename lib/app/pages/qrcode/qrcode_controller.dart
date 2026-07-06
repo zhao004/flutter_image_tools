@@ -58,11 +58,15 @@ class QrcodeController extends GetxController {
     }
     final content = inputController.text.trim();
     if (content.isEmpty) {
-      _showError('请输入二维码内容');
+      _showError('qrcode.error.qrContentRequired'.tr);
       return;
     }
     if (utf8.encode(content).length > maxContentBytes) {
-      _showError('内容过长，请控制在 $maxContentBytes 字节以内');
+      _showError(
+        'qrcode.error.qrContentTooLong'.trParams({
+          'maxBytes': '$maxContentBytes',
+        }),
+      );
       return;
     }
 
@@ -87,12 +91,12 @@ class QrcodeController extends GetxController {
         pixelSize: pixelSize,
       );
       if (!qr.hasValidOutput) {
-        throw const FormatException('二维码输出文件异常');
+        throw const FormatException();
       }
       result.value = qr;
       barcodeResult.value = null;
       await _historyRepository.recordOperationSuccess(
-        featureName: '二维码生成',
+        featureName: 'qrcode.feature.qrGenerate'.tr,
         inputPath: startedInput,
         outputPath: output.path,
         parameters: <String, Object>{
@@ -101,16 +105,18 @@ class QrcodeController extends GetxController {
           'pixelSize': qr.pixelSize,
         },
       );
-      Get.snackbar('生成完成', '二维码 PNG 已导出到应用缓存目录');
-    } on ArgumentError catch (error) {
-      await _recordFailure(
-        startedInput,
-        error.message?.toString() ?? '二维码参数无效',
+      Get.snackbar(
+        'qrcode.generate.success.title'.tr,
+        'qrcode.generate.qrSuccess.message'.tr,
       );
-      _showError(error.message?.toString() ?? '二维码参数无效');
+    } on ArgumentError catch (error) {
+      final message = error.message?.toString() ?? 'qrcode.error.qrInvalid'.tr;
+      await _recordFailure(startedInput, message);
+      _showError(message);
     } catch (_) {
-      await _recordFailure(startedInput, '二维码生成失败');
-      _showError('二维码生成失败，请重试');
+      final message = 'qrcode.error.qrGenerateFailedLog'.tr;
+      await _recordFailure(startedInput, message);
+      _showError('qrcode.error.qrGenerateFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -122,11 +128,19 @@ class QrcodeController extends GetxController {
     }
     final content = inputController.text.trim();
     if (content.isEmpty) {
-      _showError('请输入条形码内容');
+      _showError('qrcode.error.barcodeContentRequired'.tr);
       return;
     }
     if (content.length > maxBarcodeLength) {
-      _showError('条形码内容不能超过 $maxBarcodeLength 个字符');
+      _showError(
+        'qrcode.error.barcodeContentTooLong'.trParams({
+          'maxChars': '$maxBarcodeLength',
+        }),
+      );
+      return;
+    }
+    if (!_isPrintableAscii(content)) {
+      _showError('qrcode.error.barcodeAsciiOnly'.tr);
       return;
     }
 
@@ -145,12 +159,12 @@ class QrcodeController extends GetxController {
         pixelHeight: barcode.pixelHeight,
       );
       if (!file.hasValidOutput) {
-        throw const FormatException('条形码输出文件异常');
+        throw const FormatException();
       }
       barcodeResult.value = file;
       result.value = null;
       await _historyRepository.recordOperationSuccess(
-        featureName: '条形码生成',
+        featureName: 'qrcode.feature.barcodeGenerate'.tr,
         inputPath: startedInput,
         outputPath: output.path,
         parameters: <String, Object>{
@@ -159,14 +173,27 @@ class QrcodeController extends GetxController {
           'pixelHeight': file.pixelHeight,
         },
       );
-      Get.snackbar('生成完成', '条形码 PNG 已导出到应用缓存目录');
+      Get.snackbar(
+        'qrcode.generate.success.title'.tr,
+        'qrcode.generate.barcodeSuccess.message'.tr,
+      );
     } on ArgumentError catch (error) {
-      final message = error.message?.toString() ?? '条形码参数无效';
-      await _recordFailure(startedInput, message, featureName: '条形码生成');
+      final message =
+          error.message?.toString() ?? 'qrcode.error.barcodeInvalid'.tr;
+      await _recordFailure(
+        startedInput,
+        message,
+        featureName: 'qrcode.feature.barcodeGenerate'.tr,
+      );
       _showError(message);
     } catch (_) {
-      await _recordFailure(startedInput, '条形码生成失败', featureName: '条形码生成');
-      _showError('条形码生成失败，请重试');
+      final message = 'qrcode.error.barcodeGenerateFailedLog'.tr;
+      await _recordFailure(
+        startedInput,
+        message,
+        featureName: 'qrcode.feature.barcodeGenerate'.tr,
+      );
+      _showError('qrcode.error.barcodeGenerateFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -190,7 +217,7 @@ class QrcodeController extends GetxController {
       final scan = await _imageChannel.scanBarcodeFromImage(source: image);
       scanResult.value = scan;
       await _historyRepository.recordOperationSuccess(
-        featureName: '二维码识别',
+        featureName: 'qrcode.feature.scan'.tr,
         inputPath: image.path,
         outputPath: image.path,
         parameters: <String, Object>{
@@ -199,11 +226,14 @@ class QrcodeController extends GetxController {
           'rawBytesLength': scan.rawBytesLength,
         },
       );
-      Get.snackbar('识别完成', '已识别 ${scan.format} 内容');
+      Get.snackbar(
+        'qrcode.scan.success.title'.tr,
+        'qrcode.scan.success.message'.trParams({'format': scan.format}),
+      );
     } on AppException catch (error) {
       if (image != null) {
         await _historyRepository.recordOperationFailure(
-          featureName: '二维码识别',
+          featureName: 'qrcode.feature.scan'.tr,
           inputPath: image.path,
           parameters: const <String, Object>{'mode': 'scan_image'},
           errorMessage: error.message,
@@ -213,13 +243,13 @@ class QrcodeController extends GetxController {
     } catch (_) {
       if (image != null) {
         await _historyRepository.recordOperationFailure(
-          featureName: '二维码识别',
+          featureName: 'qrcode.feature.scan'.tr,
           inputPath: image.path,
           parameters: const <String, Object>{'mode': 'scan_image'},
-          errorMessage: '二维码识别失败',
+          errorMessage: 'qrcode.error.scanFailedLog'.tr,
         );
       }
-      _showError('二维码识别失败，请重试');
+      _showError('qrcode.error.scanFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -228,19 +258,19 @@ class QrcodeController extends GetxController {
   Future<void> copyScanText() async {
     final text = scanResult.value?.text.trim() ?? '';
     if (text.isEmpty) {
-      _showError('识别内容为空，无法复制');
+      _showError('qrcode.error.scanTextEmpty'.tr);
       return;
     }
     await Clipboard.setData(ClipboardData(text: text));
     Get.snackbar(
-      '已复制',
+      'qrcode.copy.success.title'.tr,
       text.length > 60 ? '${text.substring(0, 60)}...' : text,
     );
   }
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -267,10 +297,10 @@ class QrcodeController extends GetxController {
   Future<void> _recordFailure(
     String input,
     String message, {
-    String featureName = '二维码生成',
+    String? featureName,
   }) async {
     await _historyRepository.recordOperationFailure(
-      featureName: featureName,
+      featureName: featureName ?? 'qrcode.feature.qrGenerate'.tr,
       inputPath: input,
       parameters: const <String, Object>{'mode': 'generate'},
       errorMessage: message,
@@ -281,7 +311,16 @@ class QrcodeController extends GetxController {
     return input.length > 80 ? '${input.substring(0, 80)}...' : input;
   }
 
+  bool _isPrintableAscii(String input) {
+    for (final codeUnit in input.codeUnits) {
+      if (codeUnit < 32 || codeUnit > 126) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('qrcode.error.title'.tr, message);
   }
 }
