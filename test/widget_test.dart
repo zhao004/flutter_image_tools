@@ -48,6 +48,8 @@ import 'package:flutter_image_tools/app/pages/rotate/rotate_controller.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_view.dart';
 import 'package:flutter_image_tools/app/pages/resize/resize_controller.dart';
 import 'package:flutter_image_tools/app/pages/resize/resize_view.dart';
+import 'package:flutter_image_tools/app/pages/settings/settings_controller.dart';
+import 'package:flutter_image_tools/app/pages/settings/settings_view.dart';
 import 'package:flutter_image_tools/app/pages/watermark/watermark_controller.dart';
 import 'package:flutter_image_tools/app/pages/watermark/watermark_view.dart';
 import 'package:flutter_image_tools/app/repositories/app_settings_repository.dart';
@@ -90,6 +92,93 @@ void main() {
     expect(find.text('Settings'), findsNothing);
     expect(find.byIcon(Icons.more_vert), findsNothing);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+  });
+
+  testWidgets('设置页加载后显示已保存的功能设置', (WidgetTester tester) async {
+    // 复现设置页首次渲染默认值、随后异步加载本地设置的场景。
+    final database = AppDatabase(NativeDatabase.memory());
+    final repository = _DelayedSettingsRepository(
+      database: database,
+      delay: const Duration(milliseconds: 50),
+    );
+    await repository.setDefaultSaveRule('feature_folder');
+    await repository.setDefaultExportFormat('webp');
+    await repository.setThemeMode('dark');
+    await repository.setLanguage('en');
+    Get.put(SettingsController(settingsRepository: repository));
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('zh', 'CN'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        home: const SettingsView(),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('时间戳'), findsOneWidget);
+    expect(find.text('JPG'), findsOneWidget);
+    expect(find.text('系统'), findsNWidgets(2));
+
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('功能目录'), findsOneWidget);
+    expect(find.text('WebP'), findsOneWidget);
+    expect(find.text('深色'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('设置页切换功能设置后写入本地仓库', (WidgetTester tester) async {
+    // 覆盖用户点击下拉选项后的保存路径，避免界面变化但本地设置未落库。
+    final database = AppDatabase(NativeDatabase.memory());
+    final repository = AppSettingsRepository(database: database);
+    Get.put(SettingsController(settingsRepository: repository));
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('zh', 'CN'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        home: const SettingsView(),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('时间戳'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('功能目录').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('JPG'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('WebP').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('系统').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('深色').last);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('语言'), 240);
+    await tester.tap(find.text('系统').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('English').last);
+    await tester.pumpAndSettle();
+
+    expect(await repository.getDefaultSaveRule(), 'feature_folder');
+    expect(await repository.getDefaultExportFormat(), 'webp');
+    expect(await repository.getThemeMode(), 'dark');
+    expect(await repository.getLanguage(), 'en');
+
+    await database.close();
+    Get.reset();
   });
 
   testWidgets('显示英文历史记录页面', (WidgetTester tester) async {
@@ -944,4 +1033,40 @@ void main() {
     await database.close();
     Get.reset();
   });
+}
+
+class _DelayedSettingsRepository extends AppSettingsRepository {
+  _DelayedSettingsRepository({required super.database, required this.delay});
+
+  final Duration delay;
+
+  @override
+  Future<String> getDefaultExportFormat() async {
+    await Future<void>.delayed(delay);
+    return super.getDefaultExportFormat();
+  }
+
+  @override
+  Future<String> getDefaultSaveRule() async {
+    await Future<void>.delayed(delay);
+    return super.getDefaultSaveRule();
+  }
+
+  @override
+  Future<String> getThemeMode() async {
+    await Future<void>.delayed(delay);
+    return super.getThemeMode();
+  }
+
+  @override
+  Future<String> getLanguage() async {
+    await Future<void>.delayed(delay);
+    return super.getLanguage();
+  }
+
+  @override
+  Future<String?> getDefaultExportDirectory() async {
+    await Future<void>.delayed(delay);
+    return super.getDefaultExportDirectory();
+  }
 }

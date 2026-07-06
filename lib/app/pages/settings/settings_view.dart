@@ -248,10 +248,12 @@ class _SettingsDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeValue = options.any((option) => option.value == value)
+        ? value
+        : options.first.value;
     return DropdownButtonFormField<String>(
-      initialValue: options.any((option) => option.value == value)
-          ? value
-          : options.first.value,
+      key: ValueKey<String>('settings-dropdown-$safeValue'),
+      initialValue: safeValue,
       isExpanded: true,
       decoration: const InputDecoration(
         border: OutlineInputBorder(),
