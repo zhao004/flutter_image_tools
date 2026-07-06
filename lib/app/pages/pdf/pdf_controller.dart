@@ -22,12 +22,12 @@ enum PdfPageSize {
 }
 
 enum PdfOrientation {
-  portrait(label: '竖版', value: 'portrait'),
-  landscape(label: '横版', value: 'landscape');
+  portrait(labelKey: 'pdf.orientation.portrait', value: 'portrait'),
+  landscape(labelKey: 'pdf.orientation.landscape', value: 'landscape');
 
-  const PdfOrientation({required this.label, required this.value});
+  const PdfOrientation({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
@@ -74,7 +74,11 @@ class PdfController extends GetxController {
         return;
       }
       if (images.length > LocalImageChannel.maxPdfImages) {
-        _showError('单次最多转换 50 张图片');
+        _showError(
+          'pdf.error.tooManyImages'.trParams({
+            'max': LocalImageChannel.maxPdfImages.toString(),
+          }),
+        );
         return;
       }
       selectedImages.assignAll(images);
@@ -85,7 +89,7 @@ class PdfController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('pdf.error.recentFileFailed'.tr);
     }
   }
 
@@ -107,7 +111,7 @@ class PdfController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('选择 PDF 失败，请重试');
+      _showError('pdf.error.pickPdfFailed'.tr);
     }
   }
 
@@ -124,7 +128,7 @@ class PdfController extends GetxController {
       return;
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('pdf.error.pickImagesFirst'.tr);
       return;
     }
 
@@ -138,15 +142,18 @@ class PdfController extends GetxController {
       );
       result.value = pdf;
       await _historyRepository.recordOperationSuccess(
-        featureName: '图片转 PDF',
+        featureName: 'pdf.feature.imagesToPdf'.tr,
         inputPath: inputPath,
         outputPath: pdf.outputPath,
         parameters: _historyParameters(),
       );
-      Get.snackbar('PDF 已生成', '文件已导出到应用缓存目录');
+      Get.snackbar(
+        'pdf.success.created.title'.tr,
+        'pdf.success.created.message'.tr,
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: '图片转 PDF',
+        featureName: 'pdf.feature.imagesToPdf'.tr,
         inputPath: inputPath,
         parameters: _historyParameters(),
         errorMessage: error.message,
@@ -163,12 +170,12 @@ class PdfController extends GetxController {
     }
     final pdf = selectedPdf.value;
     if (pdf == null) {
-      _showError('请先选择 PDF 文件');
+      _showError('pdf.error.pickPdfFirst'.tr);
       return;
     }
     final pageNumber = int.tryParse(pageNumberController.text.trim());
     if (pageNumber == null || pageNumber < 1) {
-      _showError('页码必须是大于 0 的整数');
+      _showError('pdf.error.invalidPageNumber'.tr);
       return;
     }
 
@@ -181,7 +188,7 @@ class PdfController extends GetxController {
       pageImageResult.value = image;
       allPagesResult.value = null;
       await _historyRepository.recordOperationSuccess(
-        featureName: 'PDF 转图片',
+        featureName: 'pdf.feature.pageToImage'.tr,
         inputPath: pdf.path,
         outputPath: image.outputPath,
         parameters: <String, Object>{
@@ -189,10 +196,15 @@ class PdfController extends GetxController {
           'pageCount': image.pageCount,
         },
       );
-      Get.snackbar('页面已导出', 'PDF 第 ${image.pageNumber} 页已导出为 PNG');
+      Get.snackbar(
+        'pdf.success.pageExported.title'.tr,
+        'pdf.success.pageExported.message'.trParams({
+          'page': image.pageNumber.toString(),
+        }),
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: 'PDF 转图片',
+        featureName: 'pdf.feature.pageToImage'.tr,
         inputPath: pdf.path,
         parameters: <String, Object>{'pageNumber': pageNumber},
         errorMessage: error.message,
@@ -209,7 +221,7 @@ class PdfController extends GetxController {
     }
     final pdf = selectedPdf.value;
     if (pdf == null) {
-      _showError('请先选择 PDF 文件');
+      _showError('pdf.error.pickPdfFirst'.tr);
       return;
     }
 
@@ -219,7 +231,7 @@ class PdfController extends GetxController {
       allPagesResult.value = export;
       pageImageResult.value = null;
       await _historyRepository.recordOperationSuccess(
-        featureName: 'PDF 全页转图片',
+        featureName: 'pdf.feature.allPagesToImages'.tr,
         inputPath: pdf.path,
         outputPath: export.outputDirectory,
         parameters: <String, Object>{
@@ -227,10 +239,15 @@ class PdfController extends GetxController {
           'outputCount': export.outputPaths.length,
         },
       );
-      Get.snackbar('全页导出完成', '已导出 ${export.pageCount} 张 PNG 图片');
+      Get.snackbar(
+        'pdf.success.allPagesExported.title'.tr,
+        'pdf.success.allPagesExported.message'.trParams({
+          'count': export.pageCount.toString(),
+        }),
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: 'PDF 全页转图片',
+        featureName: 'pdf.feature.allPagesToImages'.tr,
         inputPath: pdf.path,
         parameters: const <String, Object>{'mode': 'all_pages'},
         errorMessage: error.message,
@@ -246,7 +263,7 @@ class PdfController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -260,6 +277,16 @@ class PdfController extends GetxController {
     return '${mib.toStringAsFixed(1)} MB';
   }
 
+  String orientationLabel(String value) {
+    return PdfOrientation.values
+        .firstWhere(
+          (item) => item.value == value,
+          orElse: () => orientation.value,
+        )
+        .labelKey
+        .tr;
+  }
+
   Map<String, Object> _historyParameters() {
     return <String, Object>{
       'pageSize': pageSize.value.value,
@@ -269,6 +296,6 @@ class PdfController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('pdf.error.title'.tr, message);
   }
 }

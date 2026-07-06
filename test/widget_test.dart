@@ -39,6 +39,8 @@ import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
 import 'package:flutter_image_tools/app/pages/merge/merge_controller.dart';
 import 'package:flutter_image_tools/app/pages/merge/merge_view.dart';
+import 'package:flutter_image_tools/app/pages/pdf/pdf_controller.dart';
+import 'package:flutter_image_tools/app/pages/pdf/pdf_view.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_controller.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_view.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_controller.dart';
@@ -865,6 +867,50 @@ void main() {
     expect(find.text('Bottom Right'), findsOneWidget);
     expect(find.text('Opacity: 70%'), findsOneWidget);
     expect(find.text('Scale: 25%'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文 PDF 工具页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证图片转 PDF 和 PDF 导出区域首屏文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      PdfController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const PdfView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('PDF Tools'), findsOneWidget);
+    expect(find.text('Select Images'), findsOneWidget);
+    expect(
+      find.text('Select 1 to 50 images. Each image becomes one PDF page.'),
+      findsOneWidget,
+    );
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Page Settings'), findsOneWidget);
+    expect(find.text('Portrait'), findsOneWidget);
+    expect(find.text('Landscape'), findsOneWidget);
+    expect(
+      find.text(
+        'Images are scaled proportionally and centered on the page with margins to avoid cropping.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Images to PDF'), findsOneWidget);
 
     await database.close();
     Get.reset();
