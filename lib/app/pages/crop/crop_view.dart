@@ -112,31 +112,23 @@ class _CropOverlay extends StatelessWidget {
                 top: frameTop,
                 width: frameWidth,
                 height: frameHeight,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanUpdate: controller.isBusy.value
-                      ? null
-                      : (details) {
-                          if (stageWidth <= 0 || stageHeight <= 0) {
-                            return;
-                          }
-                          controller.updateCropFrame(
-                            centerXRatio:
-                                controller.cropCenterXRatio.value +
-                                details.delta.dx / stageWidth,
-                            centerYRatio:
-                                controller.cropCenterYRatio.value +
-                                details.delta.dy / stageHeight,
-                            frameWidthRatio: frameRatios.width,
-                            frameHeightRatio: frameRatios.height,
-                          );
-                        },
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white, width: 2),
-                      color: Colors.transparent,
-                    ),
-                  ),
+                child: _DraggableCropFrame(
+                  enabled: !controller.isBusy.value,
+                  onDrag: (delta) {
+                    if (stageWidth <= 0 || stageHeight <= 0) {
+                      return;
+                    }
+                    controller.updateCropFrame(
+                      centerXRatio:
+                          controller.cropCenterXRatio.value +
+                          delta.dx / stageWidth,
+                      centerYRatio:
+                          controller.cropCenterYRatio.value +
+                          delta.dy / stageHeight,
+                      frameWidthRatio: frameRatios.width,
+                      frameHeightRatio: frameRatios.height,
+                    );
+                  },
                 ),
               ),
             ],
@@ -145,6 +137,52 @@ class _CropOverlay extends StatelessWidget {
       },
     );
   }
+}
+
+class _DraggableCropFrame extends StatelessWidget {
+  const _DraggableCropFrame({required this.enabled, required this.onDrag});
+
+  final bool enabled;
+  final ValueChanged<Offset> onDrag;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onPanUpdate: enabled ? (details) => onDrag(details.delta) : null,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.move : MouseCursor.defer,
+        child: CustomPaint(
+          painter: const _CropFramePainter(),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+  }
+}
+
+class _CropFramePainter extends CustomPainter {
+  const _CropFramePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final outerPaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+    final innerPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    // 黑色外描边用于亮色图片，白色内描边用于暗色图片，保证裁剪框始终可见。
+    canvas.drawRect(rect.deflate(2), outerPaint);
+    canvas.drawRect(rect.deflate(3), innerPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CropFramePainter oldDelegate) => false;
 }
 
 class _CropToolbar extends StatelessWidget {
