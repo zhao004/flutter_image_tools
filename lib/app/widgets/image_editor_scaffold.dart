@@ -283,7 +283,7 @@ class _EditorToolbarSurface extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
           child: child,
         ),
       ),

@@ -261,8 +261,8 @@ class _MergeToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maxToolbarHeight = math.min(
-      MediaQuery.sizeOf(context).height * 0.42,
-      360.0,
+      MediaQuery.sizeOf(context).height * 0.32,
+      260.0,
     );
     return SizedBox(
       height: maxToolbarHeight,
@@ -277,7 +277,7 @@ class _MergeToolbar extends StatelessWidget {
                   'count': controller.selectedImages.length.toString(),
                 }),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               EditorOptionWrap<MergeMode>(
                 values: MergeMode.values,
                 selected: controller.mode.value,
@@ -286,7 +286,7 @@ class _MergeToolbar extends StatelessWidget {
                 onSelected: controller.setMode,
               ),
               if (controller.mode.value == MergeMode.grid) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _LabeledSlider(
                   label: 'merge.layout.columns'.trParams({
                     'count': controller.columns.value.toString(),
@@ -300,7 +300,7 @@ class _MergeToolbar extends StatelessWidget {
                       : controller.updateColumns,
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _LabeledSlider(
                 label: 'merge.layout.spacing'.trParams({
                   'value': controller.spacing.value.toString(),
@@ -313,7 +313,7 @@ class _MergeToolbar extends StatelessWidget {
                     ? null
                     : controller.updateSpacing,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _ChoiceSection<MergeBackgroundColor>(
                 title: 'merge.layout.backgroundColor'.tr,
                 values: MergeBackgroundColor.values,
@@ -323,7 +323,7 @@ class _MergeToolbar extends StatelessWidget {
                 colorFor: (value) => _parseColor(value.value),
                 onSelected: controller.setBackgroundColor,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _ChoiceSection<MergeScaleMode>(
                 title: 'merge.layout.scaleMode'.tr,
                 values: MergeScaleMode.values,
@@ -332,12 +332,12 @@ class _MergeToolbar extends StatelessWidget {
                 labelFor: (value) => value.labelKey.tr,
                 onSelected: controller.setScaleMode,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 'merge.layout.scaleHint'.tr,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _LabeledSlider(
                 label: 'merge.layout.cornerRadius'.trParams({
                   'value': controller.cornerRadius.value.toString(),
@@ -350,7 +350,7 @@ class _MergeToolbar extends StatelessWidget {
                     ? null
                     : controller.updateCornerRadius,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _LabeledSlider(
                 label: 'merge.layout.borderWidth'.trParams({
                   'value': controller.borderWidth.value.toString(),
@@ -363,7 +363,7 @@ class _MergeToolbar extends StatelessWidget {
                     ? null
                     : controller.updateBorderWidth,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _ChoiceSection<MergeBorderColor>(
                 title: 'merge.layout.borderColor'.tr,
                 values: MergeBorderColor.values,
@@ -374,9 +374,9 @@ class _MergeToolbar extends StatelessWidget {
                 onSelected: controller.setBorderColor,
               ),
               if (controller.selectedImages.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text('merge.image.reorderHint'.tr),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 _ReorderImageList(controller: controller),
               ],
             ],
@@ -437,14 +437,17 @@ class _LabeledSlider extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: divisions,
-          label: value.round().toString(),
-          onChanged: onChanged,
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        SizedBox(
+          height: 32,
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: value.round().toString(),
+            onChanged: onChanged,
+          ),
         ),
       ],
     );
@@ -475,8 +478,8 @@ class _ChoiceSection<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title),
-        const SizedBox(height: 8),
+        Text(title, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 4),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -527,7 +530,10 @@ class _ReorderImageList extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           leading: CircleAvatar(child: Text('${index + 1}')),
           title: Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(controller.formatBytes(image.sizeBytes)),
+          subtitle: Text(
+            controller.formatBytes(image.sizeBytes),
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
           trailing: ReorderableDragStartListener(
             index: index,
             enabled: !controller.isBusy.value,
