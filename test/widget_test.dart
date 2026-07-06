@@ -924,7 +924,7 @@ void main() {
     expect(find.text('Order'), findsOneWidget);
     expect(find.text('Horizontal'), findsOneWidget);
     expect(find.text('Vertical'), findsOneWidget);
-    expect(find.text('Grid'), findsOneWidget);
+    expect(find.text('Grid'), findsNothing);
     expect(find.text('Long Image'), findsNothing);
     expect(find.text('Image Spacing: 8px'), findsOneWidget);
 

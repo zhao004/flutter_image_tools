@@ -3,7 +3,7 @@ import 'local_image_file.dart';
 /// 图片拼接结果模型，记录输入图片、拼接模式、输出尺寸和导出路径。
 ///
 /// 设计意图：拼接结果需要展示输入数量、布局模式和最终画布尺寸，帮助用户
-/// 判断横向、纵向或网格拼接是否符合预期。
+/// 判断横向或纵向等比拼接是否符合预期。
 class MergedImageFile {
   const MergedImageFile({
     required this.sources,

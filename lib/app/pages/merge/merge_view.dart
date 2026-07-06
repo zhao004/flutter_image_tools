@@ -81,7 +81,6 @@ class _MergePreview extends StatelessWidget {
               child: _MergePreviewLayout(
                 images: images,
                 mode: controller.mode.value,
-                columns: controller.columns.value,
                 spacing: spacing,
                 borderWidth: borderWidth,
                 borderColor: borderColor,
@@ -98,7 +97,6 @@ class _MergePreview extends StatelessWidget {
     return switch (mode) {
       MergeMode.horizontal => 16 / 9,
       MergeMode.vertical => 3 / 4,
-      MergeMode.grid => 1,
     };
   }
 }
@@ -107,7 +105,6 @@ class _MergePreviewLayout extends StatelessWidget {
   const _MergePreviewLayout({
     required this.images,
     required this.mode,
-    required this.columns,
     required this.spacing,
     required this.borderWidth,
     required this.borderColor,
@@ -116,7 +113,6 @@ class _MergePreviewLayout extends StatelessWidget {
 
   final List<LocalImageFile> images;
   final MergeMode mode;
-  final int columns;
   final double spacing;
   final double borderWidth;
   final Color borderColor;
@@ -139,45 +135,6 @@ class _MergePreviewLayout extends StatelessWidget {
           images.map((image) => Expanded(child: _tile(image))).toList(),
           isHorizontal: false,
         ),
-      ),
-      MergeMode.grid => LayoutBuilder(
-        builder: (context, constraints) {
-          final safeColumns = columns
-              .clamp(1, math.max(1, images.length))
-              .toInt();
-          final rows = (images.length / safeColumns).ceil();
-          return Column(
-            children: List.generate(rows, (rowIndex) {
-              final rowImages = images
-                  .skip(rowIndex * safeColumns)
-                  .take(safeColumns)
-                  .toList(growable: false);
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: rowIndex == rows - 1 ? 0 : spacing,
-                  ),
-                  child: Row(
-                    children: [
-                      ..._withSpacing(
-                        rowImages
-                            .map((image) => Expanded(child: _tile(image)))
-                            .toList(),
-                        isHorizontal: true,
-                      ),
-                      for (
-                        var index = rowImages.length;
-                        index < safeColumns;
-                        index++
-                      )
-                        const Expanded(child: SizedBox.shrink()),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          );
-        },
       ),
     };
   }
@@ -351,21 +308,6 @@ class _LayoutToolPanel extends StatelessWidget {
           enabled: !controller.isBusy.value,
           onSelected: controller.setMode,
         ),
-        if (controller.mode.value == MergeMode.grid) ...[
-          const SizedBox(height: 8),
-          _LabeledSlider(
-            label: 'merge.layout.columns'.trParams({
-              'count': controller.columns.value.toString(),
-            }),
-            value: controller.columns.value.toDouble(),
-            min: 1,
-            max: 10,
-            divisions: 9,
-            onChanged: controller.isBusy.value
-                ? null
-                : controller.updateColumns,
-          ),
-        ],
         const SizedBox(height: 8),
         _LabeledSlider(
           label: 'merge.layout.spacing'.trParams({
@@ -376,15 +318,6 @@ class _LayoutToolPanel extends StatelessWidget {
           max: 100,
           divisions: 20,
           onChanged: controller.isBusy.value ? null : controller.updateSpacing,
-        ),
-        const SizedBox(height: 8),
-        _ChoiceSection<MergeScaleMode>(
-          title: 'merge.layout.scaleMode'.tr,
-          values: MergeScaleMode.values,
-          selected: controller.scaleMode.value,
-          enabled: !controller.isBusy.value,
-          labelFor: (value) => value.labelKey.tr,
-          onSelected: controller.setScaleMode,
         ),
       ],
     );

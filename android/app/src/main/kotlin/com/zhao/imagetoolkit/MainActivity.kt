@@ -687,9 +687,8 @@ class MainActivity : FlutterActivity() {
     private fun mergeImages(call: MethodCall, result: MethodChannel.Result) {
         val paths = call.argument<List<String>>("paths") ?: emptyList()
         val mode = (call.argument<String>("mode") ?: "horizontal").lowercase()
-        val columns = call.argument<Int>("columns") ?: 2
         val spacing = call.argument<Int>("spacing") ?: 8
-        val scaleMode = (call.argument<String>("scaleMode") ?: "original").lowercase()
+        val scaleMode = (call.argument<String>("scaleMode") ?: mergeScaleModeFor(mode)).lowercase()
         val backgroundColorText = call.argument<String>("backgroundColor") ?: "#FFFFFF"
         val borderWidth = call.argument<Int>("borderWidth") ?: 0
         val borderColorText = call.argument<String>("borderColor") ?: "#000000"
@@ -698,15 +697,15 @@ class MainActivity : FlutterActivity() {
             result.error("invalid_args", "拼接图片数量必须在 2 到 20 张之间", null)
             return
         }
-        if (mode !in setOf("horizontal", "vertical", "grid", "long")) {
+        if (mode !in setOf("horizontal", "vertical")) {
             result.error("invalid_args", "拼接模式无效", null)
             return
         }
-        if (scaleMode !in setOf("original", "same_width", "same_height")) {
+        if (scaleMode != mergeScaleModeFor(mode)) {
             result.error("invalid_args", "缩放模式无效", null)
             return
         }
-        if (columns !in 1..10 || spacing !in 0..100 || borderWidth !in 0..50 || cornerRadius !in 0..200) {
+        if (spacing !in 0..100 || borderWidth !in 0..50 || cornerRadius !in 0..200) {
             result.error("invalid_args", "拼接参数超出范围", null)
             return
         }
@@ -745,7 +744,7 @@ class MainActivity : FlutterActivity() {
             }
 
             val scaledBitmaps = scaleBitmapsForMerge(bitmaps, scaleMode)
-            val layout = calculateMergeLayout(scaledBitmaps, mode, columns, spacing)
+            val layout = calculateMergeLayout(scaledBitmaps, mode, spacing)
             if (layout.width <= 0 || layout.height <= 0) {
                 result.error("invalid_args", "拼接输出尺寸无效", null)
                 recycleGeneratedBitmaps(scaledBitmaps, bitmaps)
@@ -1972,24 +1971,21 @@ class MainActivity : FlutterActivity() {
     private fun calculateMergeLayout(
         bitmaps: List<Bitmap>,
         mode: String,
-        columns: Int,
         spacing: Int,
     ): MergeLayout {
         return when (mode) {
             "vertical" -> calculateVerticalLayout(bitmaps, spacing)
-            "long" -> calculateVerticalLayout(bitmaps, spacing)
-            "grid" -> calculateGridLayout(bitmaps, columns, spacing)
             else -> calculateHorizontalLayout(bitmaps, spacing)
         }
     }
 
-    private fun scaleBitmapsForMerge(bitmaps: List<Bitmap>, scaleMode: String): List<Bitmap> {
-        if (scaleMode == "original") {
-            return bitmaps
-        }
+    private fun mergeScaleModeFor(mode: String): String {
+        return if (mode == "vertical") "same_width" else "same_height"
+    }
 
-        val targetWidth = bitmaps.minOf { it.width }.coerceAtLeast(1)
-        val targetHeight = bitmaps.minOf { it.height }.coerceAtLeast(1)
+    private fun scaleBitmapsForMerge(bitmaps: List<Bitmap>, scaleMode: String): List<Bitmap> {
+        val targetWidth = bitmaps.maxOf { it.width }.coerceAtLeast(1)
+        val targetHeight = bitmaps.maxOf { it.height }.coerceAtLeast(1)
         return bitmaps.map { bitmap ->
             val scale = when (scaleMode) {
                 "same_width" -> targetWidth.toDouble() / bitmap.width
@@ -2032,29 +2028,6 @@ class MainActivity : FlutterActivity() {
         for (bitmap in bitmaps) {
             positions.add(BitmapPosition((width - bitmap.width) / 2, y))
             y += bitmap.height + spacing
-        }
-        return MergeLayout(width = width, height = height, positions = positions)
-    }
-
-    private fun calculateGridLayout(
-        bitmaps: List<Bitmap>,
-        columns: Int,
-        spacing: Int,
-    ): MergeLayout {
-        val columnCount = columns.coerceIn(1, bitmaps.size)
-        val rowCount = (bitmaps.size + columnCount - 1) / columnCount
-        val cellWidth = bitmaps.maxOf { it.width }
-        val cellHeight = bitmaps.maxOf { it.height }
-        val width = cellWidth * columnCount + spacing * (columnCount - 1)
-        val height = cellHeight * rowCount + spacing * (rowCount - 1)
-        val positions = mutableListOf<BitmapPosition>()
-        for (index in bitmaps.indices) {
-            val bitmap = bitmaps[index]
-            val row = index / columnCount
-            val column = index % columnCount
-            val x = column * (cellWidth + spacing) + (cellWidth - bitmap.width) / 2
-            val y = row * (cellHeight + spacing) + (cellHeight - bitmap.height) / 2
-            positions.add(BitmapPosition(x, y))
         }
         return MergeLayout(width = width, height = height, positions = positions)
     }

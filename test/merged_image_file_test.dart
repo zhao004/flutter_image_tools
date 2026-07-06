@@ -17,18 +17,18 @@ void main() {
 
       final merged = MergedImageFile.fromMap(
         sources: const [source, source],
-        mode: 'grid',
+        mode: 'horizontal',
         backgroundColor: '#FFFFFF',
         borderWidth: 0,
         borderColor: '#000000',
         cornerRadius: 0,
-        scaleMode: 'original',
+        scaleMode: 'same_height',
         map: const <Object?, Object?>{
           'outputPath': '/tmp/merged.jpg',
           'outputSizeBytes': 8192,
           'width': 1280,
           'height': 960,
-          'mode': 'grid',
+          'mode': 'horizontal',
           'backgroundColor': '#333333',
           'borderWidth': 4,
           'borderColor': '#FFFFFF',
@@ -42,7 +42,7 @@ void main() {
       expect(merged.outputSizeBytes, 8192);
       expect(merged.width, 1280);
       expect(merged.height, 960);
-      expect(merged.mode, 'grid');
+      expect(merged.mode, 'horizontal');
       expect(merged.backgroundColor, '#333333');
       expect(merged.borderWidth, 4);
       expect(merged.borderColor, '#FFFFFF');
@@ -80,7 +80,7 @@ void main() {
       expect(merged.scaleMode, 'same_width');
     });
 
-    test('长图模式保留平台回传模式', () {
+    test('纵向模式保留平台回传模式', () {
       const source = LocalImageFile(
         path: '/tmp/source.jpg',
         name: 'source.jpg',
@@ -92,21 +92,21 @@ void main() {
 
       final merged = MergedImageFile.fromMap(
         sources: const [source, source],
-        mode: 'long',
+        mode: 'vertical',
         backgroundColor: '#FFFFFF',
         borderWidth: 0,
         borderColor: '#000000',
         cornerRadius: 0,
         scaleMode: 'same_width',
         map: const <Object?, Object?>{
-          'outputPath': '/tmp/long.jpg',
-          'mode': 'long',
+          'outputPath': '/tmp/vertical.jpg',
+          'mode': 'vertical',
           'scaleMode': 'same_width',
         },
       );
 
-      expect(merged.outputPath, '/tmp/long.jpg');
-      expect(merged.mode, 'long');
+      expect(merged.outputPath, '/tmp/vertical.jpg');
+      expect(merged.mode, 'vertical');
       expect(merged.scaleMode, 'same_width');
     });
   });

@@ -500,7 +500,6 @@ class LocalImageChannel {
   Future<MergedImageFile> mergeImages({
     required List<LocalImageFile> sources,
     required String mode,
-    required int columns,
     required int spacing,
     required String backgroundColor,
     required int borderWidth,
@@ -515,19 +514,12 @@ class LocalImageChannel {
       throw const AppException('单次最多拼接 20 张图片');
     }
     final normalizedMode = mode.trim().toLowerCase();
-    if (!{'horizontal', 'vertical', 'grid', 'long'}.contains(normalizedMode)) {
+    if (!{'horizontal', 'vertical'}.contains(normalizedMode)) {
       throw const AppException('拼接模式无效');
     }
     final normalizedScaleMode = scaleMode.trim().toLowerCase();
-    if (!{
-      'original',
-      'same_width',
-      'same_height',
-    }.contains(normalizedScaleMode)) {
+    if (!{'same_width', 'same_height'}.contains(normalizedScaleMode)) {
       throw const AppException('缩放模式无效');
-    }
-    if (columns < 1 || columns > 10) {
-      throw const AppException('网格列数必须在 1 到 10 之间');
     }
     if (spacing < 0 || spacing > 100) {
       throw const AppException('图片间距必须在 0 到 100 像素之间');
@@ -556,7 +548,6 @@ class LocalImageChannel {
           .invokeMapMethod<Object?, Object?>('mergeImages', <String, Object?>{
             'paths': paths,
             'mode': normalizedMode,
-            'columns': columns,
             'spacing': spacing,
             'backgroundColor': normalizedBackgroundColor,
             'borderWidth': borderWidth,

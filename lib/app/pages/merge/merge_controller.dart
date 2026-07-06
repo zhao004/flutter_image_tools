@@ -9,14 +9,26 @@ import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
 enum MergeMode {
-  horizontal(labelKey: 'merge.mode.horizontal', value: 'horizontal'),
-  vertical(labelKey: 'merge.mode.vertical', value: 'vertical'),
-  grid(labelKey: 'merge.mode.grid', value: 'grid');
+  horizontal(
+    labelKey: 'merge.mode.horizontal',
+    value: 'horizontal',
+    scaleModeValue: 'same_height',
+  ),
+  vertical(
+    labelKey: 'merge.mode.vertical',
+    value: 'vertical',
+    scaleModeValue: 'same_width',
+  );
 
-  const MergeMode({required this.labelKey, required this.value});
+  const MergeMode({
+    required this.labelKey,
+    required this.value,
+    required this.scaleModeValue,
+  });
 
   final String labelKey;
   final String value;
+  final String scaleModeValue;
 }
 
 enum MergeBackgroundColor {
@@ -38,17 +50,6 @@ enum MergeBorderColor {
   red(labelKey: 'merge.color.red', value: '#D32F2F');
 
   const MergeBorderColor({required this.labelKey, required this.value});
-
-  final String labelKey;
-  final String value;
-}
-
-enum MergeScaleMode {
-  original(labelKey: 'merge.scale.original', value: 'original'),
-  sameHeight(labelKey: 'merge.scale.sameHeight', value: 'same_height'),
-  sameWidth(labelKey: 'merge.scale.sameWidth', value: 'same_width');
-
-  const MergeScaleMode({required this.labelKey, required this.value});
 
   final String labelKey;
   final String value;
@@ -87,11 +88,9 @@ class MergeController extends GetxController {
   final mode = MergeMode.horizontal.obs;
   final backgroundColor = MergeBackgroundColor.white.obs;
   final borderColor = MergeBorderColor.black.obs;
-  final columns = 2.obs;
   final spacing = 8.obs;
   final borderWidth = 0.obs;
   final cornerRadius = 0.obs;
-  final scaleMode = MergeScaleMode.original.obs;
   final toolbarTab = MergeToolbarTab.layout.obs;
   final isBusy = false.obs;
 
@@ -126,9 +125,6 @@ class MergeController extends GetxController {
 
   void setMode(MergeMode value) {
     mode.value = value;
-    if (value == MergeMode.vertical) {
-      scaleMode.value = MergeScaleMode.sameWidth;
-    }
   }
 
   void setBackgroundColor(MergeBackgroundColor value) {
@@ -137,10 +133,6 @@ class MergeController extends GetxController {
 
   void setBorderColor(MergeBorderColor value) {
     borderColor.value = value;
-  }
-
-  void setScaleMode(MergeScaleMode value) {
-    scaleMode.value = value;
   }
 
   void setToolbarTab(MergeToolbarTab value) {
@@ -165,10 +157,6 @@ class MergeController extends GetxController {
     final image = selectedImages.removeAt(oldIndex);
     selectedImages.insert(targetIndex, image);
     result.value = null;
-  }
-
-  void updateColumns(double value) {
-    columns.value = value.round().clamp(1, 10);
   }
 
   void updateSpacing(double value) {
@@ -198,13 +186,12 @@ class MergeController extends GetxController {
       final merged = await _imageChannel.mergeImages(
         sources: selectedImages.toList(growable: false),
         mode: mode.value.value,
-        columns: columns.value,
         spacing: spacing.value,
         backgroundColor: backgroundColor.value.value,
         borderWidth: borderWidth.value,
         borderColor: borderColor.value.value,
         cornerRadius: cornerRadius.value,
-        scaleMode: scaleMode.value.value,
+        scaleMode: mode.value.scaleModeValue,
       );
       result.value = merged;
       await _historyRepository.recordOperationSuccess(
@@ -214,13 +201,12 @@ class MergeController extends GetxController {
         parameters: <String, Object>{
           'mode': mode.value.value,
           'count': selectedImages.length,
-          'columns': columns.value,
           'spacing': spacing.value,
           'backgroundColor': backgroundColor.value.value,
           'borderWidth': borderWidth.value,
           'borderColor': borderColor.value.value,
           'cornerRadius': cornerRadius.value,
-          'scaleMode': scaleMode.value.value,
+          'scaleMode': mode.value.scaleModeValue,
         },
       );
       showLatestSnackbar('merge.success.title'.tr, 'merge.success.message'.tr);
@@ -231,13 +217,12 @@ class MergeController extends GetxController {
         parameters: <String, Object>{
           'mode': mode.value.value,
           'count': selectedImages.length,
-          'columns': columns.value,
           'spacing': spacing.value,
           'backgroundColor': backgroundColor.value.value,
           'borderWidth': borderWidth.value,
           'borderColor': borderColor.value.value,
           'cornerRadius': cornerRadius.value,
-          'scaleMode': scaleMode.value.value,
+          'scaleMode': mode.value.scaleModeValue,
         },
         errorMessage: error.message,
       );
