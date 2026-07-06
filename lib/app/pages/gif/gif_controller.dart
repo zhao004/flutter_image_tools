@@ -47,7 +47,11 @@ class GifController extends GetxController {
         return;
       }
       if (images.length > LocalImageChannel.maxGifImages) {
-        _showError('单次最多选择 30 张图片');
+        _showError(
+          'gif.error.tooManyImages'.trParams({
+            'max': LocalImageChannel.maxGifImages.toString(),
+          }),
+        );
         return;
       }
       selectedImages.assignAll(images);
@@ -58,7 +62,7 @@ class GifController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('gif.error.recentFileFailed'.tr);
     }
   }
 
@@ -95,7 +99,7 @@ class GifController extends GetxController {
       return;
     }
     if (selectedImages.length < 2) {
-      _showError('请至少选择两张图片');
+      _showError('gif.error.minImages'.tr);
       return;
     }
 
@@ -108,7 +112,7 @@ class GifController extends GetxController {
       );
       result.value = gif;
       await _historyRepository.recordOperationSuccess(
-        featureName: 'GIF 生成',
+        featureName: 'gif.feature.create'.tr,
         inputPath: inputPath,
         outputPath: gif.outputPath,
         parameters: <String, Object>{
@@ -116,10 +120,13 @@ class GifController extends GetxController {
           'delayMs': delayMs.value,
         },
       );
-      Get.snackbar('GIF 已生成', '文件已导出到应用缓存目录');
+      Get.snackbar(
+        'gif.success.created.title'.tr,
+        'gif.success.created.message'.tr,
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: 'GIF 生成',
+        featureName: 'gif.feature.create'.tr,
         inputPath: inputPath,
         parameters: <String, Object>{
           'count': selectedImages.length,
@@ -149,7 +156,7 @@ class GifController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('gif.error.recentFileFailed'.tr);
     }
   }
 
@@ -159,7 +166,7 @@ class GifController extends GetxController {
     }
     final gif = selectedGif.value;
     if (gif == null) {
-      _showError('请先选择 GIF 图片');
+      _showError('gif.error.pickGifFirst'.tr);
       return;
     }
 
@@ -171,7 +178,7 @@ class GifController extends GetxController {
       );
       framesExport.value = export;
       await _historyRepository.recordOperationSuccess(
-        featureName: 'GIF 拆帧',
+        featureName: 'gif.feature.exportFrames'.tr,
         inputPath: gif.path,
         outputPath: export.outputDirectory,
         parameters: <String, Object>{
@@ -180,10 +187,15 @@ class GifController extends GetxController {
           'frameStepMs': export.frameStepMs,
         },
       );
-      Get.snackbar('GIF 拆帧完成', '已导出 ${export.frameCount} 张 PNG 图片');
+      Get.snackbar(
+        'gif.success.framesExported.title'.tr,
+        'gif.success.framesExported.message'.trParams({
+          'count': export.frameCount.toString(),
+        }),
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: 'GIF 拆帧',
+        featureName: 'gif.feature.exportFrames'.tr,
         inputPath: gif.path,
         parameters: <String, Object>{'frameStepMs': frameStepMs.value},
         errorMessage: error.message,
@@ -200,7 +212,7 @@ class GifController extends GetxController {
     }
     final gif = selectedGif.value;
     if (gif == null) {
-      _showError('请先选择 GIF 图片');
+      _showError('gif.error.pickGifFirst'.tr);
       return;
     }
 
@@ -213,7 +225,7 @@ class GifController extends GetxController {
       );
       compressedGif.value = compressed;
       await _historyRepository.recordOperationSuccess(
-        featureName: 'GIF 压缩',
+        featureName: 'gif.feature.compress'.tr,
         inputPath: gif.path,
         outputPath: compressed.outputPath,
         parameters: <String, Object>{
@@ -223,10 +235,13 @@ class GifController extends GetxController {
           'savedSizeBytes': compressed.savedSizeBytes,
         },
       );
-      Get.snackbar('GIF 压缩完成', '压缩 GIF 已导出到应用缓存目录');
+      Get.snackbar(
+        'gif.success.compressed.title'.tr,
+        'gif.success.compressed.message'.tr,
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: 'GIF 压缩',
+        featureName: 'gif.feature.compress'.tr,
         inputPath: gif.path,
         parameters: <String, Object>{
           'frameStepMs': compressFrameStepMs.value,
@@ -245,7 +260,7 @@ class GifController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -264,6 +279,6 @@ class GifController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('gif.error.title'.tr, message);
   }
 }

@@ -29,6 +29,8 @@ import 'package:flutter_image_tools/app/pages/flip/flip_view.dart';
 import 'package:flutter_image_tools/app/pages/filter/filter_controller.dart';
 import 'package:flutter_image_tools/app/pages/filter/filter_view.dart'
     as filter_page;
+import 'package:flutter_image_tools/app/pages/gif/gif_controller.dart';
+import 'package:flutter_image_tools/app/pages/gif/gif_view.dart';
 import 'package:flutter_image_tools/app/pages/grid/grid_controller.dart';
 import 'package:flutter_image_tools/app/pages/grid/grid_view.dart' as grid_page;
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
@@ -911,6 +913,51 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Images to PDF'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文 GIF 工具页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证生成、拆帧和压缩区域首屏文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      GifController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const GifView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('GIF Tools'), findsOneWidget);
+    expect(find.text('Select Frame Images'), findsOneWidget);
+    expect(
+      find.text(
+        'Select 2 to 30 images. The picker order becomes the GIF frame order.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Playback Speed'), findsOneWidget);
+    expect(find.text('Frame Delay: 300 ms'), findsOneWidget);
+    expect(
+      find.text(
+        'Smaller delays play faster. All frames are scaled to the first image size during export.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Create GIF'), findsOneWidget);
 
     await database.close();
     Get.reset();

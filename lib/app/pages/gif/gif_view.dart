@@ -13,7 +13,7 @@ class GifView extends GetView<GifController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('GIF 工具')),
+      appBar: AppBar(title: Text('gif.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -33,7 +33,11 @@ class GifView extends GetView<GifController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.gif_box_outlined),
-                label: Text(controller.isBusy.value ? '生成中' : '生成 GIF'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'gif.action.creating'.tr
+                      : 'gif.action.create'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -68,17 +72,28 @@ class _CompressCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('GIF 压缩', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'gif.compress.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (gif == null)
-                const Text('复用上方选择的 GIF，通过降低尺寸和采样频率减少文件大小。')
+                Text('gif.compress.empty'.tr)
               else ...[
                 Text(gif.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                Text('原始大小：${controller.formatBytes(gif.sizeBytes)}'),
+                Text(
+                  'gif.result.originalSize'.trParams({
+                    'size': controller.formatBytes(gif.sizeBytes),
+                  }),
+                ),
               ],
               const SizedBox(height: 16),
-              Text('缩放比例：${controller.compressScalePercent.value}%'),
+              Text(
+                'gif.compress.scale'.trParams({
+                  'scale': controller.compressScalePercent.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.compressScalePercent.value.toDouble(),
                 min: LocalImageChannelLimits.minGifScalePercent.toDouble(),
@@ -90,7 +105,11 @@ class _CompressCard extends StatelessWidget {
                     : controller.updateCompressScale,
               ),
               const SizedBox(height: 12),
-              Text('采样间隔：${controller.compressFrameStepMs.value} ms'),
+              Text(
+                'gif.compress.frameStep'.trParams({
+                  'step': controller.compressFrameStepMs.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.compressFrameStepMs.value.toDouble(),
                 min: LocalImageChannelLimits.minGifFrameStepMs.toDouble(),
@@ -112,7 +131,11 @@ class _CompressCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.compress),
-                label: Text(controller.isBusy.value ? '压缩中' : '压缩 GIF'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'gif.action.compressing'.tr
+                      : 'gif.action.compress'.tr,
+                ),
               ),
             ],
           );
@@ -140,15 +163,47 @@ class _CompressedResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('压缩结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'gif.compressedResult.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('帧数：${result.frameCount} 帧'),
-              Text('尺寸：${result.width} × ${result.height} px'),
-              Text('缩放比例：${result.scalePercent}%'),
-              Text('采样间隔：${result.frameStepMs} ms'),
-              Text('原始大小：${controller.formatBytes(result.originalSizeBytes)}'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
-              Text('节省空间：${controller.formatPercent(result.savedRatio)}'),
+              Text(
+                'gif.result.frameCountFrames'.trParams({
+                  'count': result.frameCount.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.dimensions'.trParams({
+                  'width': result.width.toString(),
+                  'height': result.height.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.scale'.trParams({
+                  'scale': result.scalePercent.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.frameStep'.trParams({
+                  'step': result.frameStepMs.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.originalSize'.trParams({
+                  'size': controller.formatBytes(result.originalSizeBytes),
+                }),
+              ),
+              Text(
+                'gif.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
+              Text(
+                'gif.result.saved'.trParams({
+                  'percent': controller.formatPercent(result.savedRatio),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,
@@ -178,23 +233,38 @@ class _FrameExportCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('GIF 拆帧', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'gif.frames.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (gif == null)
-                const Text('请选择 GIF 图片，按固定时间间隔导出 PNG 帧图片。')
+                Text('gif.frames.empty'.tr)
               else ...[
                 Text(gif.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                Text('文件大小：${controller.formatBytes(gif.sizeBytes)}'),
+                Text(
+                  'gif.frames.fileSize'.trParams({
+                    'size': controller.formatBytes(gif.sizeBytes),
+                  }),
+                ),
               ],
               const SizedBox(height: 12),
               FilledButton.tonalIcon(
                 onPressed: controller.isBusy.value ? null : controller.pickGif,
                 icon: const Icon(Icons.upload_file_outlined),
-                label: Text(gif == null ? '选择 GIF' : '重新选择 GIF'),
+                label: Text(
+                  gif == null
+                      ? 'gif.action.pickGif'.tr
+                      : 'gif.action.repickGif'.tr,
+                ),
               ),
               const SizedBox(height: 16),
-              Text('拆帧间隔：${controller.frameStepMs.value} ms'),
+              Text(
+                'gif.frames.frameStep'.trParams({
+                  'step': controller.frameStepMs.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.frameStepMs.value.toDouble(),
                 min: LocalImageChannelLimits.minGifFrameStepMs.toDouble(),
@@ -216,7 +286,11 @@ class _FrameExportCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.burst_mode_outlined),
-                label: Text(controller.isBusy.value ? '导出中' : '导出帧图片'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'gif.action.exporting'.tr
+                      : 'gif.action.exportFrames'.tr,
+                ),
               ),
             ],
           );
@@ -244,14 +318,36 @@ class _FrameExportResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('拆帧结果', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              Text('帧数：${result.frameCount} 张'),
-              Text('动画时长：${result.durationMs} ms'),
-              Text('拆帧间隔：${result.frameStepMs} ms'),
-              Text('尺寸：${result.width} × ${result.height} px'),
               Text(
-                '总大小：${controller.formatBytes(result.totalOutputSizeBytes)}',
+                'gif.framesResult.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'gif.framesResult.frameCount'.trParams({
+                  'count': result.frameCount.toString(),
+                }),
+              ),
+              Text(
+                'gif.framesResult.duration'.trParams({
+                  'duration': result.durationMs.toString(),
+                }),
+              ),
+              Text(
+                'gif.frames.frameStep'.trParams({
+                  'step': result.frameStepMs.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.dimensions'.trParams({
+                  'width': result.width.toString(),
+                  'height': result.height.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.totalSize'.trParams({
+                  'size': controller.formatBytes(result.totalOutputSizeBytes),
+                }),
               ),
               const SizedBox(height: 8),
               Text(
@@ -270,7 +366,11 @@ class _FrameExportResultCard extends StatelessWidget {
                     ),
                   ),
               if (result.outputPaths.length > 3)
-                Text('还有 ${result.outputPaths.length - 3} 个文件'),
+                Text(
+                  'gif.framesResult.moreFiles'.trParams({
+                    'count': (result.outputPaths.length - 3).toString(),
+                  }),
+                ),
             ],
           ),
         ),
@@ -294,15 +394,24 @@ class _ImagePickerCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择帧图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'gif.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择 2 到 30 张图片，系统选择顺序会作为 GIF 帧顺序。')
+                Text('gif.image.empty'.tr)
               else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'gif.image.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(controller.totalSizeBytes)}',
+                  'gif.image.totalSize'.trParams({
+                    'size': controller.formatBytes(controller.totalSizeBytes),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -311,7 +420,11 @@ class _ImagePickerCard extends StatelessWidget {
                     ? null
                     : controller.pickImages,
                 icon: const Icon(Icons.photo_library_outlined),
-                label: Text(images.isEmpty ? '批量选择' : '重新选择'),
+                label: Text(
+                  images.isEmpty
+                      ? 'gif.action.pickImages'.tr
+                      : 'gif.action.repickImages'.tr,
+                ),
               ),
               if (images.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -327,7 +440,12 @@ class _ImagePickerCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                if (images.length > 8) Text('还有 ${images.length - 8} 张图片'),
+                if (images.length > 8)
+                  Text(
+                    'gif.image.moreCount'.trParams({
+                      'count': (images.length - 8).toString(),
+                    }),
+                  ),
               ],
             ],
           );
@@ -351,9 +469,16 @@ class _DelayCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('播放速度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'gif.speed.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('每帧间隔：${controller.delayMs.value} ms'),
+              Text(
+                'gif.speed.delay'.trParams({
+                  'delay': controller.delayMs.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.delayMs.value.toDouble(),
                 min: LocalImageChannelLimits.minGifDelayMs.toDouble(),
@@ -364,7 +489,7 @@ class _DelayCard extends StatelessWidget {
                     ? null
                     : controller.updateDelay,
               ),
-              const Text('较小间隔播放更快；导出时所有帧会缩放到第一张图片尺寸。'),
+              Text('gif.speed.hint'.tr),
             ],
           ),
         ),
@@ -391,12 +516,32 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('GIF 结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'gif.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('帧数：${result.frameCount} 帧'),
-              Text('帧间隔：${result.delayMs} ms'),
-              Text('输出尺寸：${result.width} × ${result.height} px'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'gif.result.frameCountFrames'.trParams({
+                  'count': result.frameCount.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.delay'.trParams({
+                  'delay': result.delayMs.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.outputDimensions'.trParams({
+                  'width': result.width.toString(),
+                  'height': result.height.toString(),
+                }),
+              ),
+              Text(
+                'gif.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,
