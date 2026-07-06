@@ -1,16 +1,16 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
 
 import '../../models/local_image_file.dart';
 import 'annotation_controller.dart';
 
-/// 图片编辑页，提供选图、图层编辑、涂抹和导出能力。
+/// 图片编辑页，提供选图、第三方画布编辑、马赛克涂抹和保存到相册。
 ///
-/// 构建设计：主体是可截图的编辑画布，底部工具栏承载模式切换；文字、
-/// 形状和箭头以图层呈现，可移动、旋转和缩放，画笔和马赛克通过手势绘制。
+/// 构建设计：预览区使用 `flutter_painter_v2` 承载文字、形状、箭头和画笔；
+/// 底部工具栏保持单图编辑流程，马赛克作为覆盖层处理，避免引入额外原生依赖。
 class AnnotationView extends GetView<AnnotationController> {
   const AnnotationView({super.key});
 
@@ -60,19 +60,10 @@ class AnnotationView extends GetView<AnnotationController> {
   }
 }
 
-class _EditorStage extends StatefulWidget {
+class _EditorStage extends StatelessWidget {
   const _EditorStage({required this.controller});
 
   final AnnotationController controller;
-
-  @override
-  State<_EditorStage> createState() => _EditorStageState();
-}
-
-class _EditorStageState extends State<_EditorStage> {
-  final List<Offset> _draftPoints = <Offset>[];
-
-  AnnotationController get controller => widget.controller;
 
   @override
   Widget build(BuildContext context) {
@@ -95,14 +86,7 @@ class _EditorStageState extends State<_EditorStage> {
               child: Center(
                 child: AspectRatio(
                   aspectRatio: aspectRatio.clamp(0.35, 2.4),
-                  child: _EditableCanvas(
-                    controller: controller,
-                    image: image,
-                    draftPoints: _draftPoints,
-                    onPanStart: _startStroke,
-                    onPanUpdate: _appendStroke,
-                    onPanEnd: _finishStroke,
-                  ),
+                  child: _EditableCanvas(controller: controller),
                 ),
               ),
             ),
@@ -112,12 +96,82 @@ class _EditorStageState extends State<_EditorStage> {
       );
     });
   }
+}
 
-  void _startStroke(DragStartDetails details) {
-    final mode = controller.mode.value;
-    if (mode != AnnotationMode.brush && mode != AnnotationMode.mosaic) {
-      return;
-    }
+class _EditableCanvas extends StatefulWidget {
+  const _EditableCanvas({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  State<_EditableCanvas> createState() => _EditableCanvasState();
+}
+
+class _EditableCanvasState extends State<_EditableCanvas> {
+  final List<Offset> _draftPoints = <Offset>[];
+
+  AnnotationController get controller => widget.controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          controller.updateCanvasSize(
+            Size(constraints.maxWidth, constraints.maxHeight),
+          );
+        });
+
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                FlutterPainter.builder(
+                  controller: controller.painterController,
+                  onSelectedObjectDrawableChanged: controller.selectObject,
+                  builder: (context, painter) => painter,
+                ),
+                Obx(() {
+                  if (controller.mode.value != AnnotationMode.mosaic) {
+                    return IgnorePointer(
+                      child: CustomPaint(
+                        painter: _MosaicPainter(
+                          strokes: controller.strokes,
+                          draftPoints: const [],
+                          draftWidth: controller.strokeWidth.value.toDouble(),
+                        ),
+                      ),
+                    );
+                  }
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: _startMosaic,
+                    onPanUpdate: _appendMosaic,
+                    onPanEnd: _finishMosaic,
+                    child: CustomPaint(
+                      painter: _MosaicPainter(
+                        strokes: controller.strokes,
+                        draftPoints: _draftPoints,
+                        draftWidth: controller.strokeWidth.value.toDouble(),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _startMosaic(DragStartDetails details) {
     setState(() {
       _draftPoints
         ..clear()
@@ -125,174 +179,13 @@ class _EditorStageState extends State<_EditorStage> {
     });
   }
 
-  void _appendStroke(DragUpdateDetails details) {
-    final mode = controller.mode.value;
-    if (mode != AnnotationMode.brush && mode != AnnotationMode.mosaic) {
-      return;
-    }
+  void _appendMosaic(DragUpdateDetails details) {
     setState(() => _draftPoints.add(details.localPosition));
   }
 
-  void _finishStroke(DragEndDetails details) {
-    final mode = controller.mode.value;
-    if (mode != AnnotationMode.brush && mode != AnnotationMode.mosaic) {
-      return;
-    }
-    controller.addStroke(strokeMode: mode, points: _draftPoints);
+  void _finishMosaic(DragEndDetails details) {
+    controller.addMosaicStroke(_draftPoints);
     setState(_draftPoints.clear);
-  }
-}
-
-class _EditableCanvas extends StatelessWidget {
-  const _EditableCanvas({
-    required this.controller,
-    required this.image,
-    required this.draftPoints,
-    required this.onPanStart,
-    required this.onPanUpdate,
-    required this.onPanEnd,
-  });
-
-  final AnnotationController controller;
-  final LocalImageFile image;
-  final List<Offset> draftPoints;
-  final GestureDragStartCallback onPanStart;
-  final GestureDragUpdateCallback onPanUpdate;
-  final GestureDragEndCallback onPanEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: GestureDetector(
-          onPanStart: onPanStart,
-          onPanUpdate: onPanUpdate,
-          onPanEnd: onPanEnd,
-          child: RepaintBoundary(
-            key: controller.canvasKey,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.file(File(image.path), fit: BoxFit.cover),
-                Obx(
-                  () => CustomPaint(
-                    painter: _StrokePainter(
-                      strokes: controller.strokes,
-                      draftMode: controller.mode.value,
-                      draftColor: controller.color.value.color,
-                      draftWidth: controller.strokeWidth.value.toDouble(),
-                      draftPoints: draftPoints,
-                    ),
-                  ),
-                ),
-                Obx(
-                  () => Stack(
-                    fit: StackFit.expand,
-                    children: controller.layers
-                        .map(
-                          (layer) => _EditableLayerWidget(
-                            layer: layer,
-                            isSelected:
-                                controller.selectedLayerId.value == layer.id,
-                            onTap: () => controller.selectLayer(layer.id),
-                            onMove: controller.moveSelectedLayer,
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EditableLayerWidget extends StatelessWidget {
-  const _EditableLayerWidget({
-    required this.layer,
-    required this.isSelected,
-    required this.onTap,
-    required this.onMove,
-  });
-
-  final EditableLayer layer;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final ValueChanged<Offset> onMove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Transform.translate(
-        offset: layer.position,
-        child: Transform.rotate(
-          angle: degreesToRadians(layer.rotation),
-          child: Transform.scale(
-            scale: layer.scale,
-            child: GestureDetector(
-              onTap: onTap,
-              onPanStart: (_) => onTap(),
-              onPanUpdate: (details) => onMove(details.delta),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: isSelected
-                      ? Border.all(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 2,
-                        )
-                      : null,
-                ),
-                child: _LayerShape(layer: layer),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LayerShape extends StatelessWidget {
-  const _LayerShape({required this.layer});
-
-  final EditableLayer layer;
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (layer.type) {
-      EditableLayerType.text => Padding(
-        padding: const EdgeInsets.all(6),
-        child: Text(
-          layer.text,
-          style: TextStyle(
-            color: layer.color,
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            shadows: const [Shadow(color: Colors.black54, blurRadius: 2)],
-          ),
-        ),
-      ),
-      EditableLayerType.rectangle => CustomPaint(
-        size: const Size(128, 86),
-        painter: _ShapeLayerPainter(layer: layer),
-      ),
-      EditableLayerType.circle => CustomPaint(
-        size: const Size(112, 112),
-        painter: _ShapeLayerPainter(layer: layer),
-      ),
-      EditableLayerType.arrow => CustomPaint(
-        size: const Size(140, 86),
-        painter: _ShapeLayerPainter(layer: layer),
-      ),
-    };
   }
 }
 
@@ -304,14 +197,15 @@ class _LayerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final layer = controller.selectedLayer;
+      final layer = controller.selectedObject.value;
       if (layer == null) {
         return const SizedBox.shrink();
       }
+      final degrees = layer.rotationAngle * 180 / math.pi;
       return Material(
         color: Theme.of(context).colorScheme.surface,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -324,7 +218,7 @@ class _LayerControls extends StatelessWidget {
                   const Spacer(),
                   IconButton(
                     tooltip: 'annotation.action.deleteLayer'.tr,
-                    onPressed: controller.deleteSelectedLayer,
+                    onPressed: controller.deleteSelectedObject,
                     icon: const Icon(Icons.delete_outline),
                   ),
                 ],
@@ -334,23 +228,23 @@ class _LayerControls extends StatelessWidget {
                   const Icon(Icons.zoom_out_map, size: 18),
                   Expanded(
                     child: Slider(
-                      value: layer.scale,
+                      value: layer.scale.clamp(0.4, 3.0),
                       min: 0.4,
                       max: 3,
                       divisions: 26,
                       label: '${(layer.scale * 100).round()}%',
-                      onChanged: controller.updateSelectedLayerScale,
+                      onChanged: controller.updateSelectedObjectScale,
                     ),
                   ),
                   const Icon(Icons.rotate_90_degrees_ccw, size: 18),
                   Expanded(
                     child: Slider(
-                      value: layer.rotation,
+                      value: degrees.clamp(-180, 180),
                       min: -180,
                       max: 180,
                       divisions: 36,
-                      label: '${layer.rotation.round()}°',
-                      onChanged: controller.updateSelectedLayerRotation,
+                      label: '${degrees.round()}°',
+                      onChanged: controller.updateSelectedObjectRotation,
                     ),
                   ),
                 ],
@@ -666,123 +560,44 @@ class _ResultText extends StatelessWidget {
   }
 }
 
-class _StrokePainter extends CustomPainter {
-  const _StrokePainter({
+class _MosaicPainter extends CustomPainter {
+  const _MosaicPainter({
     required this.strokes,
-    required this.draftMode,
-    required this.draftColor,
-    required this.draftWidth,
     required this.draftPoints,
+    required this.draftWidth,
   });
 
   final List<DrawingStroke> strokes;
-  final AnnotationMode draftMode;
-  final Color draftColor;
-  final double draftWidth;
   final List<Offset> draftPoints;
+  final double draftWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.28)
+      ..style = PaintingStyle.fill;
     for (final stroke in strokes) {
-      _paintStroke(
-        canvas,
-        stroke.mode,
-        stroke.color,
-        stroke.width,
-        stroke.points,
+      _paintPoints(canvas, paint, stroke.points, stroke.width);
+    }
+    _paintPoints(canvas, paint, draftPoints, draftWidth);
+  }
+
+  void _paintPoints(
+    Canvas canvas,
+    Paint paint,
+    List<Offset> points,
+    double width,
+  ) {
+    for (final point in points) {
+      canvas.drawRect(
+        Rect.fromCenter(center: point, width: width * 1.8, height: width * 1.8),
+        paint,
       );
     }
-    if (draftPoints.length >= 2) {
-      _paintStroke(canvas, draftMode, draftColor, draftWidth, draftPoints);
-    }
-  }
-
-  void _paintStroke(
-    Canvas canvas,
-    AnnotationMode mode,
-    Color color,
-    double width,
-    List<Offset> points,
-  ) {
-    if (mode == AnnotationMode.mosaic) {
-      final paint = Paint()
-        ..color = Colors.black.withValues(alpha: 0.28)
-        ..style = PaintingStyle.fill;
-      for (final point in points) {
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: point,
-            width: width * 1.8,
-            height: width * 1.8,
-          ),
-          paint,
-        );
-      }
-      return;
-    }
-
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final point in points.skip(1)) {
-      path.lineTo(point.dx, point.dy);
-    }
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = width
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _StrokePainter oldDelegate) {
+  bool shouldRepaint(covariant _MosaicPainter oldDelegate) {
     return true;
-  }
-}
-
-class _ShapeLayerPainter extends CustomPainter {
-  const _ShapeLayerPainter({required this.layer});
-
-  final EditableLayer layer;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = layer.color
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    switch (layer.type) {
-      case EditableLayerType.rectangle:
-        canvas.drawRect(Offset.zero & size, paint);
-      case EditableLayerType.circle:
-        canvas.drawOval(Offset.zero & size, paint);
-      case EditableLayerType.arrow:
-        final start = Offset(8, size.height - 10);
-        final end = Offset(size.width - 8, 10);
-        canvas.drawLine(start, end, paint);
-        final angle = math.atan2(end.dy - start.dy, end.dx - start.dx);
-        const headLength = 24.0;
-        for (final direction in <double>[0.72, -0.72]) {
-          canvas.drawLine(
-            end,
-            Offset(
-              end.dx - headLength * math.cos(angle + direction),
-              end.dy - headLength * math.sin(angle + direction),
-            ),
-            paint,
-          );
-        }
-      case EditableLayerType.text:
-        break;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ShapeLayerPainter oldDelegate) {
-    return oldDelegate.layer.color != layer.color ||
-        oldDelegate.layer.type != layer.type;
   }
 }

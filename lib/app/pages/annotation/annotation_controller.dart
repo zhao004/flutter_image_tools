@@ -4,10 +4,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:signature/signature.dart' as signature;
 
 import '../../exceptions/app_exception.dart';
 import '../../models/annotated_image_file.dart';
@@ -53,40 +52,8 @@ enum AnnotationColor {
 
 enum EditableLayerType { text, rectangle, circle, arrow }
 
-class EditableLayer {
-  EditableLayer({
-    required this.id,
-    required this.type,
-    required this.position,
-    required this.color,
-    this.text = '',
-    this.rotation = 0,
-    this.scale = 1,
-  });
-
-  final int id;
-  final EditableLayerType type;
-  Offset position;
-  Color color;
-  String text;
-  double rotation;
-  double scale;
-
-  EditableLayer copy() {
-    return EditableLayer(
-      id: id,
-      type: type,
-      position: position,
-      color: color,
-      text: text,
-      rotation: rotation,
-      scale: scale,
-    );
-  }
-}
-
 class DrawingStroke {
-  DrawingStroke({
+  const DrawingStroke({
     required this.mode,
     required this.color,
     required this.width,
@@ -99,10 +66,10 @@ class DrawingStroke {
   final List<Offset> points;
 }
 
-/// 图片编辑控制器，管理选图、图层、涂抹轨迹、变换参数和截图导出。
+/// 图片编辑控制器，使用第三方画布库处理文字、形状、箭头、画笔和对象变换。
 ///
-/// 设计意图：编辑操作先在 Flutter 画布中完成，文字/形状/箭头使用图层模型，
-/// 画笔和马赛克使用路径模型；导出时截图整个编辑画布，避免覆盖原图。
+/// 设计意图：`flutter_painter_v2` 负责可移动、可旋转、可缩放对象与画笔；
+/// 马赛克保留为独立涂抹层，导出时叠加到库渲染结果，兼顾稳定性和现有需求。
 class AnnotationController extends GetxController {
   AnnotationController({
     required LocalImageChannel imageChannel,
@@ -112,49 +79,48 @@ class AnnotationController extends GetxController {
        _historyRepository = historyRepository,
        _recentFilesRepository = recentFilesRepository;
 
+  static const double _defaultTextSize = 32;
+  static const double _defaultShapeStrokeWidth = 6;
+  static const double _defaultArrowLength = 180;
+  static const Size _defaultRectangleSize = Size(140, 92);
+  static const Size _defaultCircleSize = Size(120, 120);
+
   final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
   final RecentFilesRepository _recentFilesRepository;
 
-  final canvasKey = GlobalKey();
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<AnnotatedImageFile>();
   final mode = AnnotationMode.select.obs;
   final color = AnnotationColor.red.obs;
   final strokeWidth = 12.obs;
   final isBusy = false.obs;
-  final layers = <EditableLayer>[].obs;
   final strokes = <DrawingStroke>[].obs;
-  final selectedLayerId = RxnInt();
+  final selectedObject = Rxn<ObjectDrawable>();
+  final editRevision = 0.obs;
   final textController = TextEditingController();
-  final signatureController = signature.SignatureController(
-    penColor: Colors.red,
-    penStrokeWidth: 12,
-    strokeCap: StrokeCap.round,
-    strokeJoin: StrokeJoin.round,
-  );
+  final painterController = PainterController();
 
-  int _nextLayerId = 1;
+  ui.Image? _backgroundImage;
+  Size _canvasSize = Size.zero;
 
-  EditableLayer? get selectedLayer {
-    final id = selectedLayerId.value;
-    if (id == null) {
-      return null;
-    }
-    for (final layer in layers) {
-      if (layer.id == id) {
-        return layer;
-      }
-    }
-    return null;
+  bool get hasEdits {
+    editRevision.value;
+    return painterController.drawables.isNotEmpty || strokes.isNotEmpty;
   }
 
-  bool get hasEdits =>
-      layers.isNotEmpty || strokes.isNotEmpty || signatureController.isNotEmpty;
+  @override
+  void onInit() {
+    super.onInit();
+    painterController.addListener(_notifyPainterChanged);
+    _applyPainterMode();
+  }
 
   @override
   void onClose() {
-    signatureController.dispose();
+    painterController.removeListener(_notifyPainterChanged);
+    painterController.dispose();
+    _backgroundImage?.dispose();
     textController.dispose();
     super.onClose();
   }
@@ -168,6 +134,7 @@ class AnnotationController extends GetxController {
       if (image == null) {
         return;
       }
+      await _loadBackground(image);
       selectedImage.value = image;
       result.value = null;
       clearEdits(showMessage: false);
@@ -181,26 +148,44 @@ class AnnotationController extends GetxController {
 
   void setMode(AnnotationMode value) {
     mode.value = value;
-    if (value == AnnotationMode.brush || value == AnnotationMode.mosaic) {
-      selectedLayerId.value = null;
+    if (value != AnnotationMode.select) {
+      painterController.deselectObjectDrawable();
+      selectedObject.value = null;
     }
+    _applyPainterMode();
   }
 
   void setColor(AnnotationColor value) {
     color.value = value;
-    final layer = selectedLayer;
-    if (layer != null) {
-      layer.color = value.color;
-      layers.refresh();
-    }
+    _applyPainterMode();
+    _updateSelectedObjectColor(value.color);
   }
 
   void updateStrokeWidth(double value) {
     strokeWidth.value = value.round().clamp(2, 60);
+    _applyPainterMode();
+  }
+
+  void updateCanvasSize(Size size) {
+    if (!size.width.isFinite ||
+        !size.height.isFinite ||
+        size.width <= 0 ||
+        size.height <= 0) {
+      return;
+    }
+    if ((_canvasSize.width - size.width).abs() < 0.5 &&
+        (_canvasSize.height - size.height).abs() < 0.5) {
+      return;
+    }
+    _canvasSize = size;
   }
 
   void addTextLayer() {
     final text = textController.text.trim();
+    if (selectedImage.value == null) {
+      _showError('annotation.error.pickImageFirst'.tr);
+      return;
+    }
     if (text.isEmpty) {
       _showError('annotation.error.textRequired'.tr);
       return;
@@ -209,95 +194,133 @@ class AnnotationController extends GetxController {
       _showError('annotation.error.textTooLong'.trParams({'max': '40'}));
       return;
     }
-    _addLayer(EditableLayerType.text, text: text);
+
+    final drawable = TextDrawable(
+      text: text,
+      position: _canvasCenter,
+      style: TextStyle(
+        color: color.value.color,
+        fontSize: _defaultTextSize,
+        fontWeight: FontWeight.w800,
+        shadows: const [Shadow(color: Colors.black54, blurRadius: 2)],
+      ),
+      direction: TextDirection.ltr,
+    );
+    _addObjectDrawable(drawable);
     textController.clear();
   }
 
   void addShapeLayer(EditableLayerType type) {
-    _addLayer(type);
+    if (selectedImage.value == null) {
+      _showError('annotation.error.pickImageFirst'.tr);
+      return;
+    }
+
+    final paint = _shapePaint(color.value.color);
+    final ObjectDrawable drawable = switch (type) {
+      EditableLayerType.text => throw const AppException('标注类型无效'),
+      EditableLayerType.rectangle => RectangleDrawable(
+        size: _defaultRectangleSize,
+        position: _canvasCenter,
+        paint: paint,
+        borderRadius: const BorderRadius.all(Radius.circular(4)),
+      ),
+      EditableLayerType.circle => OvalDrawable(
+        size: _defaultCircleSize,
+        position: _canvasCenter,
+        paint: paint,
+      ),
+      EditableLayerType.arrow => ArrowDrawable(
+        length: _defaultArrowLength,
+        position: _canvasCenter,
+        paint: paint,
+        arrowHeadSize: 24,
+      ),
+    };
+    _addObjectDrawable(drawable);
   }
 
-  void selectLayer(int id) {
-    selectedLayerId.value = id;
+  void selectObject(ObjectDrawable? drawable) {
+    selectedObject.value = drawable;
     mode.value = AnnotationMode.select;
+    _applyPainterMode();
   }
 
-  void moveSelectedLayer(Offset delta) {
-    final layer = selectedLayer;
-    if (layer == null) {
+  void updateSelectedObjectScale(double value) {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable == null) {
       return;
     }
-    layer.position += delta;
-    layers.refresh();
+    final next = drawable.copyWith(scale: value.clamp(0.4, 3.0));
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
   }
 
-  void updateSelectedLayerScale(double value) {
-    final layer = selectedLayer;
-    if (layer == null) {
+  void updateSelectedObjectRotation(double degrees) {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable == null) {
       return;
     }
-    layer.scale = value.clamp(0.4, 3.0);
-    layers.refresh();
+    final radians = degrees.clamp(-180, 180) * math.pi / 180;
+    final next = drawable.copyWith(rotation: radians);
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
   }
 
-  void updateSelectedLayerRotation(double value) {
-    final layer = selectedLayer;
-    if (layer == null) {
+  void deleteSelectedObject() {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable == null) {
       return;
     }
-    layer.rotation = value.clamp(-180, 180);
-    layers.refresh();
+    painterController.removeDrawable(drawable);
+    painterController.deselectObjectDrawable(isRemoved: true);
+    selectedObject.value = null;
+    result.value = null;
   }
 
-  void deleteSelectedLayer() {
-    final id = selectedLayerId.value;
-    if (id == null) {
-      return;
-    }
-    layers.removeWhere((layer) => layer.id == id);
-    selectedLayerId.value = null;
-  }
-
-  void addStroke({
-    required AnnotationMode strokeMode,
-    required List<Offset> points,
-  }) {
+  void addMosaicStroke(List<Offset> points) {
     if (points.length < 2) {
       return;
     }
     strokes.add(
       DrawingStroke(
-        mode: strokeMode,
-        color: color.value.color,
+        mode: AnnotationMode.mosaic,
+        color: Colors.black,
         width: strokeWidth.value.toDouble(),
         points: List<Offset>.unmodifiable(points),
       ),
     );
-    _syncSignatureController();
+    editRevision.value++;
     result.value = null;
   }
 
   void undo() {
-    if (selectedLayerId.value != null) {
-      deleteSelectedLayer();
+    if (mode.value == AnnotationMode.mosaic && strokes.isNotEmpty) {
+      strokes.removeLast();
+      editRevision.value++;
+      return;
+    }
+    if (painterController.canUndo) {
+      painterController.undo();
+      selectedObject.value = painterController.selectedObjectDrawable;
       return;
     }
     if (strokes.isNotEmpty) {
       strokes.removeLast();
-      _syncSignatureController();
-      return;
-    }
-    if (layers.isNotEmpty) {
-      layers.removeLast();
+      editRevision.value++;
     }
   }
 
   void clearEdits({bool showMessage = true}) {
-    layers.clear();
+    painterController.clearDrawables();
+    painterController.deselectObjectDrawable();
     strokes.clear();
-    signatureController.clear();
-    selectedLayerId.value = null;
+    selectedObject.value = null;
     result.value = null;
+    _applyPainterMode();
+    editRevision.value++;
     if (showMessage) {
       showLatestSnackbar(
         'annotation.clear.success.title'.tr,
@@ -319,21 +342,32 @@ class AnnotationController extends GetxController {
       _showError('annotation.error.noEdits'.tr);
       return;
     }
+    if (!source.hasValidDimensions) {
+      _showError('annotation.error.exportFailed'.tr);
+      return;
+    }
+    final canvasSize = _validCanvasSize;
+    if (canvasSize == null) {
+      _showError('annotation.error.canvasUnavailable'.tr);
+      return;
+    }
 
     isBusy.value = true;
     try {
-      final boundary =
-          canvasKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
-      if (boundary == null) {
-        throw AppException('annotation.error.canvasUnavailable'.tr);
-      }
-      final image = await boundary.toImage(pixelRatio: 3);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
+      final outputSize = Size(
+        source.width.toDouble(),
+        source.height.toDouble(),
+      );
+      final renderedImage = await painterController.renderImage(outputSize);
+      final pngBytes = await _encodeWithMosaic(
+        renderedImage,
+        outputSize: outputSize,
+        canvasSize: canvasSize,
+      );
+      if (pngBytes.isEmpty) {
         throw AppException('annotation.error.exportEmpty'.tr);
       }
-      final output = await _createOutputFile(byteData.buffer.asUint8List());
+      final output = await _createOutputFile(pngBytes);
       await _imageChannel.saveImageToGallery(output.path);
       final annotated = AnnotatedImageFile(
         source: source,
@@ -401,22 +435,101 @@ class AnnotationController extends GetxController {
     return value == 'editor' ? 'annotation.mode.editor'.tr : value;
   }
 
-  void _addLayer(EditableLayerType type, {String text = ''}) {
-    if (selectedImage.value == null) {
-      _showError('annotation.error.pickImageFirst'.tr);
+  void _addObjectDrawable(ObjectDrawable drawable) {
+    painterController.addDrawables([drawable]);
+    painterController.selectObjectDrawable(drawable);
+    selectedObject.value = drawable;
+    mode.value = AnnotationMode.select;
+    _applyPainterMode();
+    result.value = null;
+  }
+
+  Future<void> _loadBackground(LocalImageFile image) async {
+    if (image.path.trim().isEmpty) {
+      throw AppException('annotation.error.pickImageFirst'.tr);
+    }
+    final file = File(image.path);
+    if (!file.existsSync()) {
+      throw AppException('annotation.error.pickImageFirst'.tr);
+    }
+    final background = await FileImage(file).image;
+    _backgroundImage?.dispose();
+    _backgroundImage = background;
+    painterController.background = background.backgroundDrawable;
+  }
+
+  void _applyPainterMode() {
+    final activeMode = mode.value;
+    final nextFreeStyleMode = activeMode == AnnotationMode.brush
+        ? FreeStyleMode.draw
+        : FreeStyleMode.none;
+    painterController.freeStyleSettings = FreeStyleSettings(
+      mode: nextFreeStyleMode,
+      color: color.value.color,
+      strokeWidth: strokeWidth.value.toDouble(),
+    );
+    painterController.shapeSettings = const ShapeSettings(factory: null);
+  }
+
+  void _updateSelectedObjectColor(Color nextColor) {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable == null) {
       return;
     }
-    final layer = EditableLayer(
-      id: _nextLayerId++,
-      type: type,
-      position: const Offset(0, 0),
-      color: color.value.color,
-      text: text,
+    final next = switch (drawable) {
+      TextDrawable item => item.copyWith(
+        style: item.style.copyWith(color: nextColor),
+      ),
+      ShapeDrawable item => item.copyWith(paint: _shapePaint(nextColor)),
+      _ => null,
+    };
+    if (next == null) {
+      return;
+    }
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
+  }
+
+  Future<Uint8List> _encodeWithMosaic(
+    ui.Image renderedImage, {
+    required Size outputSize,
+    required Size canvasSize,
+  }) async {
+    if (strokes.isEmpty) {
+      final byteData = await renderedImage.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      return byteData?.buffer.asUint8List() ?? Uint8List(0);
+    }
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawImage(renderedImage, Offset.zero, Paint());
+    final paint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.28)
+      ..style = PaintingStyle.fill;
+    final scaleX = outputSize.width / canvasSize.width;
+    final scaleY = outputSize.height / canvasSize.height;
+    for (final stroke in strokes) {
+      for (final point in stroke.points) {
+        canvas.drawRect(
+          Rect.fromCenter(
+            center: Offset(point.dx * scaleX, point.dy * scaleY),
+            width: stroke.width * 1.8 * scaleX,
+            height: stroke.width * 1.8 * scaleY,
+          ),
+          paint,
+        );
+      }
+    }
+    final image = await recorder.endRecording().toImage(
+      outputSize.width.round(),
+      outputSize.height.round(),
     );
-    layers.add(layer);
-    selectedLayerId.value = layer.id;
-    mode.value = AnnotationMode.select;
-    result.value = null;
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    return byteData?.buffer.asUint8List() ?? Uint8List(0);
   }
 
   Future<File> _createOutputFile(Uint8List bytes) async {
@@ -435,34 +548,68 @@ class AnnotationController extends GetxController {
   Map<String, Object> _historyParameters() {
     return <String, Object>{
       'mode': 'editor',
-      'layers': layers.length,
+      'layers': painterController.drawables.length,
       'strokes': strokes.length,
       'strokeWidth': strokeWidth.value,
       'color': color.value.value,
     };
   }
 
-  void _showError(String message) {
-    showLatestSnackbar('annotation.error.title'.tr, message);
+  void _notifyPainterChanged() {
+    selectedObject.value = painterController.selectedObjectDrawable;
+    editRevision.value++;
+    result.value = null;
   }
 
-  void _syncSignatureController() {
-    final points = <signature.Point>[];
-    for (final stroke in strokes) {
-      if (stroke.mode != AnnotationMode.brush) {
-        continue;
-      }
-      for (var index = 0; index < stroke.points.length; index++) {
-        points.add(
-          signature.Point(
-            stroke.points[index],
-            index == 0 ? signature.PointType.tap : signature.PointType.move,
-            1,
-          ),
-        );
-      }
+  Offset get _canvasCenter =>
+      Offset(_effectiveCanvasSize.width / 2, _effectiveCanvasSize.height / 2);
+
+  Size get _effectiveCanvasSize {
+    final canvasSize = _validCanvasSize;
+    if (canvasSize != null) {
+      return canvasSize;
     }
-    signatureController.points = points;
+    final image = selectedImage.value;
+    if (image == null || !image.hasValidDimensions) {
+      return const Size(320, 320);
+    }
+    final ratio = image.width / image.height;
+    const maxSide = 320.0;
+    if (ratio >= 1) {
+      return Size(maxSide, maxSide / ratio);
+    }
+    return Size(maxSide * ratio, maxSide);
+  }
+
+  Size? get _validCanvasSize {
+    if (_canvasSize.width <= 0 ||
+        _canvasSize.height <= 0 ||
+        !_canvasSize.width.isFinite ||
+        !_canvasSize.height.isFinite) {
+      final contextSize = painterController.painterKey.currentContext?.size;
+      if (contextSize == null ||
+          contextSize.width <= 0 ||
+          contextSize.height <= 0 ||
+          !contextSize.width.isFinite ||
+          !contextSize.height.isFinite) {
+        return null;
+      }
+      return contextSize;
+    }
+    return _canvasSize;
+  }
+
+  Paint _shapePaint(Color paintColor) {
+    return Paint()
+      ..color = paintColor
+      ..strokeWidth = _defaultShapeStrokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+  }
+
+  void _showError(String message) {
+    showLatestSnackbar('annotation.error.title'.tr, message);
   }
 }
 
@@ -474,5 +621,3 @@ Color _colorFromHex(String value) {
   }
   return Color(0xFF000000 | parsed);
 }
-
-double degreesToRadians(double value) => value * math.pi / 180;
