@@ -52,8 +52,32 @@ class AppDatabase extends _$AppDatabase {
     )..where((table) => table.settingKey.equals(key))).getSingleOrNull();
   }
 
-  Future<int> upsertSetting(AppSettingsCompanion setting) {
-    return into(appSettings).insertOnConflictUpdate(setting);
+  Future<int> upsertSetting(AppSettingsCompanion setting) async {
+    if (!setting.settingKey.present) {
+      return 0;
+    }
+
+    final settingKey = setting.settingKey.value.trim();
+    if (settingKey.isEmpty) {
+      return 0;
+    }
+
+    final normalizedSetting = setting.copyWith(settingKey: Value(settingKey));
+    final existingSetting = await getSetting(settingKey);
+    if (existingSetting == null) {
+      return into(appSettings).insert(normalizedSetting);
+    }
+
+    // 设置项的唯一约束是 settingKey，更新时只覆盖可变字段，避免误写自增主键。
+    return (update(
+      appSettings,
+    )..where((table) => table.settingKey.equals(settingKey))).write(
+      AppSettingsCompanion(
+        settingValue: setting.settingValue,
+        valueType: setting.valueType,
+        updatedAt: setting.updatedAt,
+      ),
+    );
   }
 
   Future<List<OperationHistoryData>> getRecentHistory({

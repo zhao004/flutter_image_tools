@@ -66,5 +66,23 @@ void main() {
         '/settings',
       ]);
     });
+
+    test('基础设置重复保存时覆盖旧值', () async {
+      // 设置页会频繁重复保存同一个 key，仓储层必须按 settingKey 覆盖，
+      // 不能因为自增主键或唯一键冲突让界面误报“保存失败”。
+      await repository.setDefaultExportFormat('jpg');
+      await repository.setDefaultExportFormat('png');
+      await repository.setDefaultSaveRule('timestamp');
+      await repository.setDefaultSaveRule('source_name');
+      await repository.setThemeMode('system');
+      await repository.setThemeMode('dark');
+      await repository.setLanguage('system');
+      await repository.setLanguage('en');
+
+      expect(await repository.getDefaultExportFormat(), 'png');
+      expect(await repository.getDefaultSaveRule(), 'source_name');
+      expect(await repository.getThemeMode(), 'dark');
+      expect(await repository.getLanguage(), 'en');
+    });
   });
 }
