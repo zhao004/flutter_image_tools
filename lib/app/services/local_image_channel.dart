@@ -1,4 +1,12 @@
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:gal/gal.dart';
+import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../exceptions/app_exception.dart';
 import '../models/annotated_image_file.dart';
@@ -25,14 +33,14 @@ import '../models/resized_image_file.dart';
 import '../models/rotated_image_file.dart';
 import '../models/watermarked_image_file.dart';
 
-/// Android 本地图片能力通道，封装选择图片和压缩图片的原生调用。
+/// 本地图片能力服务，封装选图、相册保存和图片处理。
 ///
-/// 设计意图：第一阶段不引入额外 Flutter 插件，先用原生平台能力形成离线
-/// 闭环；所有 PlatformException 在此转换为 AppException，界面无需感知
-/// MethodChannel 细节。
+/// 设计意图：常用图片能力使用 Flutter 插件和 Dart 侧图像处理，减少平台通道
+/// 依赖；PDF、GIF、EXIF 和扫码等复杂能力暂保留原生通道，避免一次性迁移扩大风险。
 class LocalImageChannel {
-  LocalImageChannel({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel(_channelName);
+  LocalImageChannel({MethodChannel? channel, ImagePicker? imagePicker})
+    : _channel = channel ?? const MethodChannel(_channelName),
+      _imagePicker = imagePicker ?? ImagePicker();
 
   static const String _channelName = 'image_toolkit/local_image';
   static const int maxResizeDimension = 10000;
@@ -47,6 +55,8 @@ class LocalImageChannel {
   static const int maxGifScalePercent = 100;
   static const int minGridSize = 2;
   static const int maxGridSize = 5;
+  static const String _defaultAlbum = 'Image Toolkit';
+  static const int _maxDecodedPixels = 120000000;
   static const Set<String> supportedFilters = {
     'grayscale',
     'monochrome',
@@ -76,16 +86,17 @@ class LocalImageChannel {
   };
 
   final MethodChannel _channel;
+  final ImagePicker _imagePicker;
 
   Future<LocalImageFile?> pickSingleImage() async {
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'pickSingleImage',
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
       );
-      if (result == null) {
+      if (pickedFile == null) {
         return null;
       }
-      final file = LocalImageFile.fromMap(result);
+      final file = await _localImageFromXFile(pickedFile);
       if (file.path.isEmpty) {
         throw const AppException('图片路径为空，请重新选择图片');
       }
@@ -101,19 +112,15 @@ class LocalImageChannel {
 
   Future<List<LocalImageFile>> pickMultipleImages() async {
     try {
-      final result = await _channel.invokeListMethod<Object?>(
-        'pickMultipleImages',
-      );
-      if (result == null || result.isEmpty) {
+      final pickedFiles = await _imagePicker.pickMultiImage();
+      if (pickedFiles.isEmpty) {
         return const [];
       }
       final files = <LocalImageFile>[];
-      for (final item in result) {
-        if (item is Map<Object?, Object?>) {
-          final file = LocalImageFile.fromMap(item);
-          if (file.path.isNotEmpty) {
-            files.add(file);
-          }
+      for (final pickedFile in pickedFiles) {
+        final file = await _localImageFromXFile(pickedFile);
+        if (file.path.isNotEmpty) {
+          files.add(file);
         }
       }
       return files;
@@ -121,6 +128,35 @@ class LocalImageChannel {
       throw AppException(_messageForCode(error.code), cause: error);
     } catch (error) {
       throw AppException('批量选择图片失败，请重试', cause: error);
+    }
+  }
+
+  Future<void> saveImageToGallery(String imagePath, {String? album}) async {
+    final normalizedPath = imagePath.trim();
+    if (normalizedPath.isEmpty) {
+      throw const AppException('导出路径为空，无法保存到相册');
+    }
+    final file = File(normalizedPath);
+    if (!file.existsSync()) {
+      throw const AppException('导出文件不存在，无法保存到相册');
+    }
+
+    try {
+      final targetAlbum = album?.trim().isNotEmpty == true
+          ? album!.trim()
+          : _defaultAlbum;
+      final hasAccess = await Gal.hasAccess(toAlbum: true);
+      final granted = hasAccess || await Gal.requestAccess(toAlbum: true);
+      if (!granted) {
+        throw const AppException('相册访问权限被拒绝，无法保存图片');
+      }
+      await Gal.putImage(normalizedPath, album: targetAlbum);
+    } on GalException catch (error) {
+      throw AppException(_messageForGalException(error), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('保存图片到相册失败，请重试', cause: error);
     }
   }
 
@@ -187,20 +223,33 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'compressImage',
-        <String, Object?>{'path': source.path, 'quality': quality},
+      final decoded = await _readImage(source.path);
+      final output = await _createOutputFile(
+        prefix: 'compressed',
+        extension: 'jpg',
+      );
+      final result = await FlutterImageCompress.compressAndGetFile(
+        source.path,
+        output.path,
+        minWidth: decoded.width,
+        minHeight: decoded.height,
+        quality: quality,
+        format: CompressFormat.jpeg,
+        keepExif: false,
       );
       if (result == null) {
         throw const AppException('压缩结果为空，请重试');
       }
-      final compressed = CompressedImageFile.fromMap(
-        source: source,
-        map: result,
-      );
-      if (compressed.outputPath.isEmpty) {
+      final outputFile = File(result.path);
+      if (!outputFile.existsSync()) {
         throw const AppException('导出路径为空，请重试');
       }
+      await saveImageToGallery(outputFile.path);
+      final compressed = CompressedImageFile(
+        source: source,
+        outputPath: outputFile.path,
+        outputSizeBytes: await outputFile.length(),
+      );
       return compressed;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -223,21 +272,27 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'rotateImage',
-        <String, Object?>{'path': source.path, 'degrees': degrees},
+      final decoded = await _readImage(source.path);
+      final normalizedDegrees = degrees % 360;
+      final rotatedImage = normalizedDegrees == 0
+          ? img.Image.from(decoded)
+          : img.copyRotate(
+              decoded,
+              angle: normalizedDegrees,
+              interpolation: img.Interpolation.linear,
+            );
+      final output = await _writeEncodedImage(
+        image: rotatedImage,
+        prefix: 'rotated',
+        extension: 'png',
       );
-      if (result == null) {
-        throw const AppException('旋转结果为空，请重试');
-      }
-      final rotated = RotatedImageFile.fromMap(
+      await saveImageToGallery(output.path);
+      final rotated = RotatedImageFile(
         source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
         degrees: degrees,
-        map: result,
       );
-      if (rotated.outputPath.isEmpty) {
-        throw const AppException('导出路径为空，请重试');
-      }
       return rotated;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -262,24 +317,22 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'flipImage',
-        <String, Object?>{
-          'path': source.path,
-          'direction': normalizedDirection,
-        },
+      final decoded = await _readImage(source.path);
+      final flippedImage = normalizedDirection == 'horizontal'
+          ? img.flipHorizontal(decoded)
+          : img.flipVertical(decoded);
+      final output = await _writeEncodedImage(
+        image: flippedImage,
+        prefix: 'flipped',
+        extension: 'png',
       );
-      if (result == null) {
-        throw const AppException('翻转结果为空，请重试');
-      }
-      final flipped = FlippedImageFile.fromMap(
+      await saveImageToGallery(output.path);
+      final flipped = FlippedImageFile(
         source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
         direction: normalizedDirection,
-        map: result,
       );
-      if (flipped.outputPath.isEmpty) {
-        throw const AppException('导出路径为空，请重试');
-      }
       return flipped;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -306,26 +359,26 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'resizeImage',
-        <String, Object?>{
-          'path': source.path,
-          'width': width,
-          'height': height,
-        },
-      );
-      if (result == null) {
-        throw const AppException('尺寸调整结果为空，请重试');
-      }
-      final resized = ResizedImageFile.fromMap(
-        source: source,
+      final decoded = await _readImage(source.path);
+      final resizedImage = img.copyResize(
+        decoded,
         width: width,
         height: height,
-        map: result,
+        interpolation: img.Interpolation.linear,
       );
-      if (resized.outputPath.isEmpty) {
-        throw const AppException('导出路径为空，请重试');
-      }
+      final output = await _writeEncodedImage(
+        image: resizedImage,
+        prefix: 'resized',
+        extension: 'png',
+      );
+      await saveImageToGallery(output.path);
+      final resized = ResizedImageFile(
+        source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
+        width: width,
+        height: height,
+      );
       return resized;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -353,25 +406,19 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'convertImage',
-        <String, Object?>{
-          'path': source.path,
-          'format': normalizedFormat,
-          'quality': quality,
-        },
-      );
-      if (result == null) {
-        throw const AppException('格式转换结果为空，请重试');
-      }
-      final converted = ConvertedImageFile.fromMap(
+      final output = await _convertImageFile(
         source: source,
         format: normalizedFormat,
-        map: result,
+        quality: quality,
       );
-      if (converted.outputPath.isEmpty) {
-        throw const AppException('导出路径为空，请重试');
-      }
+      await saveImageToGallery(output.path);
+      final converted = ConvertedImageFile(
+        source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
+        format: normalizedFormat,
+        mimeType: _mimeTypeForFormat(normalizedFormat),
+      );
       return converted;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -397,21 +444,29 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'cropImage',
-        <String, Object?>{'path': source.path, 'aspectRatio': aspectRatio},
+      final decoded = await _readImage(source.path);
+      final cropRect = _centerCropRect(decoded, aspectRatio);
+      final croppedImage = img.copyCrop(
+        decoded,
+        x: cropRect.left,
+        y: cropRect.top,
+        width: cropRect.width,
+        height: cropRect.height,
       );
-      if (result == null) {
-        throw const AppException('裁剪结果为空，请重试');
-      }
-      final cropped = CroppedImageFile.fromMap(
+      final output = await _writeEncodedImage(
+        image: croppedImage,
+        prefix: 'cropped',
+        extension: 'png',
+      );
+      await saveImageToGallery(output.path);
+      final cropped = CroppedImageFile(
         source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
+        width: croppedImage.width,
+        height: croppedImage.height,
         aspectRatio: aspectRatio,
-        map: result,
       );
-      if (cropped.outputPath.isEmpty) {
-        throw const AppException('导出路径为空，请重试');
-      }
       return cropped;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -562,29 +617,40 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'addTextWatermark',
-        <String, Object?>{
-          'path': source.path,
-          'text': normalizedText,
-          'position': normalizedPosition,
-          'fontSize': fontSize,
-          'opacity': opacity,
-          'color': color,
-        },
-      );
-      if (result == null) {
-        throw const AppException('水印结果为空，请重试');
+      final decoded = await _readImage(source.path);
+      final font = _fontForSize(fontSize);
+      final watermarkColor = _imageColorFromHex(color, opacity: opacity);
+      if (normalizedPosition == 'tile') {
+        _drawTiledTextWatermark(decoded, normalizedText, font, watermarkColor);
+      } else {
+        final positionOffset = _watermarkTextPosition(
+          image: decoded,
+          text: normalizedText,
+          font: font,
+          position: normalizedPosition,
+        );
+        img.drawString(
+          decoded,
+          normalizedText,
+          font: font,
+          x: positionOffset.x,
+          y: positionOffset.y,
+          color: watermarkColor,
+        );
       }
-      final watermarked = WatermarkedImageFile.fromMap(
+      final output = await _writeEncodedImage(
+        image: decoded,
+        prefix: 'text_watermark',
+        extension: 'png',
+      );
+      await saveImageToGallery(output.path);
+      final watermarked = WatermarkedImageFile(
         source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
         text: normalizedText,
         position: normalizedPosition,
-        map: result,
       );
-      if (watermarked.outputPath.isEmpty) {
-        throw const AppException('导出路径为空，请重试');
-      }
       return watermarked;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -629,32 +695,53 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'addImageWatermark',
-        <String, Object?>{
-          'path': source.path,
-          'watermarkPath': watermark.path,
-          'position': normalizedPosition,
-          'opacity': opacity,
-          'scalePercent': scalePercent,
-          'rotationDegrees': rotationDegrees,
-        },
+      final baseImage = await _readImage(source.path);
+      final rawWatermark = await _readImage(watermark.path);
+      var overlay = img.copyResize(
+        rawWatermark,
+        width: math.max(1, rawWatermark.width * scalePercent ~/ 100),
+        height: math.max(1, rawWatermark.height * scalePercent ~/ 100),
+        interpolation: img.Interpolation.linear,
       );
-      if (result == null) {
-        throw const AppException('图片水印结果为空，请重试');
+      if (rotationDegrees != 0) {
+        overlay = img.copyRotate(
+          overlay,
+          angle: rotationDegrees,
+          interpolation: img.Interpolation.linear,
+        );
       }
-      final watermarked = ImageWatermarkedFile.fromMap(
+      _applyOpacity(overlay, opacity);
+      if (normalizedPosition == 'tile') {
+        _drawTiledImageWatermark(baseImage, overlay);
+      } else {
+        final positionOffset = _watermarkImagePosition(
+          image: baseImage,
+          overlay: overlay,
+          position: normalizedPosition,
+        );
+        img.compositeImage(
+          baseImage,
+          overlay,
+          dstX: positionOffset.x,
+          dstY: positionOffset.y,
+        );
+      }
+      final output = await _writeEncodedImage(
+        image: baseImage,
+        prefix: 'image_watermark',
+        extension: 'png',
+      );
+      await saveImageToGallery(output.path);
+      final watermarked = ImageWatermarkedFile(
         source: source,
         watermark: watermark,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
         position: normalizedPosition,
         opacity: opacity,
         scalePercent: scalePercent,
         rotationDegrees: rotationDegrees,
-        map: result,
       );
-      if (watermarked.outputPath.isEmpty) {
-        throw const AppException('导出路径为空，请重试');
-      }
       return watermarked;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -678,21 +765,20 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'applyFilter',
-        <String, Object?>{'path': source.path, 'filter': normalizedFilter},
+      final filteredImage = await _readImage(source.path);
+      _applyFilterToImage(filteredImage, normalizedFilter);
+      final output = await _writeEncodedImage(
+        image: filteredImage,
+        prefix: 'filtered',
+        extension: 'png',
       );
-      if (result == null) {
-        throw const AppException('滤镜结果为空，请重试');
-      }
-      final filtered = FilteredImageFile.fromMap(
+      await saveImageToGallery(output.path);
+      final filtered = FilteredImageFile(
         source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
         filter: normalizedFilter,
-        map: result,
       );
-      if (filtered.outputPath.isEmpty) {
-        throw const AppException('导出路径为空，请重试');
-      }
       return filtered;
     } on PlatformException catch (error) {
       throw AppException(_messageForCode(error.code), cause: error);
@@ -732,31 +818,45 @@ class LocalImageChannel {
     }
 
     try {
-      final arguments = <String, Object?>{
-        'path': source.path,
-        'gridSize': gridSize,
-      };
-      if (hasCropSelection) {
-        final cropLeft = cropLeftRatio!;
-        final cropTop = cropTopRatio!;
-        final cropSize = cropSizeRatio!;
-        arguments.addAll({
-          'cropLeftRatio': cropLeft.clamp(0.0, 1.0).toDouble(),
-          'cropTopRatio': cropTop.clamp(0.0, 1.0).toDouble(),
-          'cropSizeRatio': cropSize.clamp(0.01, 1.0).toDouble(),
-        });
-      }
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'splitGridImage',
-        arguments,
+      final decoded = await _readImage(source.path);
+      final cropRect = _gridCropRect(
+        decoded,
+        cropLeftRatio: cropLeftRatio,
+        cropTopRatio: cropTopRatio,
+        cropSizeRatio: cropSizeRatio,
       );
-      if (result == null) {
-        throw const AppException('切图结果为空，请重试');
+      final pieceSize = cropRect.width ~/ gridSize;
+      if (pieceSize <= 0) {
+        throw const AppException('切图区域过小，请调整网格位置后重试');
       }
-      final gridImage = GridImageFile.fromMap(
+      final outputDirectory = await _createOutputDirectory('grid');
+      final outputPaths = <String>[];
+      var outputSizeBytes = 0;
+      for (var row = 0; row < gridSize; row++) {
+        for (var column = 0; column < gridSize; column++) {
+          final piece = img.copyCrop(
+            decoded,
+            x: cropRect.left + column * pieceSize,
+            y: cropRect.top + row * pieceSize,
+            width: pieceSize,
+            height: pieceSize,
+          );
+          final output = File(
+            '${outputDirectory.path}\\grid_${row + 1}_${column + 1}.png',
+          );
+          await output.writeAsBytes(img.encodePng(piece), flush: true);
+          await saveImageToGallery(output.path);
+          outputPaths.add(output.path);
+          outputSizeBytes += await output.length();
+        }
+      }
+      final gridImage = GridImageFile(
         source: source,
+        outputDirectory: outputDirectory.path,
+        outputPaths: List<String>.unmodifiable(outputPaths),
+        outputSizeBytes: outputSizeBytes,
         gridSize: gridSize,
-        map: result,
+        pieceCount: outputPaths.length,
       );
       if (gridImage.outputDirectory.isEmpty || gridImage.outputPaths.isEmpty) {
         throw const AppException('导出路径为空，请重试');
@@ -787,7 +887,9 @@ class LocalImageChannel {
         size > 0 &&
         size <= 1 &&
         left <= 1 &&
-        top <= 1;
+        top <= 1 &&
+        left + size <= 1.05 &&
+        top + size <= 1.05;
   }
 
   Future<ExifInfo> readExif({required LocalImageFile source}) async {
@@ -1164,6 +1266,363 @@ class LocalImageChannel {
     }
   }
 
+  Future<LocalImageFile> _localImageFromXFile(XFile pickedFile) async {
+    final file = File(pickedFile.path);
+    if (!file.existsSync()) {
+      throw const AppException('图片文件不存在，请重新选择');
+    }
+    final decoded = await _readImage(file.path);
+    final name = pickedFile.name.trim().isNotEmpty
+        ? pickedFile.name.trim()
+        : _basename(file.path);
+    return LocalImageFile(
+      path: file.path,
+      name: name,
+      sizeBytes: await file.length(),
+      mimeType: pickedFile.mimeType ?? _mimeTypeForPath(file.path),
+      width: decoded.width,
+      height: decoded.height,
+    );
+  }
+
+  Future<img.Image> _readImage(String imagePath) async {
+    final normalizedPath = imagePath.trim();
+    if (normalizedPath.isEmpty) {
+      throw const AppException('图片路径为空，请重新选择图片');
+    }
+    final file = File(normalizedPath);
+    if (!file.existsSync()) {
+      throw const AppException('图片文件不存在，请重新选择');
+    }
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
+      throw const AppException('图片文件为空，请重新选择');
+    }
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null || decoded.width <= 0 || decoded.height <= 0) {
+      throw const AppException('图片格式不支持或文件已损坏');
+    }
+    if (decoded.width * decoded.height > _maxDecodedPixels) {
+      throw const AppException('图片尺寸过大，请先缩小后再处理');
+    }
+    return decoded;
+  }
+
+  Future<File> _createOutputFile({
+    required String prefix,
+    required String extension,
+  }) async {
+    final directory = await _createOutputDirectory(prefix);
+    final safeExtension = extension.trim().replaceAll('.', '').toLowerCase();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return File('${directory.path}\\${prefix}_$timestamp.$safeExtension');
+  }
+
+  Future<Directory> _createOutputDirectory(String prefix) async {
+    final root = await getTemporaryDirectory();
+    final directory = Directory('${root.path}\\image_tools_$prefix');
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+    return directory;
+  }
+
+  Future<File> _writeEncodedImage({
+    required img.Image image,
+    required String prefix,
+    required String extension,
+    int quality = 95,
+  }) async {
+    final output = await _createOutputFile(
+      prefix: prefix,
+      extension: extension,
+    );
+    final bytes = switch (extension.toLowerCase()) {
+      'jpg' || 'jpeg' => img.encodeJpg(image, quality: quality),
+      'bmp' => img.encodeBmp(image),
+      _ => img.encodePng(image),
+    };
+    await output.writeAsBytes(bytes, flush: true);
+    return output;
+  }
+
+  Future<File> _convertImageFile({
+    required LocalImageFile source,
+    required String format,
+    required int quality,
+  }) async {
+    final extension = format == 'jpg' ? 'jpg' : format;
+    if (format == 'webp') {
+      final output = await _createOutputFile(
+        prefix: 'converted',
+        extension: extension,
+      );
+      final result = await FlutterImageCompress.compressAndGetFile(
+        source.path,
+        output.path,
+        quality: quality,
+        format: CompressFormat.webp,
+        keepExif: false,
+      );
+      if (result == null) {
+        throw const AppException('格式转换结果为空，请重试');
+      }
+      final outputFile = File(result.path);
+      if (!outputFile.existsSync()) {
+        throw const AppException('导出路径为空，请重试');
+      }
+      return outputFile;
+    }
+
+    final decoded = await _readImage(source.path);
+    return _writeEncodedImage(
+      image: decoded,
+      prefix: 'converted',
+      extension: extension,
+      quality: quality,
+    );
+  }
+
+  _ImageRect _centerCropRect(img.Image image, double aspectRatio) {
+    final sourceRatio = image.width / image.height;
+    var width = image.width;
+    var height = image.height;
+    if (sourceRatio > aspectRatio) {
+      width = (image.height * aspectRatio).round().clamp(1, image.width);
+    } else {
+      height = (image.width / aspectRatio).round().clamp(1, image.height);
+    }
+    final left = ((image.width - width) / 2).round().clamp(0, image.width - 1);
+    final top = ((image.height - height) / 2).round().clamp(
+      0,
+      image.height - 1,
+    );
+    return _ImageRect(
+      left: left,
+      top: top,
+      width: width.clamp(1, image.width - left),
+      height: height.clamp(1, image.height - top),
+    );
+  }
+
+  _ImageRect _gridCropRect(
+    img.Image image, {
+    double? cropLeftRatio,
+    double? cropTopRatio,
+    double? cropSizeRatio,
+  }) {
+    final shortestSide = math.min(image.width, image.height);
+    var size = shortestSide;
+    var left = ((image.width - size) / 2).round();
+    var top = ((image.height - size) / 2).round();
+    if (cropLeftRatio != null &&
+        cropTopRatio != null &&
+        cropSizeRatio != null) {
+      size = (shortestSide * cropSizeRatio).round().clamp(1, shortestSide);
+      left = (image.width * cropLeftRatio).round();
+      top = (image.height * cropTopRatio).round();
+    }
+    left = left.clamp(0, math.max(0, image.width - size));
+    top = top.clamp(0, math.max(0, image.height - size));
+    return _ImageRect(left: left, top: top, width: size, height: size);
+  }
+
+  img.BitmapFont _fontForSize(int fontSize) {
+    if (fontSize >= 40) {
+      return img.arial48;
+    }
+    if (fontSize >= 22) {
+      return img.arial24;
+    }
+    return img.arial14;
+  }
+
+  _ImagePoint _watermarkTextPosition({
+    required img.Image image,
+    required String text,
+    required img.BitmapFont font,
+    required String position,
+  }) {
+    const margin = 24;
+    final textWidth = _estimatedTextWidth(text, font);
+    final textHeight = _estimatedTextHeight(text, font);
+    return switch (position) {
+      'topleft' => const _ImagePoint(margin, margin),
+      'topright' => _ImagePoint(
+        math.max(margin, image.width - textWidth - margin),
+        margin,
+      ),
+      'bottomleft' => _ImagePoint(
+        margin,
+        math.max(margin, image.height - textHeight - margin),
+      ),
+      'bottomright' => _ImagePoint(
+        math.max(margin, image.width - textWidth - margin),
+        math.max(margin, image.height - textHeight - margin),
+      ),
+      _ => _ImagePoint(
+        math.max(0, (image.width - textWidth) ~/ 2),
+        math.max(0, (image.height - textHeight) ~/ 2),
+      ),
+    };
+  }
+
+  _ImagePoint _watermarkImagePosition({
+    required img.Image image,
+    required img.Image overlay,
+    required String position,
+  }) {
+    const margin = 24;
+    return switch (position) {
+      'topleft' => const _ImagePoint(margin, margin),
+      'topright' => _ImagePoint(
+        math.max(margin, image.width - overlay.width - margin),
+        margin,
+      ),
+      'bottomleft' => _ImagePoint(
+        margin,
+        math.max(margin, image.height - overlay.height - margin),
+      ),
+      'bottomright' => _ImagePoint(
+        math.max(margin, image.width - overlay.width - margin),
+        math.max(margin, image.height - overlay.height - margin),
+      ),
+      _ => _ImagePoint(
+        math.max(0, (image.width - overlay.width) ~/ 2),
+        math.max(0, (image.height - overlay.height) ~/ 2),
+      ),
+    };
+  }
+
+  void _drawTiledTextWatermark(
+    img.Image image,
+    String text,
+    img.BitmapFont font,
+    img.Color color,
+  ) {
+    final textWidth = math.max(1, _estimatedTextWidth(text, font));
+    final textHeight = math.max(1, _estimatedTextHeight(text, font));
+    final stepX = textWidth + 80;
+    final stepY = textHeight + 60;
+    for (var y = 24; y < image.height; y += stepY) {
+      for (var x = 24; x < image.width; x += stepX) {
+        img.drawString(image, text, font: font, x: x, y: y, color: color);
+      }
+    }
+  }
+
+  void _drawTiledImageWatermark(img.Image image, img.Image overlay) {
+    final stepX = overlay.width + 60;
+    final stepY = overlay.height + 60;
+    for (var y = 24; y < image.height; y += stepY) {
+      for (var x = 24; x < image.width; x += stepX) {
+        img.compositeImage(image, overlay, dstX: x, dstY: y);
+      }
+    }
+  }
+
+  void _applyOpacity(img.Image image, int opacity) {
+    final alphaScale = opacity.clamp(0, 100) / 100;
+    for (final pixel in image) {
+      pixel.a = (pixel.a * alphaScale).round().clamp(0, 255);
+    }
+  }
+
+  void _applyFilterToImage(img.Image image, String filter) {
+    switch (filter) {
+      case 'grayscale':
+        img.grayscale(image);
+      case 'monochrome':
+        img.monochrome(image);
+      case 'sepia':
+        img.sepia(image);
+      case 'invert':
+        img.invert(image);
+      case 'warm':
+        img.adjustColor(image, saturation: 1.12, brightness: 1.04, hue: 6);
+      case 'cool':
+        img.adjustColor(image, saturation: 0.94, brightness: 1.02, hue: -8);
+      case 'hdr':
+        img.adjustColor(image, contrast: 1.35, saturation: 1.18);
+      case 'film':
+        img.sepia(image, amount: 0.35);
+        img.adjustColor(image, contrast: 1.08, saturation: 0.82);
+      case 'sharpen':
+        img.convolution(image, filter: const [0, -1, 0, -1, 5, -1, 0, -1, 0]);
+      case 'soften':
+        img.smooth(image, weight: 1);
+      default:
+        throw const AppException('滤镜类型不支持');
+    }
+  }
+
+  img.Color _imageColorFromHex(String value, {required int opacity}) {
+    final normalized = _normalizeHexColor(value) ?? '#FFFFFF';
+    final rgb = int.parse(normalized.substring(1), radix: 16);
+    final alpha = (opacity.clamp(0, 100) * 255 / 100).round().clamp(0, 255);
+    return img.ColorRgba8(
+      (rgb >> 16) & 0xFF,
+      (rgb >> 8) & 0xFF,
+      rgb & 0xFF,
+      alpha,
+    );
+  }
+
+  int _estimatedTextWidth(String text, img.BitmapFont font) {
+    var width = 0;
+    for (final codeUnit in text.codeUnits) {
+      width += font.characters[codeUnit]?.xAdvance ?? font.base ~/ 2;
+    }
+    return width;
+  }
+
+  int _estimatedTextHeight(String text, img.BitmapFont font) {
+    final lineCount = math.max(1, text.split(RegExp(r'[\n\r]')).length);
+    return math.max(1, font.base * lineCount);
+  }
+
+  String _mimeTypeForPath(String filePath) {
+    final extension = _extension(filePath);
+    return _mimeTypeForFormat(extension == 'jpeg' ? 'jpg' : extension);
+  }
+
+  String _mimeTypeForFormat(String format) {
+    return switch (format.toLowerCase()) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'bmp' => 'image/bmp',
+      _ => 'image/*',
+    };
+  }
+
+  String _extension(String filePath) {
+    final name = _basename(filePath);
+    final index = name.lastIndexOf('.');
+    if (index < 0 || index == name.length - 1) {
+      return '';
+    }
+    return name.substring(index + 1).toLowerCase();
+  }
+
+  String _basename(String filePath) {
+    final normalized = filePath.replaceAll('/', '\\');
+    final index = normalized.lastIndexOf('\\');
+    if (index < 0 || index == normalized.length - 1) {
+      return normalized.isEmpty ? '未命名图片' : normalized;
+    }
+    return normalized.substring(index + 1);
+  }
+
+  String _messageForGalException(GalException error) {
+    return switch (error.type) {
+      GalExceptionType.accessDenied => '相册访问权限被拒绝，无法保存图片',
+      GalExceptionType.notEnoughSpace => '设备存储空间不足，无法保存图片',
+      GalExceptionType.notSupportedFormat => '相册不支持当前图片格式',
+      GalExceptionType.unexpected => '保存图片到相册失败，请重试',
+    };
+  }
+
   String _messageForCode(String code) {
     return switch (code) {
       'file_not_found' => '图片文件不存在，请重新选择',
@@ -1177,4 +1636,25 @@ class LocalImageChannel {
       _ => '图片处理失败，请重试',
     };
   }
+}
+
+class _ImageRect {
+  const _ImageRect({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
+
+  final int left;
+  final int top;
+  final int width;
+  final int height;
+}
+
+class _ImagePoint {
+  const _ImagePoint(this.x, this.y);
+
+  final int x;
+  final int y;
 }

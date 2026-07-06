@@ -41,6 +41,12 @@ dependencies:
   path_provider: 2.1.4
   sqlite3_flutter_libs: 0.5.42
   json_annotation: 4.9.0
+  image_picker: 1.2.3
+  gal: 2.3.2
+  fluttertoast: 9.1.0
+  image: 4.9.1
+  flutter_image_compress: 2.4.0
+  signature: 6.3.0
 
 dev_dependencies:
   flutter_test:

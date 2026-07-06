@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:signature/signature.dart' as signature;
 
 import '../../exceptions/app_exception.dart';
 import '../../models/annotated_image_file.dart';
@@ -126,6 +127,12 @@ class AnnotationController extends GetxController {
   final strokes = <DrawingStroke>[].obs;
   final selectedLayerId = RxnInt();
   final textController = TextEditingController();
+  final signatureController = signature.SignatureController(
+    penColor: Colors.red,
+    penStrokeWidth: 12,
+    strokeCap: StrokeCap.round,
+    strokeJoin: StrokeJoin.round,
+  );
 
   int _nextLayerId = 1;
 
@@ -142,10 +149,12 @@ class AnnotationController extends GetxController {
     return null;
   }
 
-  bool get hasEdits => layers.isNotEmpty || strokes.isNotEmpty;
+  bool get hasEdits =>
+      layers.isNotEmpty || strokes.isNotEmpty || signatureController.isNotEmpty;
 
   @override
   void onClose() {
+    signatureController.dispose();
     textController.dispose();
     super.onClose();
   }
@@ -264,6 +273,7 @@ class AnnotationController extends GetxController {
         points: List<Offset>.unmodifiable(points),
       ),
     );
+    _syncSignatureController();
     result.value = null;
   }
 
@@ -274,6 +284,7 @@ class AnnotationController extends GetxController {
     }
     if (strokes.isNotEmpty) {
       strokes.removeLast();
+      _syncSignatureController();
       return;
     }
     if (layers.isNotEmpty) {
@@ -284,6 +295,7 @@ class AnnotationController extends GetxController {
   void clearEdits({bool showMessage = true}) {
     layers.clear();
     strokes.clear();
+    signatureController.clear();
     selectedLayerId.value = null;
     result.value = null;
     if (showMessage) {
@@ -322,6 +334,7 @@ class AnnotationController extends GetxController {
         throw AppException('annotation.error.exportEmpty'.tr);
       }
       final output = await _createOutputFile(byteData.buffer.asUint8List());
+      await _imageChannel.saveImageToGallery(output.path);
       final annotated = AnnotatedImageFile(
         source: source,
         outputPath: output.path,
@@ -431,6 +444,25 @@ class AnnotationController extends GetxController {
 
   void _showError(String message) {
     showLatestSnackbar('annotation.error.title'.tr, message);
+  }
+
+  void _syncSignatureController() {
+    final points = <signature.Point>[];
+    for (final stroke in strokes) {
+      if (stroke.mode != AnnotationMode.brush) {
+        continue;
+      }
+      for (var index = 0; index < stroke.points.length; index++) {
+        points.add(
+          signature.Point(
+            stroke.points[index],
+            index == 0 ? signature.PointType.tap : signature.PointType.move,
+            1,
+          ),
+        );
+      }
+    }
+    signatureController.points = points;
   }
 }
 
