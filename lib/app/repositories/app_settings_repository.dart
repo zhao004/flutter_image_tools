@@ -12,6 +12,7 @@ class AppSettingsRepository {
   static const String defaultExportDirectoryKey = 'default_export_directory';
   static const String defaultSaveRuleKey = 'default_save_rule';
   static const String themeModeKey = 'theme_mode';
+  static const String languageKey = 'language';
 
   final AppDatabase _database;
 
@@ -74,6 +75,19 @@ class AppSettingsRepository {
       throw ArgumentError.value(mode, 'mode', '不支持的主题模式');
     }
     await _setValue(themeModeKey, normalized, 'string');
+  }
+
+  Future<String> getLanguage() async {
+    return await _getString(languageKey) ?? 'system';
+  }
+
+  Future<void> setLanguage(String language) async {
+    final normalized = language.trim().toLowerCase();
+    final supportedLanguages = {'system', 'zh_cn', 'zh_tw', 'en'};
+    if (!supportedLanguages.contains(normalized)) {
+      throw ArgumentError.value(language, 'language', '不支持的语言设置');
+    }
+    await _setValue(languageKey, normalized, 'string');
   }
 
   Future<int?> _getInt(String key) async {

@@ -14,7 +14,7 @@ class SettingsView extends GetView<SettingsController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      appBar: AppBar(title: Text('settings.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -26,11 +26,11 @@ class SettingsView extends GetView<SettingsController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '隐私模式',
+                      'settings.privacy.title'.tr,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    const Text('所有图片均在本机处理，不上传服务器，不需要登录。'),
+                    Text('settings.privacy.body'.tr),
                   ],
                 ),
               ),
@@ -44,7 +44,7 @@ class SettingsView extends GetView<SettingsController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '默认压缩质量',
+                        'settings.quality.title'.tr,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
@@ -71,22 +71,25 @@ class SettingsView extends GetView<SettingsController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '默认保存规则',
+                        'settings.saveRule.title'.tr,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
-                      const Text('用于后续导出功能生成文件名和目录结构。'),
+                      Text('settings.saveRule.body'.tr),
                       const SizedBox(height: 12),
                       SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'timestamp', label: Text('时间戳')),
+                        segments: [
+                          ButtonSegment(
+                            value: 'timestamp',
+                            label: Text('settings.saveRule.timestamp'.tr),
+                          ),
                           ButtonSegment(
                             value: 'source_name',
-                            label: Text('原文件名'),
+                            label: Text('settings.saveRule.sourceName'.tr),
                           ),
                           ButtonSegment(
                             value: 'feature_folder',
-                            label: Text('功能目录'),
+                            label: Text('settings.saveRule.featureFolder'.tr),
                           ),
                         ],
                         selected: {controller.defaultSaveRule.value},
@@ -107,7 +110,7 @@ class SettingsView extends GetView<SettingsController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '默认导出格式',
+                        'settings.format.title'.tr,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
@@ -135,15 +138,24 @@ class SettingsView extends GetView<SettingsController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '主题模式',
+                        'settings.theme.title'.tr,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
                       SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'system', label: Text('系统')),
-                          ButtonSegment(value: 'light', label: Text('浅色')),
-                          ButtonSegment(value: 'dark', label: Text('深色')),
+                        segments: [
+                          ButtonSegment(
+                            value: 'system',
+                            label: Text('settings.theme.system'.tr),
+                          ),
+                          ButtonSegment(
+                            value: 'light',
+                            label: Text('settings.theme.light'.tr),
+                          ),
+                          ButtonSegment(
+                            value: 'dark',
+                            label: Text('settings.theme.dark'.tr),
+                          ),
                         ],
                         selected: {controller.themeMode.value},
                         onSelectionChanged: (values) =>
@@ -163,11 +175,55 @@ class SettingsView extends GetView<SettingsController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '默认导出目录',
+                        'settings.language.title'.tr,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      SegmentedButton<String>(
+                        segments: [
+                          ButtonSegment(
+                            value: 'system',
+                            label: Text('settings.language.system'.tr),
+                          ),
+                          ButtonSegment(
+                            value: 'zh_cn',
+                            label: Text('settings.language.zhCn'.tr),
+                          ),
+                          ButtonSegment(
+                            value: 'zh_tw',
+                            label: Text('settings.language.zhTw'.tr),
+                          ),
+                          ButtonSegment(
+                            value: 'en',
+                            label: Text('settings.language.en'.tr),
+                          ),
+                        ],
+                        selected: {controller.language.value},
+                        onSelectionChanged: (values) =>
+                            controller.updateLanguage(values.first),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Obx(
+                  () => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'settings.directory.title'.tr,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
-                      Text(controller.defaultExportDirectory.value ?? '应用缓存目录'),
+                      Text(
+                        controller.defaultExportDirectory.value ??
+                            'settings.directory.cache'.tr,
+                      ),
                     ],
                   ),
                 ),
@@ -177,8 +233,8 @@ class SettingsView extends GetView<SettingsController> {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.cleaning_services_outlined),
-                title: const Text('缓存管理'),
-                subtitle: const Text('查看缓存大小并清理临时文件'),
+                title: Text('settings.cache.title'.tr),
+                subtitle: Text('settings.cache.subtitle'.tr),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Get.toNamed(Routes.cache),
               ),
@@ -187,8 +243,8 @@ class SettingsView extends GetView<SettingsController> {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.article_outlined),
-                title: const Text('日志管理'),
-                subtitle: const Text('查看任务耗时、状态和错误信息'),
+                title: Text('settings.logs.title'.tr),
+                subtitle: Text('settings.logs.subtitle'.tr),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Get.toNamed(Routes.logs),
               ),
@@ -197,8 +253,8 @@ class SettingsView extends GetView<SettingsController> {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.star_outline),
-                title: const Text('收藏模板'),
-                subtitle: const Text('管理常用参数和最近配置模板'),
+                title: Text('settings.favorites.title'.tr),
+                subtitle: Text('settings.favorites.subtitle'.tr),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Get.toNamed(Routes.favorites),
               ),
