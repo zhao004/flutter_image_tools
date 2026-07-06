@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../../repositories/app_settings_repository.dart';
+import '../../theme/theme_mode_parser.dart';
 
 /// 设置控制器，承载默认压缩参数、导出格式和主题模式。
 ///
@@ -8,7 +9,7 @@ import '../../repositories/app_settings_repository.dart';
 /// 避免本地数据库异常导致设置页不可用。
 class SettingsController extends GetxController {
   SettingsController({required AppSettingsRepository settingsRepository})
-      : _settingsRepository = settingsRepository;
+    : _settingsRepository = settingsRepository;
 
   final AppSettingsRepository _settingsRepository;
 
@@ -28,11 +29,11 @@ class SettingsController extends GetxController {
     isLoading.value = true;
     try {
       defaultQuality.value = await _settingsRepository.getDefaultQuality();
-      defaultExportFormat.value =
-          await _settingsRepository.getDefaultExportFormat();
+      defaultExportFormat.value = await _settingsRepository
+          .getDefaultExportFormat();
       themeMode.value = await _settingsRepository.getThemeMode();
-      defaultExportDirectory.value =
-          await _settingsRepository.getDefaultExportDirectory();
+      defaultExportDirectory.value = await _settingsRepository
+          .getDefaultExportDirectory();
     } catch (_) {
       Get.snackbar('读取设置失败', '已使用默认设置');
     } finally {
@@ -63,6 +64,7 @@ class SettingsController extends GetxController {
     try {
       await _settingsRepository.setThemeMode(mode);
       themeMode.value = mode;
+      Get.changeThemeMode(themeModeFromSetting(mode));
     } catch (_) {
       Get.snackbar('保存失败', '主题模式未保存');
     }
