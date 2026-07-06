@@ -13,7 +13,7 @@ class FilterView extends GetView<FilterController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('图片滤镜')),
+      appBar: AppBar(title: Text('filter.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -33,7 +33,11 @@ class FilterView extends GetView<FilterController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.filter_vintage_outlined),
-                label: Text(controller.isBusy.value ? '处理中' : '应用滤镜'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'filter.action.apply'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -60,10 +64,13 @@ class _ImageCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'filter.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (image == null)
-                const Text('请选择一张 JPG、PNG、WebP 或 BMP 图片应用本地滤镜。')
+                Text('filter.image.empty'.tr)
               else ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
@@ -76,7 +83,11 @@ class _ImageCard extends StatelessWidget {
                     ? null
                     : controller.pickImage,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: Text(image == null ? '选择图片' : '重新选择'),
+                label: Text(
+                  image == null
+                      ? 'filter.action.pickImage'.tr
+                      : 'filter.action.repickImage'.tr,
+                ),
               ),
             ],
           );
@@ -100,7 +111,10 @@ class _FilterCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('滤镜类型', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'filter.type.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -143,10 +157,21 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('滤镜结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'filter.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('滤镜类型：${result.filter}'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'filter.result.type'.trParams({
+                  'type': controller.labelForFilterValue(result.filter),
+                }),
+              ),
+              Text(
+                'filter.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

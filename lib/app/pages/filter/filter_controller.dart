@@ -8,21 +8,23 @@ import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
 enum ImageFilterType {
-  grayscale(label: '灰度', value: 'grayscale'),
-  monochrome(label: '黑白', value: 'monochrome'),
-  sepia(label: '怀旧', value: 'sepia'),
-  invert(label: '反色', value: 'invert'),
-  warm(label: '暖色', value: 'warm'),
-  cool(label: '冷色', value: 'cool'),
-  hdr(label: 'HDR', value: 'hdr'),
-  film(label: '胶片', value: 'film'),
-  sharpen(label: '锐化', value: 'sharpen'),
-  soften(label: '柔化', value: 'soften');
+  grayscale(labelKey: 'filter.type.grayscale', value: 'grayscale'),
+  monochrome(labelKey: 'filter.type.monochrome', value: 'monochrome'),
+  sepia(labelKey: 'filter.type.sepia', value: 'sepia'),
+  invert(labelKey: 'filter.type.invert', value: 'invert'),
+  warm(labelKey: 'filter.type.warm', value: 'warm'),
+  cool(labelKey: 'filter.type.cool', value: 'cool'),
+  hdr(labelKey: 'filter.type.hdr', value: 'hdr'),
+  film(labelKey: 'filter.type.film', value: 'film'),
+  sharpen(labelKey: 'filter.type.sharpen', value: 'sharpen'),
+  soften(labelKey: 'filter.type.soften', value: 'soften');
 
-  const ImageFilterType({required this.label, required this.value});
+  const ImageFilterType({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
+
+  String get label => labelKey.tr;
 }
 
 /// 图片滤镜控制器，管理选图、滤镜选择、执行状态和导出结果。
@@ -62,7 +64,7 @@ class FilterController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('filter.error.recentFileFailed'.tr);
     }
   }
 
@@ -76,7 +78,7 @@ class FilterController extends GetxController {
     }
     final source = selectedImage.value;
     if (source == null) {
-      _showError('请先选择一张图片');
+      _showError('filter.error.pickImageFirst'.tr);
       return;
     }
 
@@ -88,15 +90,18 @@ class FilterController extends GetxController {
       );
       result.value = filtered;
       await _historyRepository.recordOperationSuccess(
-        featureName: '图片滤镜',
+        featureName: 'filter.featureName'.tr,
         inputPath: source.path,
         outputPath: filtered.outputPath,
         parameters: <String, Object>{'filter': filter.value.value},
       );
-      Get.snackbar('滤镜完成', '图片已导出到应用缓存目录');
+      Get.snackbar(
+        'filter.apply.success.title'.tr,
+        'filter.apply.success.message'.tr,
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: '图片滤镜',
+        featureName: 'filter.featureName'.tr,
         inputPath: source.path,
         parameters: <String, Object>{'filter': filter.value.value},
         errorMessage: error.message,
@@ -109,7 +114,7 @@ class FilterController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -125,12 +130,21 @@ class FilterController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'filter.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
   }
 
+  String labelForFilterValue(String value) {
+    for (final item in ImageFilterType.values) {
+      if (item.value == value) {
+        return item.label;
+      }
+    }
+    return value;
+  }
+
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('filter.error.title'.tr, message);
   }
 }

@@ -14,6 +14,9 @@ import 'package:flutter_image_tools/app/pages/color_picker/color_picker_controll
 import 'package:flutter_image_tools/app/pages/color_picker/color_picker_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_view.dart';
+import 'package:flutter_image_tools/app/pages/filter/filter_controller.dart';
+import 'package:flutter_image_tools/app/pages/filter/filter_view.dart'
+    as filter_page;
 import 'package:flutter_image_tools/app/pages/grid/grid_controller.dart';
 import 'package:flutter_image_tools/app/pages/grid/grid_view.dart' as grid_page;
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
@@ -339,6 +342,45 @@ void main() {
     expect(find.text('Grid Size'), findsOneWidget);
     expect(find.text('3 × 3'), findsOneWidget);
     expect(find.text('Generate Slices'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文图片滤镜页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、滤镜类型和操作按钮文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      FilterController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const filter_page.FilterView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Image Filters'), findsOneWidget);
+    expect(find.text('Select Image'), findsWidgets);
+    expect(
+      find.text(
+        'Select a JPG, PNG, WebP, or BMP image to apply a local filter.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Filter Type'), findsOneWidget);
+    expect(find.text('Grayscale'), findsOneWidget);
+    expect(find.text('Sepia'), findsOneWidget);
+    expect(find.text('Apply Filter'), findsOneWidget);
 
     await database.close();
     Get.reset();
