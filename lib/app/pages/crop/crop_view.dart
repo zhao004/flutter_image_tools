@@ -85,9 +85,9 @@ class _CropOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => LayoutBuilder(
-        builder: (context, constraints) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Obx(() {
           final stageWidth = constraints.maxWidth;
           final stageHeight = constraints.maxHeight;
           final frameRatios = controller.frameRatiosForImage(
@@ -141,8 +141,8 @@ class _CropOverlay extends StatelessWidget {
               ),
             ],
           );
-        },
-      ),
+        });
+      },
     );
   }
 }
