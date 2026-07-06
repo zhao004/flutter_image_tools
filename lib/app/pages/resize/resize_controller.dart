@@ -95,7 +95,7 @@ class ResizeController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('resize.error.recentFileFailed'.tr);
     }
   }
 
@@ -120,7 +120,7 @@ class ResizeController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('resize.error.recentFileFailed'.tr);
     }
   }
 
@@ -167,7 +167,7 @@ class ResizeController extends GetxController {
   void updatePercent(double value) {
     final image = selectedImage.value;
     if (image == null || !image.hasValidDimensions) {
-      _showError('当前图片缺少原始尺寸，无法按百分比缩放');
+      _showError('resize.error.missingDimensions'.tr);
       return;
     }
     percent.value = value;
@@ -188,7 +188,7 @@ class ResizeController extends GetxController {
       }
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('resize.error.pickImageFirst'.tr);
       return;
     }
     final baseDimensions = _readDimensions();
@@ -215,7 +215,7 @@ class ResizeController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationSuccess(
-            featureName: '尺寸调整',
+            featureName: 'resize.featureName'.tr,
             inputPath: source.path,
             outputPath: resized.outputPath,
             parameters: _historyParameters(dimensions),
@@ -226,7 +226,7 @@ class ResizeController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationFailure(
-            featureName: '尺寸调整',
+            featureName: 'resize.featureName'.tr,
             inputPath: source.path,
             parameters: _historyParameters(dimensions),
             errorMessage: error.message,
@@ -237,11 +237,17 @@ class ResizeController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar('尺寸调整完成', '已成功调整 $successCount 张图片');
+        Get.snackbar(
+          'resize.success.title'.tr,
+          'resize.success.message'.trParams({'count': successCount.toString()}),
+        );
       } else {
         Get.snackbar(
-          '批量尺寸调整完成',
-          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+          'resize.batch.success.title'.tr,
+          'resize.batch.success.message'.trParams({
+            'success': successCount.toString(),
+            'failed': (selectedImages.length - successCount).toString(),
+          }),
         );
       }
     } finally {
@@ -259,7 +265,7 @@ class ResizeController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -275,7 +281,7 @@ class ResizeController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'resize.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
   }
@@ -296,15 +302,19 @@ class ResizeController extends GetxController {
     final width = int.tryParse(widthController.text.trim());
     final height = int.tryParse(heightController.text.trim());
     if (width == null || height == null) {
-      _showError('请输入有效的目标宽高');
+      _showError('resize.error.invalidDimensions'.tr);
       return null;
     }
     if (width < minDimension || height < minDimension) {
-      _showError('目标宽高必须大于 0');
+      _showError('resize.error.nonPositiveDimensions'.tr);
       return null;
     }
     if (width > maxDimension || height > maxDimension) {
-      _showError('目标宽高不能超过 $maxDimension 像素');
+      _showError(
+        'resize.error.dimensionsTooLarge'.trParams({
+          'max': maxDimension.toString(),
+        }),
+      );
       return null;
     }
     return _ResizeDimensions(width: width, height: height);
@@ -370,7 +380,7 @@ class ResizeController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('resize.error.title'.tr, message);
   }
 }
 

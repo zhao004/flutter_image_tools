@@ -37,6 +37,8 @@ import 'package:flutter_image_tools/app/pages/qrcode/qrcode_controller.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_view.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_controller.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_view.dart';
+import 'package:flutter_image_tools/app/pages/resize/resize_controller.dart';
+import 'package:flutter_image_tools/app/pages/resize/resize_view.dart';
 import 'package:flutter_image_tools/app/repositories/app_settings_repository.dart';
 import 'package:flutter_image_tools/app/repositories/cache_repository.dart';
 import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
@@ -644,6 +646,46 @@ void main() {
     expect(find.text('Export Quality: 95%'), findsOneWidget);
     expect(find.text('JPG and WebP use the export quality.'), findsOneWidget);
     expect(find.text('Start Convert'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文尺寸调整页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、目标尺寸和操作按钮文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      ResizeController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const ResizeView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Resize'), findsOneWidget);
+    expect(find.text('Select Image'), findsOneWidget);
+    expect(
+      find.text('Select a JPG, PNG, WebP, or BMP image to resize locally.'),
+      findsOneWidget,
+    );
+    expect(find.text('Select One'), findsOneWidget);
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Target Size'), findsOneWidget);
+    expect(find.text('Keep Aspect Ratio'), findsOneWidget);
+    expect(find.text('Width'), findsOneWidget);
+    expect(find.text('Height'), findsOneWidget);
+    expect(find.text('Scale by Percentage: 100%'), findsOneWidget);
 
     await database.close();
     Get.reset();

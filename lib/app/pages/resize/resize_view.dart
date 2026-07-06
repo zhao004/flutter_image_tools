@@ -14,7 +14,7 @@ class ResizeView extends GetView<ResizeController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('尺寸调整')),
+      appBar: AppBar(title: Text('resize.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -34,7 +34,11 @@ class ResizeView extends GetView<ResizeController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.aspect_ratio),
-                label: Text(controller.isBusy.value ? '调整中' : '开始调整'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'resize.action.resize'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -62,20 +66,31 @@ class _ImageCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'resize.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择 JPG、PNG、WebP 或 BMP 图片进行本地尺寸调整。')
+                Text('resize.image.empty'.tr)
               else if (images.length == 1 && image != null) ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(controller.formatBytes(image.sizeBytes)),
                 Text(controller.formatDimensions(image)),
               ] else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'resize.image.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(images.fold<int>(0, (sum, item) => sum + item.sizeBytes))}',
+                  'resize.image.totalSize'.trParams({
+                    'size': controller.formatBytes(
+                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
+                    ),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -88,14 +103,18 @@ class _ImageCard extends StatelessWidget {
                         ? null
                         : controller.pickImage,
                     icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(image == null ? '选择单张' : '重新选择单张'),
+                    label: Text(
+                      image == null
+                          ? 'resize.action.pickSingle'.tr
+                          : 'resize.action.repickSingle'.tr,
+                    ),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: controller.isBusy.value
                         ? null
                         : controller.pickImages,
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('批量选择'),
+                    label: Text('resize.action.pickBatch'.tr),
                   ),
                 ],
               ),
@@ -113,7 +132,12 @@ class _ImageCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                if (images.length > 5) Text('还有 ${images.length - 5} 张图片'),
+                if (images.length > 5)
+                  Text(
+                    'resize.image.moreCount'.trParams({
+                      'count': (images.length - 5).toString(),
+                    }),
+                  ),
               ],
             ],
           );
@@ -137,11 +161,14 @@ class _SizeCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('目标尺寸', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'resize.size.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('保持原比例'),
+                title: Text('resize.size.keepAspectRatio'.tr),
                 value: controller.keepAspectRatio.value,
                 onChanged: controller.isBusy.value
                     ? null
@@ -156,10 +183,10 @@ class _SizeCard extends StatelessWidget {
                       enabled: !controller.isBusy.value,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(
-                        labelText: '宽度',
+                      decoration: InputDecoration(
+                        labelText: 'resize.size.width'.tr,
                         suffixText: 'px',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                       onChanged: controller.updateWidth,
                     ),
@@ -171,10 +198,10 @@ class _SizeCard extends StatelessWidget {
                       enabled: !controller.isBusy.value,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(
-                        labelText: '高度',
+                      decoration: InputDecoration(
+                        labelText: 'resize.size.height'.tr,
                         suffixText: 'px',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                       onChanged: controller.updateHeight,
                     ),
@@ -182,7 +209,11 @@ class _SizeCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Text('按比例缩放：${controller.percent.value.round()}%'),
+              Text(
+                'resize.size.percent'.trParams({
+                  'percent': controller.percent.value.round().toString(),
+                }),
+              ),
               Slider(
                 value: controller.percent.value.clamp(10, 300),
                 min: 10,
@@ -193,11 +224,11 @@ class _SizeCard extends StatelessWidget {
                     ? null
                     : controller.updatePercent,
               ),
-              const Text('支持 10% 到 300%，最大单边 10000 像素。'),
+              Text('resize.size.limitHint'.tr),
               if (controller.selectedImages.length > 1 &&
                   controller.keepAspectRatio.value) ...[
                 const SizedBox(height: 8),
-                const Text('批量保持原比例时，会按当前百分比分别缩放每张图片。'),
+                Text('resize.size.batchAspectHint'.tr),
               ],
             ],
           ),
@@ -226,18 +257,26 @@ class _ProgressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('批量进度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'resize.progress.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: controller.progress),
               const SizedBox(height: 8),
-              Text('已处理 $processed / $total 张'),
+              Text(
+                'resize.progress.processed'.trParams({
+                  'processed': processed.toString(),
+                  'total': total.toString(),
+                }),
+              ),
               const SizedBox(height: 12),
               ...controller.tasks.map((task) {
                 final status = task.isCompleted
                     ? task.isSuccess
-                          ? '成功'
-                          : '失败'
-                    : '等待';
+                          ? 'resize.task.success'.tr
+                          : 'resize.task.failed'.tr
+                    : 'resize.task.waiting'.tr;
                 return ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -282,10 +321,22 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('调整结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'resize.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('目标尺寸：${result.width} × ${result.height} px'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'resize.result.dimensions'.trParams({
+                  'width': result.width.toString(),
+                  'height': result.height.toString(),
+                }),
+              ),
+              Text(
+                'resize.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,
