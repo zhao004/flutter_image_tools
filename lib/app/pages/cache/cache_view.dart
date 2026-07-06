@@ -13,7 +13,7 @@ class CacheView extends GetView<CacheController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('缓存管理')),
+      appBar: AppBar(title: Text('cache.title'.tr)),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: controller.loadSummary,
@@ -49,14 +49,27 @@ class _SummaryCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('缓存统计', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'cache.summary.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              _InfoRow(label: '文件数量', value: '${summary.fileCount} 个'),
               _InfoRow(
-                label: '缓存大小',
+                label: 'cache.summary.files'.tr,
+                value: 'cache.summary.filesValue'.trParams({
+                  'count': summary.fileCount.toString(),
+                }),
+              ),
+              _InfoRow(
+                label: 'cache.summary.size'.tr,
                 value: controller.formatBytes(summary.totalSizeBytes),
               ),
-              _InfoRow(label: '记录数量', value: '${summary.recordCount} 条'),
+              _InfoRow(
+                label: 'cache.summary.records'.tr,
+                value: 'cache.summary.recordsValue'.trParams({
+                  'count': summary.recordCount.toString(),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 summary.cacheDirectoryPath,
@@ -87,9 +100,12 @@ class _ActionCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('清理缓存', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'cache.clear.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
-              const Text('只清理应用临时目录中的导出和中间文件，不删除历史记录和本地数据库。'),
+              Text('cache.clear.body'.tr),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: controller.isBusy.value || !hasCache
@@ -101,7 +117,11 @@ class _ActionCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.cleaning_services_outlined),
-                label: Text(controller.isBusy.value ? '处理中' : '清理缓存'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'cache.clear.button'.tr,
+                ),
               ),
             ],
           );

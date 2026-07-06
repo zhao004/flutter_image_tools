@@ -33,7 +33,10 @@ class CacheController extends GetxController {
     try {
       summary.value = await _collectSummary();
     } catch (_) {
-      Get.snackbar('统计失败', '缓存信息读取失败，请稍后重试');
+      Get.snackbar(
+        'cache.stats.failed.title'.tr,
+        'cache.stats.failed.message'.tr,
+      );
     } finally {
       isBusy.value = false;
     }
@@ -51,9 +54,15 @@ class CacheController extends GetxController {
       }
       await _cacheRepository.clearRecords();
       summary.value = await _collectSummary();
-      Get.snackbar('清理完成', '缓存文件已清理');
+      Get.snackbar(
+        'cache.clear.success.title'.tr,
+        'cache.clear.success.message'.tr,
+      );
     } catch (_) {
-      Get.snackbar('清理失败', '部分缓存文件无法删除，请稍后重试');
+      Get.snackbar(
+        'cache.clear.failed.title'.tr,
+        'cache.clear.failed.message'.tr,
+      );
     } finally {
       isBusy.value = false;
     }

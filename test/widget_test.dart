@@ -5,12 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_image_tools/app/database/database.dart';
+import 'package:flutter_image_tools/app/core/models/cache_summary.dart';
+import 'package:flutter_image_tools/app/pages/cache/cache_controller.dart';
+import 'package:flutter_image_tools/app/pages/cache/cache_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_view.dart';
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
+import 'package:flutter_image_tools/app/repositories/cache_repository.dart';
 import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_history_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_logs_repository.dart';
@@ -128,6 +132,44 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('No favorite templates'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文缓存管理页面', (WidgetTester tester) async {
+    // 直接预置缓存统计结果，避免 Widget 测试依赖平台临时目录通道。
+    final database = AppDatabase(NativeDatabase.memory());
+    final repository = CacheRepository(database: database);
+    final controller = CacheController(cacheRepository: repository);
+    controller.summary.value = const CacheSummary(
+      cacheDirectoryPath: '/tmp/image_toolkit',
+      fileCount: 2,
+      recordCount: 1,
+      totalSizeBytes: 1536,
+    );
+    Get.put(controller);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const CacheView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Cache Management'), findsOneWidget);
+    expect(find.text('Cache Summary'), findsOneWidget);
+    expect(find.text('Files'), findsOneWidget);
+    expect(find.text('2 files'), findsOneWidget);
+    expect(find.text('Cache Size'), findsOneWidget);
+    expect(find.text('1.5 KB'), findsOneWidget);
+    expect(find.text('Records'), findsOneWidget);
+    expect(find.text('1 records'), findsOneWidget);
+    expect(find.text('Clear Cache'), findsWidgets);
 
     await database.close();
     Get.reset();
