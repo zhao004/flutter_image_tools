@@ -14,7 +14,8 @@ enum BatchOperation {
   flip(label: '批量翻转', featureName: '批量翻转'),
   resize(label: '尺寸调整', featureName: '批量尺寸调整'),
   textWatermark(label: '文字水印', featureName: '批量文字水印'),
-  imageWatermark(label: '图片水印', featureName: '批量图片水印');
+  imageWatermark(label: '图片水印', featureName: '批量图片水印'),
+  filter(label: '图片滤镜', featureName: '批量图片滤镜');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -75,6 +76,24 @@ enum BatchWatermarkColor {
   yellow(label: '黄色', value: '#FDD835');
 
   const BatchWatermarkColor({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+enum BatchFilterType {
+  grayscale(label: '灰度', value: 'grayscale'),
+  monochrome(label: '黑白', value: 'monochrome'),
+  sepia(label: '怀旧', value: 'sepia'),
+  invert(label: '反色', value: 'invert'),
+  warm(label: '暖色', value: 'warm'),
+  cool(label: '冷色', value: 'cool'),
+  hdr(label: 'HDR', value: 'hdr'),
+  film(label: '胶片', value: 'film'),
+  sharpen(label: '锐化', value: 'sharpen'),
+  soften(label: '柔化', value: 'soften');
+
+  const BatchFilterType({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -179,6 +198,7 @@ class BatchController extends GetxController {
   final imageWatermarkOpacity = 70.obs;
   final imageWatermarkScale = 25.obs;
   final imageWatermarkRotation = 0.obs;
+  final filter = BatchFilterType.grayscale.obs;
   final degrees = 90.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
@@ -377,6 +397,13 @@ class BatchController extends GetxController {
     imageWatermarkRotation.value = value.round().clamp(-180, 180);
   }
 
+  void setFilter(BatchFilterType value) {
+    if (isRunning.value) {
+      return;
+    }
+    filter.value = value;
+  }
+
   Future<void> startQueue() async {
     if (isRunning.value) {
       return;
@@ -512,6 +539,8 @@ class BatchController extends GetxController {
           await _processTextWatermarkTask(index, task.source);
         case BatchOperation.imageWatermark:
           await _processImageWatermarkTask(index, task.source);
+        case BatchOperation.filter:
+          await _processFilterTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -690,6 +719,26 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processFilterTask(int index, LocalImageFile source) async {
+    final filtered = await _imageChannel.applyFilter(
+      source: source,
+      filter: filter.value.value,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: filtered.outputPath,
+      outputSizeBytes: filtered.outputSizeBytes,
+      resultLabel: filter.value.label,
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: filtered.outputPath,
+      parameters: _historyParameters,
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -789,6 +838,8 @@ class BatchController extends GetxController {
           'scalePercent': imageWatermarkScale.value,
           'rotationDegrees': imageWatermarkRotation.value,
         });
+      case BatchOperation.filter:
+        parameters['filter'] = filter.value.value;
     }
     return parameters;
   }
@@ -826,6 +877,9 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.imageWatermark) {
       return '图片水印会用同一张水印图按当前位置、透明度、缩放和旋转参数批量导出。';
+    }
+    if (operation.value == BatchOperation.filter) {
+      return '滤镜会按当前类型批量导出新图片，不会覆盖原文件。';
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||

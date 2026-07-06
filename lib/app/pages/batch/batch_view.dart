@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印、图片滤镜和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
 /// 取消都只影响未开始任务，正在处理的单个本地任务会自然结束后再停队列。
@@ -274,6 +274,26 @@ class _OperationCard extends StatelessWidget {
                       .toList(growable: false),
                 ),
               ],
+              if (controller.operation.value == BatchOperation.filter) ...[
+                const SizedBox(height: 16),
+                const Text('滤镜类型'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: BatchFilterType.values
+                      .map(
+                        (item) => ChoiceChip(
+                          label: Text(item.label),
+                          selected: controller.filter.value == item,
+                          onSelected: controller.isRunning.value
+                              ? null
+                              : (_) => controller.setFilter(item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ],
           ),
         ),
@@ -441,6 +461,9 @@ class _SettingsCard extends StatelessWidget {
                       ? null
                       : controller.updateImageWatermarkRotation,
                 ),
+              ] else if (controller.operation.value ==
+                  BatchOperation.filter) ...[
+                Text('滤镜：${controller.filter.value.label}'),
               ] else ...[
                 Text('质量：${controller.quality.value}%'),
                 Slider(
