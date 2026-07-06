@@ -41,7 +41,10 @@ class SettingsController extends GetxController {
       defaultExportDirectory.value = await _settingsRepository
           .getDefaultExportDirectory();
     } catch (_) {
-      Get.snackbar('读取设置失败', '已使用默认设置');
+      Get.snackbar(
+        'settings.load.failed.title'.tr,
+        'settings.load.failed.message'.tr,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -53,7 +56,7 @@ class SettingsController extends GetxController {
     try {
       await _settingsRepository.setDefaultQuality(nextValue);
     } catch (_) {
-      Get.snackbar('保存失败', '默认压缩质量未保存');
+      _showSaveFailed('settings.save.failed.quality'.tr);
     }
   }
 
@@ -62,7 +65,7 @@ class SettingsController extends GetxController {
       await _settingsRepository.setDefaultExportFormat(format);
       defaultExportFormat.value = format;
     } catch (_) {
-      Get.snackbar('保存失败', '默认导出格式未保存');
+      _showSaveFailed('settings.save.failed.format'.tr);
     }
   }
 
@@ -71,7 +74,7 @@ class SettingsController extends GetxController {
       await _settingsRepository.setDefaultSaveRule(rule);
       defaultSaveRule.value = rule;
     } catch (_) {
-      Get.snackbar('保存失败', '默认保存规则未保存');
+      _showSaveFailed('settings.save.failed.saveRule'.tr);
     }
   }
 
@@ -81,7 +84,7 @@ class SettingsController extends GetxController {
       themeMode.value = mode;
       Get.changeThemeMode(themeModeFromSetting(mode));
     } catch (_) {
-      Get.snackbar('保存失败', '主题模式未保存');
+      _showSaveFailed('settings.save.failed.theme'.tr);
     }
   }
 
@@ -96,7 +99,11 @@ class SettingsController extends GetxController {
       }
       Get.updateLocale(locale);
     } catch (_) {
-      Get.snackbar('保存失败', '语言设置未保存');
+      _showSaveFailed('settings.save.failed.language'.tr);
     }
+  }
+
+  void _showSaveFailed(String message) {
+    Get.snackbar('settings.save.failed.title'.tr, message);
   }
 }
