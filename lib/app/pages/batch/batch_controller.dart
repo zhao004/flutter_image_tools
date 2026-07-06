@@ -17,7 +17,8 @@ enum BatchOperation {
   imageWatermark(label: '图片水印', featureName: '批量图片水印'),
   filter(label: '图片滤镜', featureName: '批量图片滤镜'),
   crop(label: '图片裁剪', featureName: '批量图片裁剪'),
-  removeExif(label: '删除 EXIF', featureName: '批量删除 EXIF');
+  removeExif(label: '删除 EXIF', featureName: '批量删除 EXIF'),
+  grid(label: '九宫格切图', featureName: '批量九宫格切图');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -222,6 +223,7 @@ class BatchController extends GetxController {
   final cropPreset = BatchCropPreset.square.obs;
   final cropRatioWidth = 1.obs;
   final cropRatioHeight = 1.obs;
+  final gridSize = 3.obs;
   final degrees = 90.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
@@ -456,6 +458,18 @@ class BatchController extends GetxController {
     cropRatioHeight.value = parsed.clamp(1, 100);
   }
 
+  void setGridSize(int value) {
+    if (isRunning.value) {
+      return;
+    }
+    if (value < LocalImageChannel.minGridSize ||
+        value > LocalImageChannel.maxGridSize) {
+      _showError('网格大小必须在 2 到 5 之间');
+      return;
+    }
+    gridSize.value = value;
+  }
+
   Future<void> startQueue() async {
     if (isRunning.value) {
       return;
@@ -600,6 +614,8 @@ class BatchController extends GetxController {
           await _processCropTask(index, task.source);
         case BatchOperation.removeExif:
           await _processRemoveExifTask(index, task.source);
+        case BatchOperation.grid:
+          await _processGridTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -839,6 +855,26 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processGridTask(int index, LocalImageFile source) async {
+    final gridImage = await _imageChannel.splitGridImage(
+      source: source,
+      gridSize: gridSize.value,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: gridImage.outputDirectory,
+      outputSizeBytes: gridImage.outputSizeBytes,
+      resultLabel: '${gridImage.gridSize}×${gridImage.gridSize}',
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: gridImage.outputDirectory,
+      parameters: _historyParametersForGrid(gridImage.pieceCount),
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -947,6 +983,11 @@ class BatchController extends GetxController {
         });
       case BatchOperation.removeExif:
         parameters['mode'] = 'removeExif';
+      case BatchOperation.grid:
+        parameters.addAll(<String, Object>{
+          'gridSize': gridSize.value,
+          'pieceCount': gridSize.value * gridSize.value,
+        });
     }
     return parameters;
   }
@@ -968,6 +1009,14 @@ class BatchController extends GetxController {
       'operation': operation.value.name,
       'preset': cropPreset.value.name,
       'aspectRatio': aspectRatio,
+    };
+  }
+
+  Map<String, Object> _historyParametersForGrid(int pieceCount) {
+    return <String, Object>{
+      'operation': operation.value.name,
+      'gridSize': gridSize.value,
+      'pieceCount': pieceCount,
     };
   }
 
@@ -1001,6 +1050,9 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.removeExif) {
       return '删除 EXIF 会重新导出去除元数据的图片副本，不会覆盖原文件。';
+    }
+    if (operation.value == BatchOperation.grid) {
+      return '九宫格切图会为每张图片生成独立切片目录，支持 2×2 到 5×5。';
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
