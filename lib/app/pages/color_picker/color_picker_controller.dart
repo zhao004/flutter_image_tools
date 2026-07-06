@@ -53,7 +53,7 @@ class ColorPickerController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('读取图片颜色失败，请重试');
+      _showError('colorPicker.error.readFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -69,11 +69,11 @@ class ColorPickerController extends GetxController {
     final decoded = _decodedImage;
     final bytes = _pixelBytes;
     if (image == null || decoded == null || bytes == null) {
-      _showError('请先选择一张图片');
+      _showError('colorPicker.error.pickImageFirst'.tr);
       return;
     }
     if (displayWidth <= 0 || displayHeight <= 0) {
-      _showError('图片显示区域无效');
+      _showError('colorPicker.error.invalidDisplayArea'.tr);
       return;
     }
 
@@ -87,7 +87,7 @@ class ColorPickerController extends GetxController {
     );
     final byteOffset = (pixelY * decoded.width + pixelX) * 4;
     if (byteOffset < 0 || byteOffset + 3 >= bytes.lengthInBytes) {
-      _showError('取色位置超出图片范围');
+      _showError('colorPicker.error.outOfRange'.tr);
       return;
     }
 
@@ -105,16 +105,16 @@ class ColorPickerController extends GetxController {
 
   Future<void> copyValue(String value) async {
     if (value.trim().isEmpty) {
-      _showError('颜色值为空，无法复制');
+      _showError('colorPicker.error.emptyColorValue'.tr);
       return;
     }
     await Clipboard.setData(ClipboardData(text: value));
-    Get.snackbar('已复制', value);
+    Get.snackbar('colorPicker.copy.success.title'.tr, value);
   }
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -130,7 +130,7 @@ class ColorPickerController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'colorPicker.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
   }
@@ -143,15 +143,15 @@ class ColorPickerController extends GetxController {
 
   Future<void> _loadImagePixels(LocalImageFile image) async {
     if (image.path.trim().isEmpty) {
-      throw const AppException('图片路径为空，无法取色');
+      throw AppException('colorPicker.error.emptyPath'.tr);
     }
     final file = File(image.path);
     if (!file.existsSync()) {
-      throw const AppException('图片文件不存在，请重新选择');
+      throw AppException('colorPicker.error.fileMissing'.tr);
     }
     final bytes = await file.readAsBytes();
     if (bytes.isEmpty) {
-      throw const AppException('图片内容为空，请重新选择');
+      throw AppException('colorPicker.error.fileEmpty'.tr);
     }
 
     _decodedImage?.dispose();
@@ -160,7 +160,7 @@ class ColorPickerController extends GetxController {
       format: ui.ImageByteFormat.rawRgba,
     );
     if (_pixelBytes == null) {
-      throw const AppException('图片像素读取失败，请重试');
+      throw AppException('colorPicker.error.pixelReadFailed'.tr);
     }
   }
 
@@ -176,7 +176,7 @@ class ColorPickerController extends GetxController {
   ) async {
     try {
       await _historyRepository.recordOperationSuccess(
-        featureName: '颜色提取',
+        featureName: 'colorPicker.featureName'.tr,
         inputPath: image.path,
         outputPath: image.path,
         parameters: <String, Object>{
@@ -193,6 +193,6 @@ class ColorPickerController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('colorPicker.error.title'.tr, message);
   }
 }

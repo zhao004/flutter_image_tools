@@ -10,6 +10,8 @@ import 'package:flutter_image_tools/app/pages/base64/base64_controller.dart';
 import 'package:flutter_image_tools/app/pages/base64/base64_view.dart';
 import 'package:flutter_image_tools/app/pages/cache/cache_controller.dart';
 import 'package:flutter_image_tools/app/pages/cache/cache_view.dart';
+import 'package:flutter_image_tools/app/pages/color_picker/color_picker_controller.dart';
+import 'package:flutter_image_tools/app/pages/color_picker/color_picker_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_view.dart';
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
@@ -259,6 +261,44 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select and Scan'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文颜色提取页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、预览和空状态文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      ColorPickerController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const ColorPickerView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Color Picker'), findsOneWidget);
+    expect(find.text('Select Image'), findsWidgets);
+    expect(
+      find.text('Select an image, then tap the preview area to pick a color.'),
+      findsOneWidget,
+    );
+    expect(find.text('Tap to Pick Color'), findsOneWidget);
+    expect(
+      find.text('The preview appears here after an image loads.'),
+      findsOneWidget,
+    );
 
     await database.close();
     Get.reset();

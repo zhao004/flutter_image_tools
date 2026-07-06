@@ -15,7 +15,7 @@ class ColorPickerView extends GetView<ColorPickerController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('颜色提取')),
+      appBar: AppBar(title: Text('colorPicker.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -47,10 +47,13 @@ class _ImageInfoCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'colorPicker.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (image == null)
-                const Text('请选择一张图片，随后在预览区域点击提取颜色。')
+                Text('colorPicker.image.empty'.tr)
               else ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
@@ -70,10 +73,10 @@ class _ImageInfoCard extends StatelessWidget {
                     : const Icon(Icons.add_photo_alternate_outlined),
                 label: Text(
                   controller.isBusy.value
-                      ? '读取中'
+                      ? 'colorPicker.action.loading'.tr
                       : image == null
-                      ? '选择图片'
-                      : '重新选择',
+                      ? 'colorPicker.action.pickImage'.tr
+                      : 'colorPicker.action.repickImage'.tr,
                 ),
               ),
             ],
@@ -99,10 +102,13 @@ class _PickerCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('点击取色', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'colorPicker.picker.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (image == null)
-                const Text('图片加载后会在这里显示预览。')
+                Text('colorPicker.picker.empty'.tr)
               else
                 LayoutBuilder(
                   builder: (context, constraints) {
@@ -127,9 +133,13 @@ class _PickerCard extends StatelessWidget {
                             File(image.path),
                             fit: BoxFit.fill,
                             errorBuilder: (context, error, stackTrace) {
-                              return const ColoredBox(
+                              return ColoredBox(
                                 color: Colors.black12,
-                                child: Center(child: Text('图片预览失败')),
+                                child: Center(
+                                  child: Text(
+                                    'colorPicker.picker.previewFailed'.tr,
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -164,7 +174,10 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('取色结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'colorPicker.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -178,7 +191,14 @@ class _ResultCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(child: Text('坐标：${sample.x}, ${sample.y}')),
+                  Expanded(
+                    child: Text(
+                      'colorPicker.result.coordinate'.trParams({
+                        'x': '${sample.x}',
+                        'y': '${sample.y}',
+                      }),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -223,7 +243,7 @@ class _CopyRow extends StatelessWidget {
       title: Text(label),
       subtitle: Text(value),
       trailing: IconButton(
-        tooltip: '复制$label',
+        tooltip: 'colorPicker.action.copyLabel'.trParams({'label': label}),
         onPressed: () => onCopy(value),
         icon: const Icon(Icons.copy),
       ),
