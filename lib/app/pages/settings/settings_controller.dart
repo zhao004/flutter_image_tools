@@ -1,4 +1,3 @@
-import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
 import '../../utils/latest_snackbar.dart';
@@ -81,11 +80,7 @@ class SettingsController extends GetxController {
     try {
       await _settingsRepository.setLanguage(value);
       language.value = value;
-      final locale = localeFromSetting(value);
-      if (locale == null) {
-        Get.updateLocale(Get.deviceLocale ?? const Locale('zh', 'CN'));
-        return;
-      }
+      final locale = localeFromSettingOrDevice(value, Get.deviceLocale);
       Get.updateLocale(locale);
     } catch (_) {
       _showSaveFailed('settings.save.failed.language'.tr);

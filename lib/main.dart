@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
@@ -21,7 +23,7 @@ class InitialAppSettings {
   final Locale? locale;
 }
 
-/// 读取启动设置，读取失败时回退跟随系统。
+/// 读取启动设置，读取失败时回退默认中文。
 ///
 /// 异常策略：应用启动不能因为设置库损坏而中断；这里显式关闭临时数据库，
 /// 避免启动阶段为了读取偏好留下额外连接。
@@ -33,10 +35,16 @@ Future<InitialAppSettings> loadInitialAppSettings() async {
     final language = await repository.getLanguage();
     return InitialAppSettings(
       themeMode: themeModeFromSetting(mode),
-      locale: localeFromSetting(language),
+      locale: localeFromSettingOrDevice(
+        language,
+        ui.PlatformDispatcher.instance.locale,
+      ),
     );
   } catch (_) {
-    return const InitialAppSettings(themeMode: ThemeMode.system, locale: null);
+    return const InitialAppSettings(
+      themeMode: ThemeMode.system,
+      locale: defaultAppLocale,
+    );
   } finally {
     await database.close();
   }
@@ -71,8 +79,8 @@ class ImageToolsApp extends StatelessWidget {
       title: 'Image Toolkit',
       debugShowCheckedModeBanner: false,
       translations: AppTranslations(),
-      locale: initialLocale,
-      fallbackLocale: const Locale('zh', 'CN'),
+      locale: resolveSupportedLocale(initialLocale ?? Get.deviceLocale),
+      fallbackLocale: defaultAppLocale,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: initialThemeMode,
@@ -84,11 +92,7 @@ class ImageToolsApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('zh', 'CN'),
-        Locale('zh', 'TW'),
-        Locale('en'),
-      ],
+      supportedLocales: supportedAppLocales,
     );
   }
 }
