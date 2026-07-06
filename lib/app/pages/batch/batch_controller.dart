@@ -962,6 +962,7 @@ class BatchController extends GetxController {
         'mode': 'encode',
         'length': text.length,
         'mimeType': source.mimeType,
+        'saveRule': await _defaultSaveRule(),
       },
     );
   }
@@ -1206,13 +1207,45 @@ class BatchController extends GetxController {
 
   Future<File> _createBase64TextFile(String sourceName) async {
     final root = await getTemporaryDirectory();
-    final directory = Directory('${root.path}/batch_base64_texts');
+    final saveRule = await _defaultSaveRule();
+    final directory = Directory(
+      saveRule == 'feature_folder'
+          ? '${root.path}/batch_base64_texts/base64'
+          : '${root.path}/batch_base64_texts',
+    );
     if (!await directory.exists()) {
       await directory.create(recursive: true);
     }
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final safeName = _safeFileStem(sourceName);
-    return File('${directory.path}/${safeName}_$timestamp.txt');
+    final fileName = switch (saveRule) {
+      'source_name' => safeName,
+      'feature_folder' => '${safeName}_$timestamp',
+      _ => 'base64_$timestamp',
+    };
+    return _availableTextFile(directory, fileName);
+  }
+
+  Future<String> _defaultSaveRule() async {
+    try {
+      return await _settingsRepository.getDefaultSaveRule();
+    } catch (_) {
+      return 'timestamp';
+    }
+  }
+
+  Future<File> _availableTextFile(Directory directory, String fileName) async {
+    var output = File('${directory.path}/$fileName.txt');
+    if (!await output.exists()) {
+      return output;
+    }
+    for (var index = 1; index <= 999; index++) {
+      output = File('${directory.path}/${fileName}_$index.txt');
+      if (!await output.exists()) {
+        return output;
+      }
+    }
+    throw const AppException('导出文件名冲突过多，请清理缓存后重试');
   }
 
   String _safeFileStem(String name) {
