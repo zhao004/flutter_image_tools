@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 
 import 'package:flutter_image_tools/app/database/database.dart';
 import 'package:flutter_image_tools/app/core/models/cache_summary.dart';
+import 'package:flutter_image_tools/app/pages/base64/base64_controller.dart';
+import 'package:flutter_image_tools/app/pages/base64/base64_view.dart';
 import 'package:flutter_image_tools/app/pages/cache/cache_controller.dart';
 import 'package:flutter_image_tools/app/pages/cache/cache_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
@@ -18,6 +20,8 @@ import 'package:flutter_image_tools/app/repositories/cache_repository.dart';
 import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_history_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_logs_repository.dart';
+import 'package:flutter_image_tools/app/repositories/recent_files_repository.dart';
+import 'package:flutter_image_tools/app/services/local_image_channel.dart';
 import 'package:flutter_image_tools/app/theme/app_translations.dart';
 import 'package:flutter_image_tools/app/theme/app_theme.dart';
 import 'package:flutter_image_tools/main.dart';
@@ -170,6 +174,49 @@ void main() {
     expect(find.text('Records'), findsOneWidget);
     expect(find.text('1 records'), findsOneWidget);
     expect(find.text('Clear Cache'), findsWidgets);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文 Base64 页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证静态文案国际化，不触发平台图片选择通道。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      Base64Controller(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const Base64View(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Base64'), findsOneWidget);
+    expect(find.text('Image to Base64'), findsOneWidget);
+    expect(
+      find.text(
+        'Select a local image to generate Base64 text. Max 12 MB per file.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Select Image'), findsOneWidget);
+    expect(find.text('Generate Text'), findsOneWidget);
+    expect(find.text('Base64 to Image'), findsOneWidget);
+    expect(
+      find.text('Paste Base64 text or data:image/png;base64,...'),
+      findsOneWidget,
+    );
+    expect(find.text('Restore Image'), findsOneWidget);
 
     await database.close();
     Get.reset();

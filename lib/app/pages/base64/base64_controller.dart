@@ -61,7 +61,7 @@ class Base64Controller extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('base64.error.recentFileFailed'.tr);
     }
   }
 
@@ -71,7 +71,7 @@ class Base64Controller extends GetxController {
     }
     final source = selectedImage.value;
     if (source == null) {
-      _showError('请先选择一张图片');
+      _showError('base64.error.pickImageFirst'.tr);
       return;
     }
 
@@ -79,14 +79,14 @@ class Base64Controller extends GetxController {
     try {
       final file = File(source.path);
       if (!await file.exists()) {
-        throw const AppException('图片文件不存在，请重新选择');
+        throw AppException('base64.error.fileMissing'.tr);
       }
       final sizeBytes = await file.length();
       if (sizeBytes <= 0) {
-        throw const AppException('图片文件为空，无法编码');
+        throw AppException('base64.error.fileEmpty'.tr);
       }
       if (sizeBytes > maxInputBytes) {
-        throw const AppException('图片超过 12 MB，请先压缩后再转 Base64');
+        throw AppException('base64.error.fileTooLarge'.tr);
       }
       final bytes = await file.readAsBytes();
       final text = base64Encode(bytes);
@@ -105,7 +105,10 @@ class Base64Controller extends GetxController {
         outputPath: source.path,
         parameters: <String, Object>{'mode': 'encode', 'length': text.length},
       );
-      Get.snackbar('编码完成', '已生成 Base64 文本');
+      Get.snackbar(
+        'base64.encode.success.title'.tr,
+        'base64.encode.success.message'.tr,
+      );
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
         featureName: 'Base64',
@@ -119,9 +122,9 @@ class Base64Controller extends GetxController {
         featureName: 'Base64',
         inputPath: source.path,
         parameters: const <String, Object>{'mode': 'encode'},
-        errorMessage: '图片编码失败',
+        errorMessage: 'base64.error.encodeFailedLog'.tr,
       );
-      _showError('图片编码失败，请重试');
+      _showError('base64.error.encodeFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -130,11 +133,14 @@ class Base64Controller extends GetxController {
   Future<void> copyBase64Text() async {
     final text = base64Text.value.trim();
     if (text.isEmpty) {
-      _showError('暂无可复制的 Base64 文本');
+      _showError('base64.error.noCopyText'.tr);
       return;
     }
     await Clipboard.setData(ClipboardData(text: text));
-    Get.snackbar('复制完成', 'Base64 文本已复制到剪贴板');
+    Get.snackbar(
+      'base64.copy.success.title'.tr,
+      'base64.copy.success.message'.tr,
+    );
   }
 
   Future<void> exportBase64Text() async {
@@ -144,7 +150,7 @@ class Base64Controller extends GetxController {
     final text = base64Text.value.trim();
     final source = selectedImage.value;
     if (text.isEmpty || source == null) {
-      _showError('请先生成 Base64 文本');
+      _showError('base64.error.generateTextFirst'.tr);
       return;
     }
 
@@ -172,15 +178,18 @@ class Base64Controller extends GetxController {
         base64Length: text.length,
         mimeType: 'text/plain',
       );
-      Get.snackbar('导出完成', 'Base64 文本已导出到应用缓存目录');
+      Get.snackbar(
+        'base64.export.success.title'.tr,
+        'base64.export.success.message'.tr,
+      );
     } catch (_) {
       await _historyRepository.recordOperationFailure(
         featureName: 'Base64',
         inputPath: source.path,
         parameters: const <String, Object>{'mode': 'export_text'},
-        errorMessage: '导出 Base64 文本失败',
+        errorMessage: 'base64.error.exportFailedLog'.tr,
       );
-      _showError('导出 Base64 文本失败，请检查存储空间');
+      _showError('base64.error.exportFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -196,11 +205,11 @@ class Base64Controller extends GetxController {
     }
     final rawText = inputController.text.trim();
     if (rawText.isEmpty) {
-      _showError('请输入 Base64 文本');
+      _showError('base64.error.inputRequired'.tr);
       return;
     }
     if (rawText.length > maxBase64Chars) {
-      _showError('Base64 文本过长，请分批处理或使用更小图片');
+      _showError('base64.error.inputTooLong'.tr);
       return;
     }
 
@@ -210,7 +219,7 @@ class Base64Controller extends GetxController {
       final payload = _parseBase64Payload(rawText);
       final bytes = base64Decode(payload.text);
       if (bytes.isEmpty) {
-        throw const AppException('Base64 内容为空，无法还原图片');
+        throw AppException('base64.error.payloadEmpty'.tr);
       }
       final extension = _extensionForMimeType(payload.mimeType);
       final output = await _createOutputFile(
@@ -228,7 +237,7 @@ class Base64Controller extends GetxController {
       );
       await _historyRepository.recordOperationSuccess(
         featureName: 'Base64',
-        inputPath: 'Base64 文本',
+        inputPath: 'base64.history.inputText'.tr,
         outputPath: output.path,
         parameters: <String, Object>{
           'mode': 'decode',
@@ -236,16 +245,22 @@ class Base64Controller extends GetxController {
           'length': payload.text.length,
         },
       );
-      Get.snackbar('还原完成', '图片已导出到应用缓存目录');
+      Get.snackbar(
+        'base64.decode.success.title'.tr,
+        'base64.decode.success.message'.tr,
+      );
     } on FormatException {
-      await _recordDecodeFailure('Base64 文本格式无效', outputPath);
-      _showError('Base64 文本格式无效，请检查输入');
+      await _recordDecodeFailure(
+        'base64.error.invalidFormatLog'.tr,
+        outputPath,
+      );
+      _showError('base64.error.invalidFormat'.tr);
     } on AppException catch (error) {
       await _recordDecodeFailure(error.message, outputPath);
       _showError(error.message);
     } catch (_) {
-      await _recordDecodeFailure('Base64 还原图片失败', outputPath);
-      _showError('Base64 还原图片失败，请重试');
+      await _recordDecodeFailure('base64.error.decodeFailedLog'.tr, outputPath);
+      _showError('base64.error.decodeFailed'.tr);
     } finally {
       isBusy.value = false;
     }
@@ -253,7 +268,7 @@ class Base64Controller extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -269,9 +284,11 @@ class Base64Controller extends GetxController {
 
   String formatTextLength(int length) {
     if (length < 1000) {
-      return '$length 字符';
+      return 'base64.length.characters'.trParams({'count': '$length'});
     }
-    return '${(length / 1000).toStringAsFixed(1)}K 字符';
+    return 'base64.length.kCharacters'.trParams({
+      'count': (length / 1000).toStringAsFixed(1),
+    });
   }
 
   Future<File> _createOutputFile({
@@ -293,7 +310,7 @@ class Base64Controller extends GetxController {
     if (normalized.startsWith('data:')) {
       final separatorIndex = normalized.indexOf(',');
       if (separatorIndex <= 0) {
-        throw const AppException('Data URI 缺少 Base64 内容');
+        throw AppException('base64.error.dataUriMissing'.tr);
       }
       final header = normalized.substring(0, separatorIndex);
       final data = normalized.substring(separatorIndex + 1);
@@ -319,7 +336,7 @@ class Base64Controller extends GetxController {
   Future<void> _recordDecodeFailure(String message, String outputPath) async {
     await _historyRepository.recordOperationFailure(
       featureName: 'Base64',
-      inputPath: 'Base64 文本',
+      inputPath: 'base64.history.inputText'.tr,
       parameters: <String, Object>{
         'mode': 'decode',
         if (outputPath.isNotEmpty) 'outputPath': outputPath,
@@ -329,7 +346,7 @@ class Base64Controller extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('base64.error.title'.tr, message);
   }
 }
 

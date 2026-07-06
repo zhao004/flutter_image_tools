@@ -13,7 +13,7 @@ class Base64View extends GetView<Base64Controller> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Base64')),
+      appBar: AppBar(title: Text('base64.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -45,12 +45,12 @@ class _EncodeCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '图片转 Base64',
+                'base64.encode.title'.tr,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
               if (image == null)
-                const Text('请选择一张本地图片生成 Base64 文本，单文件最大 12 MB。')
+                Text('base64.encode.empty'.tr)
               else ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
@@ -66,7 +66,11 @@ class _EncodeCard extends StatelessWidget {
                         ? null
                         : controller.pickImage,
                     icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(image == null ? '选择图片' : '重新选择'),
+                    label: Text(
+                      image == null
+                          ? 'base64.action.pickImage'.tr
+                          : 'base64.action.repickImage'.tr,
+                    ),
                   ),
                   FilledButton.icon(
                     onPressed: controller.isBusy.value
@@ -78,16 +82,26 @@ class _EncodeCard extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.code),
-                    label: Text(controller.isBusy.value ? '处理中' : '生成文本'),
+                    label: Text(
+                      controller.isBusy.value
+                          ? 'common.processing'.tr
+                          : 'base64.action.encode'.tr,
+                    ),
                   ),
                 ],
               ),
               if (result != null) ...[
                 const SizedBox(height: 12),
                 Text(
-                  '文本长度：${controller.formatTextLength(result.base64Length)}',
+                  'base64.result.textLength'.trParams({
+                    'length': controller.formatTextLength(result.base64Length),
+                  }),
                 ),
-                Text('来源 MIME：${result.mimeType}'),
+                Text(
+                  'base64.result.sourceMime'.trParams({
+                    'mime': result.mimeType,
+                  }),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   controller.base64Text.value,
@@ -102,14 +116,14 @@ class _EncodeCard extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: controller.copyBase64Text,
                       icon: const Icon(Icons.copy),
-                      label: const Text('复制文本'),
+                      label: Text('base64.action.copyText'.tr),
                     ),
                     FilledButton.tonalIcon(
                       onPressed: controller.isBusy.value
                           ? null
                           : controller.exportBase64Text,
                       icon: const Icon(Icons.description_outlined),
-                      label: const Text('导出 TXT'),
+                      label: Text('base64.action.exportTxt'.tr),
                     ),
                   ],
                 ),
@@ -146,7 +160,7 @@ class _DecodeCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Base64 转图片',
+                'base64.decode.title'.tr,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
@@ -155,8 +169,8 @@ class _DecodeCard extends StatelessWidget {
                 enabled: !controller.isBusy.value,
                 minLines: 4,
                 maxLines: 8,
-                decoration: const InputDecoration(
-                  hintText: '粘贴 Base64 文本或 data:image/png;base64,...',
+                decoration: InputDecoration(
+                  hintText: 'base64.decode.hint'.tr,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -171,11 +185,19 @@ class _DecodeCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.image_outlined),
-                label: Text(controller.isBusy.value ? '还原中' : '还原图片'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'base64.action.decoding'.tr
+                      : 'base64.action.decode'.tr,
+                ),
               ),
               if (result != null) ...[
                 const SizedBox(height: 12),
-                Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+                Text(
+                  'base64.result.outputSize'.trParams({
+                    'size': controller.formatBytes(result.outputSizeBytes),
+                  }),
+                ),
                 Text('MIME：${result.mimeType}'),
                 const SizedBox(height: 8),
                 Text(
