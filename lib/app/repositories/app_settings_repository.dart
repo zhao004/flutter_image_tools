@@ -16,7 +16,9 @@ class AppSettingsRepository {
   static const String themeModeKey = 'theme_mode';
   static const String languageKey = 'language';
   static const String recentToolRoutesKey = 'recent_tool_routes';
+  static const String favoriteToolRoutesKey = 'favorite_tool_routes';
   static const int maxRecentToolRoutes = 8;
+  static const int maxFavoriteToolRoutes = 12;
 
   final AppDatabase _database;
 
@@ -117,18 +119,17 @@ class AppSettingsRepository {
   }
 
   Future<void> setRecentToolRoutes(List<String> routes) async {
-    final normalized = <String>[];
-    for (final route in routes) {
-      final value = route.trim();
-      if (value.isEmpty || normalized.contains(value)) {
-        continue;
-      }
-      normalized.add(value);
-      if (normalized.length >= maxRecentToolRoutes) {
-        break;
-      }
-    }
+    final normalized = _normalizeRoutes(routes, maxRecentToolRoutes);
     await _setValue(recentToolRoutesKey, jsonEncode(normalized), 'json');
+  }
+
+  Future<List<String>> getFavoriteToolRoutes() async {
+    return _getRouteList(favoriteToolRoutesKey, maxFavoriteToolRoutes);
+  }
+
+  Future<void> setFavoriteToolRoutes(List<String> routes) async {
+    final normalized = _normalizeRoutes(routes, maxFavoriteToolRoutes);
+    await _setValue(favoriteToolRoutesKey, jsonEncode(normalized), 'json');
   }
 
   Future<int?> _getInt(String key) async {
@@ -142,6 +143,38 @@ class AppSettingsRepository {
   Future<String?> _getString(String key) async {
     final setting = await _database.getSetting(key);
     return setting?.settingValue;
+  }
+
+  Future<List<String>> _getRouteList(String key, int limit) async {
+    final value = await _getString(key);
+    if (value == null || value.trim().isEmpty) {
+      return const [];
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(value);
+    } on FormatException {
+      return const [];
+    }
+    if (decoded is! List) {
+      return const [];
+    }
+    return _normalizeRoutes(decoded.whereType<String>(), limit);
+  }
+
+  List<String> _normalizeRoutes(Iterable<String> routes, int limit) {
+    final normalized = <String>[];
+    for (final route in routes) {
+      final value = route.trim();
+      if (value.isEmpty || normalized.contains(value)) {
+        continue;
+      }
+      normalized.add(value);
+      if (normalized.length >= limit) {
+        break;
+      }
+    }
+    return normalized;
   }
 
   Future<void> _setValue(String key, String value, String type) async {

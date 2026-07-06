@@ -52,5 +52,19 @@ void main() {
 
       expect(await repository.getRecentToolRoutes(), isEmpty);
     });
+
+    test('收藏工具路由去重并忽略空值', () async {
+      await repository.setFavoriteToolRoutes(const [
+        '/compress',
+        '',
+        '  /settings  ',
+        '/compress',
+      ]);
+
+      expect(await repository.getFavoriteToolRoutes(), [
+        '/compress',
+        '/settings',
+      ]);
+    });
   });
 }

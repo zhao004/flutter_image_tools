@@ -50,6 +50,38 @@ class HomeView extends GetView<HomeController> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               sliver: SliverToBoxAdapter(
                 child: Text(
+                  'home.section.favorites'.tr,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverToBoxAdapter(
+                child: Obx(() {
+                  if (controller.favoriteTools.isEmpty) {
+                    return Text('home.favorites.empty'.tr);
+                  }
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: controller.favoriteTools
+                        .map(
+                          (tool) => ActionChip(
+                            avatar: Icon(_iconFor(tool.icon), size: 18),
+                            label: Text(tool.title),
+                            onPressed: () => controller.openTool(tool),
+                          ),
+                        )
+                        .toList(growable: false),
+                  );
+                }),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: Text(
                   'home.section.shortcuts'.tr,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -139,6 +171,9 @@ class HomeView extends GetView<HomeController> {
                     final tool = controller.filteredTools[index];
                     return _ToolCard(
                       tool: tool,
+                      isFavorite: controller.isFavoriteTool(tool),
+                      onToggleFavorite: () =>
+                          controller.toggleFavoriteTool(tool),
                       onTap: () => controller.openTool(tool),
                     );
                   },
@@ -192,9 +227,16 @@ class _HeaderCard extends StatelessWidget {
 }
 
 class _ToolCard extends StatelessWidget {
-  const _ToolCard({required this.tool, required this.onTap});
+  const _ToolCard({
+    required this.tool,
+    required this.isFavorite,
+    required this.onToggleFavorite,
+    required this.onTap,
+  });
 
   final HomeToolItem tool;
+  final bool isFavorite;
+  final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
 
   @override
@@ -215,9 +257,24 @@ class _ToolCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                _toolIconFor(tool.icon),
-                color: isAvailable ? colorScheme.primary : foreground,
+              Row(
+                children: [
+                  Icon(
+                    _toolIconFor(tool.icon),
+                    color: isAvailable ? colorScheme.primary : foreground,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: isFavorite
+                        ? 'home.favorite.remove'.tr
+                        : 'home.favorite.add'.tr,
+                    onPressed: isAvailable ? onToggleFavorite : null,
+                    icon: Icon(
+                      isFavorite ? Icons.star : Icons.star_border,
+                      color: isFavorite ? colorScheme.primary : foreground,
+                    ),
+                  ),
+                ],
               ),
               const Spacer(),
               Text(

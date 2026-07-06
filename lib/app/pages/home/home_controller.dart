@@ -44,6 +44,7 @@ class HomeController extends GetxController {
   final query = ''.obs;
   final recentFiles = <RecentFile>[].obs;
   final recentToolRoutes = <String>[].obs;
+  final favoriteToolRoutes = <String>[].obs;
 
   final tools = <HomeToolItem>[
     const HomeToolItem(
@@ -225,11 +226,29 @@ class HomeController extends GetxController {
         .toList(growable: false);
   }
 
+  List<HomeToolItem> get favoriteTools => favoriteToolRoutes
+      .map(_toolForRoute)
+      .whereType<HomeToolItem>()
+      .where((tool) => tool.availability == ToolAvailability.available)
+      .toList(growable: false);
+
   @override
   void onInit() {
     super.onInit();
+    loadFavoriteTools();
     loadRecentTools();
     loadRecentFiles();
+  }
+
+  Future<void> loadFavoriteTools() async {
+    try {
+      final routes = await _settingsRepository.getFavoriteToolRoutes();
+      favoriteToolRoutes.assignAll(
+        routes.where((route) => _toolForRoute(route) != null),
+      );
+    } catch (_) {
+      favoriteToolRoutes.clear();
+    }
   }
 
   Future<void> loadRecentTools() async {
@@ -253,6 +272,33 @@ class HomeController extends GetxController {
 
   void updateQuery(String value) {
     query.value = value;
+  }
+
+  bool isFavoriteTool(HomeToolItem tool) {
+    final route = tool.route;
+    return route != null && favoriteToolRoutes.contains(route);
+  }
+
+  Future<void> toggleFavoriteTool(HomeToolItem tool) async {
+    final route = tool.route;
+    if (tool.availability != ToolAvailability.available || route == null) {
+      return;
+    }
+    final nextRoutes = favoriteToolRoutes.contains(route)
+        ? favoriteToolRoutes.where((item) => item != route).toList()
+        : <String>[route, ...favoriteToolRoutes];
+    final normalized = nextRoutes
+        .take(AppSettingsRepository.maxFavoriteToolRoutes)
+        .toList(growable: false);
+    favoriteToolRoutes.assignAll(normalized);
+    try {
+      await _settingsRepository.setFavoriteToolRoutes(normalized);
+    } catch (_) {
+      Get.snackbar(
+        'home.favorite.saveFailed.title'.tr,
+        'home.favorite.saveFailed.message'.tr,
+      );
+    }
   }
 
   Future<void> openSettings() async {
