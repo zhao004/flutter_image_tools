@@ -13,7 +13,7 @@ class MergeView extends GetView<MergeController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('图片拼接')),
+      appBar: AppBar(title: Text('merge.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -31,7 +31,11 @@ class MergeView extends GetView<MergeController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.view_column_outlined),
-                label: Text(controller.isBusy.value ? '拼接中' : '开始拼接'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'merge.action.merge'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -58,15 +62,24 @@ class _ImagePickerCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'merge.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择 2 到 20 张 JPG、PNG、WebP 或 BMP 图片进行本地拼接。')
+                Text('merge.image.empty'.tr)
               else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'merge.image.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(controller.totalSizeBytes)}',
+                  'merge.image.totalSize'.trParams({
+                    'size': controller.formatBytes(controller.totalSizeBytes),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -75,11 +88,15 @@ class _ImagePickerCard extends StatelessWidget {
                     ? null
                     : controller.pickImages,
                 icon: const Icon(Icons.photo_library_outlined),
-                label: Text(images.isEmpty ? '批量选择' : '重新选择'),
+                label: Text(
+                  images.isEmpty
+                      ? 'merge.action.pickBatch'.tr
+                      : 'merge.action.repickBatch'.tr,
+                ),
               ),
               if (images.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                const Text('拖动右侧图标可调整拼接顺序。'),
+                Text('merge.image.reorderHint'.tr),
                 const SizedBox(height: 8),
                 ReorderableListView.builder(
                   shrinkWrap: true,
@@ -130,13 +147,18 @@ class _LayoutCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('拼接布局', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'merge.layout.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               SegmentedButton<MergeMode>(
                 segments: MergeMode.values
                     .map(
-                      (item) =>
-                          ButtonSegment(value: item, label: Text(item.label)),
+                      (item) => ButtonSegment(
+                        value: item,
+                        label: Text(item.labelKey.tr),
+                      ),
                     )
                     .toList(growable: false),
                 selected: {controller.mode.value},
@@ -146,13 +168,19 @@ class _LayoutCard extends StatelessWidget {
               ),
               if (controller.mode.value == MergeMode.grid) ...[
                 const SizedBox(height: 16),
-                Text('网格列数：${controller.columns.value}'),
+                Text(
+                  'merge.layout.columns'.trParams({
+                    'count': controller.columns.value.toString(),
+                  }),
+                ),
                 Slider(
                   value: controller.columns.value.toDouble(),
                   min: 1,
                   max: 10,
                   divisions: 9,
-                  label: '${controller.columns.value} 列',
+                  label: 'merge.layout.columnsLabel'.trParams({
+                    'count': controller.columns.value.toString(),
+                  }),
                   onChanged: controller.isBusy.value
                       ? null
                       : controller.updateColumns,
@@ -160,10 +188,14 @@ class _LayoutCard extends StatelessWidget {
               ],
               if (controller.mode.value == MergeMode.long) ...[
                 const SizedBox(height: 12),
-                const Text('长图模式会按选择顺序纵向拼接，并默认统一图片宽度。'),
+                Text('merge.layout.longHint'.tr),
               ],
               const SizedBox(height: 16),
-              Text('图片间距：${controller.spacing.value}px'),
+              Text(
+                'merge.layout.spacing'.trParams({
+                  'value': controller.spacing.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.spacing.value.toDouble(),
                 min: 0,
@@ -175,7 +207,7 @@ class _LayoutCard extends StatelessWidget {
                     : controller.updateSpacing,
               ),
               const SizedBox(height: 16),
-              const Text('背景颜色'),
+              Text('merge.layout.backgroundColor'.tr),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -187,7 +219,7 @@ class _LayoutCard extends StatelessWidget {
                           backgroundColor: _parseColor(item.value),
                           radius: 8,
                         ),
-                        label: Text(item.label),
+                        label: Text(item.labelKey.tr),
                         selected: controller.backgroundColor.value == item,
                         onSelected: controller.isBusy.value
                             ? null
@@ -197,13 +229,15 @@ class _LayoutCard extends StatelessWidget {
                     .toList(growable: false),
               ),
               const SizedBox(height: 12),
-              const Text('自动缩放'),
+              Text('merge.layout.scaleMode'.tr),
               const SizedBox(height: 8),
               SegmentedButton<MergeScaleMode>(
                 segments: MergeScaleMode.values
                     .map(
-                      (item) =>
-                          ButtonSegment(value: item, label: Text(item.label)),
+                      (item) => ButtonSegment(
+                        value: item,
+                        label: Text(item.labelKey.tr),
+                      ),
                     )
                     .toList(growable: false),
                 selected: {controller.scaleMode.value},
@@ -212,9 +246,13 @@ class _LayoutCard extends StatelessWidget {
                     : (values) => controller.setScaleMode(values.first),
               ),
               const SizedBox(height: 12),
-              const Text('图片会按缩放策略处理后，在对应行、列或网格单元内居中对齐。'),
+              Text('merge.layout.scaleHint'.tr),
               const SizedBox(height: 16),
-              Text('圆角半径：${controller.cornerRadius.value}px'),
+              Text(
+                'merge.layout.cornerRadius'.trParams({
+                  'value': controller.cornerRadius.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.cornerRadius.value.toDouble(),
                 min: 0,
@@ -226,7 +264,11 @@ class _LayoutCard extends StatelessWidget {
                     : controller.updateCornerRadius,
               ),
               const SizedBox(height: 16),
-              Text('边框宽度：${controller.borderWidth.value}px'),
+              Text(
+                'merge.layout.borderWidth'.trParams({
+                  'value': controller.borderWidth.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.borderWidth.value.toDouble(),
                 min: 0,
@@ -238,7 +280,7 @@ class _LayoutCard extends StatelessWidget {
                     : controller.updateBorderWidth,
               ),
               const SizedBox(height: 8),
-              const Text('边框颜色'),
+              Text('merge.layout.borderColor'.tr),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -250,7 +292,7 @@ class _LayoutCard extends StatelessWidget {
                           backgroundColor: _parseColor(item.value),
                           radius: 8,
                         ),
-                        label: Text(item.label),
+                        label: Text(item.labelKey.tr),
                         selected: controller.borderColor.value == item,
                         onSelected: controller.isBusy.value
                             ? null
@@ -285,16 +327,47 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('拼接结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'merge.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('输入数量：${result.sources.length} 张'),
-              Text('布局模式：${result.mode}'),
-              Text('缩放模式：${result.scaleMode}'),
-              Text('背景颜色：${result.backgroundColor}'),
-              Text('圆角半径：${result.cornerRadius}px'),
-              Text('边框：${result.borderWidth}px / ${result.borderColor}'),
-              Text('输出尺寸：${result.width} × ${result.height} px'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'merge.result.inputCount'.trParams({
+                  'count': result.sources.length.toString(),
+                }),
+              ),
+              Text('merge.result.mode'.trParams({'mode': result.mode})),
+              Text(
+                'merge.result.scaleMode'.trParams({'mode': result.scaleMode}),
+              ),
+              Text(
+                'merge.result.backgroundColor'.trParams({
+                  'color': result.backgroundColor,
+                }),
+              ),
+              Text(
+                'merge.result.cornerRadius'.trParams({
+                  'value': result.cornerRadius.toString(),
+                }),
+              ),
+              Text(
+                'merge.result.border'.trParams({
+                  'width': result.borderWidth.toString(),
+                  'color': result.borderColor,
+                }),
+              ),
+              Text(
+                'merge.result.dimensions'.trParams({
+                  'width': result.width.toString(),
+                  'height': result.height.toString(),
+                }),
+              ),
+              Text(
+                'merge.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

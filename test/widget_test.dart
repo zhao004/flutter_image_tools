@@ -35,6 +35,8 @@ import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
+import 'package:flutter_image_tools/app/pages/merge/merge_controller.dart';
+import 'package:flutter_image_tools/app/pages/merge/merge_view.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_controller.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_view.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_controller.dart';
@@ -735,6 +737,47 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文图片拼接页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、布局和首屏参数文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      MergeController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const MergeView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Image Merge'), findsOneWidget);
+    expect(find.text('Select Images'), findsOneWidget);
+    expect(
+      find.text(
+        'Select 2 to 20 JPG, PNG, WebP, or BMP images to merge locally.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Merge Layout'), findsOneWidget);
+    expect(find.text('Horizontal'), findsOneWidget);
+    expect(find.text('Vertical'), findsOneWidget);
+    expect(find.text('Grid'), findsOneWidget);
+    expect(find.text('Image Spacing: 8px'), findsOneWidget);
 
     await database.close();
     Get.reset();

@@ -8,49 +8,49 @@ import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
 enum MergeMode {
-  horizontal(label: '横向拼接', value: 'horizontal'),
-  vertical(label: '纵向拼接', value: 'vertical'),
-  grid(label: '网格拼接', value: 'grid'),
-  long(label: '长图拼接', value: 'long');
+  horizontal(labelKey: 'merge.mode.horizontal', value: 'horizontal'),
+  vertical(labelKey: 'merge.mode.vertical', value: 'vertical'),
+  grid(labelKey: 'merge.mode.grid', value: 'grid'),
+  long(labelKey: 'merge.mode.long', value: 'long');
 
-  const MergeMode({required this.label, required this.value});
+  const MergeMode({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum MergeBackgroundColor {
-  white(label: '白色', value: '#FFFFFF'),
-  lightGray(label: '浅灰', value: '#F2F2F2'),
-  black(label: '黑色', value: '#000000'),
-  darkGray(label: '深灰', value: '#333333');
+  white(labelKey: 'merge.color.white', value: '#FFFFFF'),
+  lightGray(labelKey: 'merge.color.lightGray', value: '#F2F2F2'),
+  black(labelKey: 'merge.color.black', value: '#000000'),
+  darkGray(labelKey: 'merge.color.darkGray', value: '#333333');
 
-  const MergeBackgroundColor({required this.label, required this.value});
+  const MergeBackgroundColor({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum MergeBorderColor {
-  black(label: '黑色', value: '#000000'),
-  white(label: '白色', value: '#FFFFFF'),
-  gray(label: '灰色', value: '#808080'),
-  red(label: '红色', value: '#D32F2F');
+  black(labelKey: 'merge.color.black', value: '#000000'),
+  white(labelKey: 'merge.color.white', value: '#FFFFFF'),
+  gray(labelKey: 'merge.color.gray', value: '#808080'),
+  red(labelKey: 'merge.color.red', value: '#D32F2F');
 
-  const MergeBorderColor({required this.label, required this.value});
+  const MergeBorderColor({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
 enum MergeScaleMode {
-  original(label: '原始尺寸', value: 'original'),
-  sameHeight(label: '统一高度', value: 'same_height'),
-  sameWidth(label: '统一宽度', value: 'same_width');
+  original(labelKey: 'merge.scale.original', value: 'original'),
+  sameHeight(labelKey: 'merge.scale.sameHeight', value: 'same_height'),
+  sameWidth(labelKey: 'merge.scale.sameWidth', value: 'same_width');
 
-  const MergeScaleMode({required this.label, required this.value});
+  const MergeScaleMode({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
 }
 
@@ -93,7 +93,11 @@ class MergeController extends GetxController {
         return;
       }
       if (images.length > LocalImageChannel.maxMergeImages) {
-        _showError('单次最多拼接 20 张图片');
+        _showError(
+          'merge.error.tooManyImages'.trParams({
+            'max': LocalImageChannel.maxMergeImages.toString(),
+          }),
+        );
         return;
       }
       selectedImages.assignAll(images);
@@ -104,7 +108,7 @@ class MergeController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('merge.error.recentFileFailed'.tr);
     }
   }
 
@@ -168,7 +172,7 @@ class MergeController extends GetxController {
       return;
     }
     if (selectedImages.length < 2) {
-      _showError('请至少选择两张图片');
+      _showError('merge.error.minImages'.tr);
       return;
     }
 
@@ -188,7 +192,7 @@ class MergeController extends GetxController {
       );
       result.value = merged;
       await _historyRepository.recordOperationSuccess(
-        featureName: '图片拼接',
+        featureName: 'merge.featureName'.tr,
         inputPath: inputPath,
         outputPath: merged.outputPath,
         parameters: <String, Object>{
@@ -203,10 +207,10 @@ class MergeController extends GetxController {
           'scaleMode': scaleMode.value.value,
         },
       );
-      Get.snackbar('拼接完成', '图片已导出到应用缓存目录');
+      Get.snackbar('merge.success.title'.tr, 'merge.success.message'.tr);
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
-        featureName: '图片拼接',
+        featureName: 'merge.featureName'.tr,
         inputPath: inputPath,
         parameters: <String, Object>{
           'mode': mode.value.value,
@@ -229,7 +233,7 @@ class MergeController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -247,6 +251,6 @@ class MergeController extends GetxController {
       selectedImages.fold<int>(0, (sum, image) => sum + image.sizeBytes);
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('merge.error.title'.tr, message);
   }
 }
