@@ -31,8 +31,6 @@ import 'package:flutter_image_tools/app/pages/filter/filter_view.dart'
     as filter_page;
 import 'package:flutter_image_tools/app/pages/gif/gif_controller.dart';
 import 'package:flutter_image_tools/app/pages/gif/gif_view.dart';
-import 'package:flutter_image_tools/app/pages/grid/grid_controller.dart';
-import 'package:flutter_image_tools/app/pages/grid/grid_view.dart' as grid_page;
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
 import 'package:flutter_image_tools/app/pages/image_watermark/image_watermark_controller.dart';
@@ -62,6 +60,7 @@ import 'package:flutter_image_tools/app/repositories/recent_files_repository.dar
 import 'package:flutter_image_tools/app/services/local_image_channel.dart';
 import 'package:flutter_image_tools/app/theme/app_translations.dart';
 import 'package:flutter_image_tools/app/theme/app_theme.dart';
+import 'package:flutter_image_tools/app/widgets/image_editor_scaffold.dart';
 import 'package:flutter_image_tools/main.dart';
 
 void main() {
@@ -342,7 +341,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Select Image'), findsOneWidget);
+    expect(find.text('Select Image'), findsWidgets);
     expect(find.text('Generate Text'), findsOneWidget);
     expect(find.text('Base64 to Image'), findsOneWidget);
     expect(
@@ -433,52 +432,58 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('显示英文九宫格切图页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证选图、网格和操作按钮文案国际化。
-    final database = AppDatabase(NativeDatabase.memory());
-    Get.put(
-      GridController(
-        imageChannel: LocalImageChannel(),
-        historyRepository: OperationHistoryRepository(database: database),
-        recentFilesRepository: RecentFilesRepository(database: database),
-      ),
-    );
-
+  testWidgets('统一编辑器选图后显示五段式布局', (WidgetTester tester) async {
+    // 直接验证通用骨架的导航、画布、标签、属性面板和底部动作栏，避免单测依赖真实图片解码。
     await tester.pumpWidget(
       GetMaterialApp(
         translations: AppTranslations(),
         locale: const Locale('en'),
         fallbackLocale: const Locale('zh', 'CN'),
         theme: AppTheme.light(),
-        home: const grid_page.GridView(),
+        home: ImageEditorScaffold(
+          title: 'Grid Split',
+          selectedImage: const LocalImageFile(
+            path: 'preview.png',
+            name: 'preview.png',
+            sizeBytes: 1024,
+            mimeType: 'image/png',
+            width: 800,
+            height: 600,
+          ),
+          isBusy: false,
+          emptyIcon: Icons.grid_on_outlined,
+          emptyTitle: 'Select Image',
+          emptyMessage: 'Select an image first.',
+          pickLabel: 'Select One',
+          repickLabel: 'Select Again',
+          exportLabel: 'Save to Gallery',
+          exportIcon: Icons.ios_share_outlined,
+          onPickImage: () {},
+          onExport: () {},
+          previewBuilder: (context, image) => const SizedBox(
+            key: ValueKey('editor-canvas'),
+            width: 240,
+            height: 160,
+            child: ColoredBox(color: Colors.black12),
+          ),
+          tabBar: const Text('Range'),
+          toolbar: const Text('Property Panel'),
+          bottomToolbar: const Text('Bottom Toolbar'),
+          resultSummary: const Text('Result Summary'),
+        ),
       ),
     );
     await tester.pump();
 
     expect(find.text('Grid Split'), findsOneWidget);
-    expect(find.text('Select Image'), findsWidgets);
-    expect(
-      find.text(
-        'Select a JPG, PNG, WebP, or BMP image to generate grid slices.',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-        'Drag the grid on the image to choose the split area. Use the toolbar to adjust grid count and range.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.byIcon(Icons.add_photo_alternate_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
+    expect(find.byKey(const ValueKey('editor-canvas')), findsOneWidget);
+    expect(find.text('preview.png'), findsOneWidget);
     expect(find.text('Range'), findsOneWidget);
-    expect(find.text('2 × 2'), findsOneWidget);
-    expect(find.text('3 × 3'), findsOneWidget);
-    expect(find.text('4 × 4'), findsOneWidget);
-    expect(find.text('5 × 5'), findsOneWidget);
-    expect(find.text('Center Grid'), findsOneWidget);
-    expect(find.text('Save to Gallery'), findsOneWidget);
-
-    await database.close();
-    Get.reset();
+    expect(find.text('Property Panel'), findsOneWidget);
+    expect(find.text('Bottom Toolbar'), findsOneWidget);
+    expect(find.text('Result Summary'), findsOneWidget);
   });
 
   testWidgets('显示英文图片滤镜页面', (WidgetTester tester) async {
@@ -512,7 +517,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(Icons.add_photo_alternate_outlined), findsWidgets);
-    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsWidgets);
 
     await database.close();
     Get.reset();
@@ -561,9 +566,9 @@ void main() {
   });
 
   testWidgets('显示英文图片标注页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证统一图片编辑器的工具栏和导出入口文案。
+    // 先验证统一编辑器空状态，再注入图片进入工具、属性和动作栏布局。
     final database = AppDatabase(NativeDatabase.memory());
-    Get.put(
+    final controller = Get.put(
       AnnotationController(
         imageChannel: LocalImageChannel(),
         historyRepository: OperationHistoryRepository(database: database),
@@ -583,13 +588,26 @@ void main() {
     await tester.pump();
 
     expect(find.text('Image Editor'), findsOneWidget);
-    expect(find.text('Select Image'), findsOneWidget);
+    expect(find.text('Select Image'), findsWidgets);
     expect(
       find.text(
         'Select one image to enter the editor, then use the bottom toolbar for text, shapes, arrows, mosaic, and brush.',
       ),
       findsOneWidget,
     );
+    expect(find.text('Move'), findsNothing);
+    expect(find.text('Stroke: 12 px'), findsNothing);
+
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'annotation_preview.png',
+      name: 'annotation_preview.png',
+      sizeBytes: 1200,
+      mimeType: 'image/png',
+      width: 1200,
+      height: 800,
+    );
+    await tester.pump();
+
     expect(find.text('Move'), findsOneWidget);
     expect(find.text('Brush'), findsOneWidget);
     expect(find.text('Mosaic'), findsOneWidget);
@@ -599,7 +617,7 @@ void main() {
     expect(find.text('Arrow'), findsOneWidget);
     expect(find.text('Red'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
-    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsWidgets);
 
     await database.close();
     Get.reset();

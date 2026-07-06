@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../models/local_image_file.dart';
 
-/// 图片编辑页通用骨架：选图前显示空状态，选图后展示大图预览和底部工具栏。
+/// 图片编辑页通用骨架：选图前显示空状态，选图后展示统一五段式编辑布局。
 ///
 /// 设计意图：滤镜、水印、裁剪、尺寸调整、翻转和旋转都遵循“先选图、
-/// 实时预览、底部调参、右上角保存”的交互，统一布局可以减少重复代码并
-/// 保持后续工具扩展一致。异常策略：组件只负责展示与触发回调，不持有
-/// 文件处理状态，避免通用层吞掉各工具控制器自己的校验和错误处理。
+/// 实时预览、标签切换、属性编辑、底部动作”的交互，统一布局可以减少
+/// 重复代码并保持后续工具扩展一致。异常策略：组件只负责展示与触发回调，
+/// 不持有文件处理状态，避免通用层吞掉各工具控制器自己的校验和错误处理。
 class ImageEditorScaffold extends StatelessWidget {
   const ImageEditorScaffold({
     super.key,
@@ -32,6 +32,9 @@ class ImageEditorScaffold extends StatelessWidget {
     this.appBarActions = const [],
     this.previewBorderRadius = 24,
     this.lockPreviewScroll = false,
+    this.tabBar,
+    this.bottomToolbar,
+    this.toolbarMaxHeight,
   });
 
   final String title;
@@ -54,6 +57,9 @@ class ImageEditorScaffold extends StatelessWidget {
   final List<Widget> appBarActions;
   final double previewBorderRadius;
   final bool lockPreviewScroll;
+  final Widget? tabBar;
+  final Widget? bottomToolbar;
+  final double? toolbarMaxHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +109,15 @@ class ImageEditorScaffold extends StatelessWidget {
                       lockPreviewScroll: lockPreviewScroll,
                     ),
             ),
-            if (image != null) _EditorToolbarSurface(child: toolbar),
+            if (image != null) ...[
+              if (tabBar != null) _EditorTabBarSurface(child: tabBar!),
+              _EditorPropertyPanelSurface(
+                maxHeight: toolbarMaxHeight,
+                child: toolbar,
+              ),
+              if (bottomToolbar != null)
+                _EditorBottomToolbarSurface(child: bottomToolbar!),
+            ],
           ],
         ),
       ),
@@ -266,8 +280,63 @@ class _PreviewFrame extends StatelessWidget {
   }
 }
 
-class _EditorToolbarSurface extends StatelessWidget {
-  const _EditorToolbarSurface({required this.child});
+class _EditorTabBarSurface extends StatelessWidget {
+  const _EditorTabBarSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _EditorPropertyPanelSurface extends StatelessWidget {
+  const _EditorPropertyPanelSurface({
+    required this.child,
+    required this.maxHeight,
+  });
+
+  final Widget child;
+  final double? maxHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxPanelHeight =
+        maxHeight ??
+        (MediaQuery.sizeOf(context).height * 0.28).clamp(120.0, 240.0);
+    final panel = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: child,
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxPanelHeight),
+        child: panel,
+      ),
+    );
+  }
+}
+
+class _EditorBottomToolbarSurface extends StatelessWidget {
+  const _EditorBottomToolbarSurface({required this.child});
 
   final Widget child;
 

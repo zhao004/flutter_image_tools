@@ -5,96 +5,77 @@ import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
 
 import '../../models/local_image_file.dart';
+import '../../widgets/image_editor_scaffold.dart';
 import 'annotation_controller.dart';
 
 /// 图片编辑页，提供选图、第三方画布编辑、马赛克涂抹和保存到相册。
 ///
-/// 构建设计：预览区使用 `flutter_painter_v2` 承载文字、形状、箭头和画笔；
-/// 底部工具栏保持单图编辑流程，马赛克作为覆盖层处理，避免引入额外原生依赖。
+/// 构建设计：页面复用统一编辑骨架，画布区只承载可编辑图片；工具模式放入
+/// 标签栏，文本、颜色、粗细和图层变换放入属性面板，撤销、清空和删除放入
+/// 底部动作栏。导出、历史记录和异常处理仍由控制器负责，避免改变业务逻辑。
 class AnnotationView extends GetView<AnnotationController> {
   const AnnotationView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('annotation.title'.tr),
-        actions: [
-          Obx(
-            () => controller.selectedImage.value == null
-                ? const SizedBox.shrink()
-                : IconButton(
-                    tooltip: 'annotation.action.repickImage'.tr,
-                    onPressed: controller.isBusy.value
-                        ? null
-                        : controller.pickImage,
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
-                  ),
-          ),
-          Obx(
-            () => IconButton(
-              tooltip: 'common.saveToGallery'.tr,
-              onPressed: controller.isBusy.value
-                  ? null
-                  : controller.exportEditedImage,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(child: _EditorStage(controller: controller)),
-            _LayerControls(controller: controller),
-            _BottomToolbar(controller: controller),
-          ],
-        ),
-      ),
-    );
+    return Obx(() {
+      final image = controller.selectedImage.value;
+      final result = controller.result.value;
+      return ImageEditorScaffold(
+        title: 'annotation.title'.tr,
+        selectedImage: image,
+        isBusy: controller.isBusy.value,
+        emptyIcon: Icons.image_outlined,
+        emptyTitle: 'annotation.image.title'.tr,
+        emptyMessage: 'annotation.image.empty'.tr,
+        pickLabel: 'annotation.action.pickImage'.tr,
+        repickLabel: 'annotation.action.repickImage'.tr,
+        exportLabel: 'common.saveToGallery'.tr,
+        exportIcon: Icons.save_outlined,
+        onPickImage: controller.pickImage,
+        onExport: controller.exportEditedImage,
+        imageMeta: image == null
+            ? null
+            : '${controller.formatDimensions(image)} · ${controller.mode.value.label}',
+        previewBorderRadius: 10,
+        lockPreviewScroll: true,
+        previewBuilder: (context, previewImage) =>
+            _AnnotationCanvasFrame(controller: controller, image: previewImage),
+        tabBar: _AnnotationToolTabs(controller: controller),
+        toolbar: _AnnotationPropertyPanel(controller: controller),
+        bottomToolbar: _AnnotationActionToolbar(controller: controller),
+        resultSummary: result == null
+            ? null
+            : EditorResultPill(
+                title: 'annotation.result.title'.tr,
+                detail: 'annotation.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+                tooltip: result.outputPath,
+              ),
+      );
+    });
   }
 }
 
-class _EditorStage extends StatelessWidget {
-  const _EditorStage({required this.controller});
+class _AnnotationCanvasFrame extends StatelessWidget {
+  const _AnnotationCanvasFrame({required this.controller, required this.image});
 
   final AnnotationController controller;
+  final LocalImageFile image;
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final image = controller.selectedImage.value;
-      if (image == null) {
-        return _EmptyEditor(controller: controller);
-      }
-
-      final aspectRatio = image.hasValidDimensions
-          ? image.width / image.height
-          : 1.0;
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            _ImageInfo(controller: controller, image: image),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: aspectRatio.clamp(0.35, 2.4),
-                  child: _EditableCanvas(controller: controller),
-                ),
-              ),
-            ),
-            _ResultText(controller: controller),
-          ],
-        ),
-      );
-    });
+    final aspectRatio = image.hasValidDimensions
+        ? image.width / image.height
+        : 1.0;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 900, maxHeight: 560),
+      child: AspectRatio(
+        aspectRatio: aspectRatio.clamp(0.35, 2.4),
+        child: _EditableCanvas(controller: controller),
+      ),
+    );
   }
 }
 
@@ -117,9 +98,11 @@ class _EditableCanvasState extends State<_EditableCanvas> {
     return LayoutBuilder(
       builder: (context, constraints) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          controller.updateCanvasSize(
-            Size(constraints.maxWidth, constraints.maxHeight),
-          );
+          if (mounted) {
+            controller.updateCanvasSize(
+              Size(constraints.maxWidth, constraints.maxHeight),
+            );
+          }
         });
 
         return DecoratedBox(
@@ -189,6 +172,87 @@ class _EditableCanvasState extends State<_EditableCanvas> {
   }
 }
 
+class _AnnotationToolTabs extends StatelessWidget {
+  const _AnnotationToolTabs({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _ToolButton(
+              icon: Icons.pan_tool_alt_outlined,
+              label: AnnotationMode.select.label,
+              selected: controller.mode.value == AnnotationMode.select,
+              onTap: () => controller.setMode(AnnotationMode.select),
+            ),
+            _ToolButton(
+              icon: Icons.brush_outlined,
+              label: AnnotationMode.brush.label,
+              selected: controller.mode.value == AnnotationMode.brush,
+              onTap: () => controller.setMode(AnnotationMode.brush),
+            ),
+            _ToolButton(
+              icon: Icons.grid_on_outlined,
+              label: AnnotationMode.mosaic.label,
+              selected: controller.mode.value == AnnotationMode.mosaic,
+              onTap: () => controller.setMode(AnnotationMode.mosaic),
+            ),
+            _ToolButton(
+              icon: Icons.text_fields,
+              label: AnnotationMode.text.label,
+              selected: controller.mode.value == AnnotationMode.text,
+              onTap: () => controller.setMode(AnnotationMode.text),
+            ),
+            _ToolButton(
+              icon: Icons.crop_square,
+              label: AnnotationMode.rectangle.label,
+              selected: false,
+              onTap: () =>
+                  controller.addShapeLayer(EditableLayerType.rectangle),
+            ),
+            _ToolButton(
+              icon: Icons.circle_outlined,
+              label: AnnotationMode.circle.label,
+              selected: false,
+              onTap: () => controller.addShapeLayer(EditableLayerType.circle),
+            ),
+            _ToolButton(
+              icon: Icons.arrow_forward,
+              label: AnnotationMode.arrow.label,
+              selected: false,
+              onTap: () => controller.addShapeLayer(EditableLayerType.arrow),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnnotationPropertyPanel extends StatelessWidget {
+  const _AnnotationPropertyPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _TextInputRow(controller: controller),
+        _LayerControls(controller: controller),
+        _StyleControls(controller: controller),
+      ],
+    );
+  }
+}
+
 class _LayerControls extends StatelessWidget {
   const _LayerControls({required this.controller});
 
@@ -202,171 +266,55 @@ class _LayerControls extends StatelessWidget {
         return const SizedBox.shrink();
       }
       final degrees = layer.rotationAngle * 180 / math.pi;
-      return Material(
-        color: Theme.of(context).colorScheme.surface,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'annotation.layer.transform'.tr,
-                    style: Theme.of(context).textTheme.labelLarge,
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'annotation.layer.transform'.tr,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'annotation.action.deleteLayer'.tr,
+                  onPressed: controller.deleteSelectedObject,
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                const Icon(Icons.zoom_out_map, size: 18),
+                Expanded(
+                  child: Slider(
+                    value: layer.scale.clamp(0.4, 3.0),
+                    min: 0.4,
+                    max: 3,
+                    divisions: 26,
+                    label: '${(layer.scale * 100).round()}%',
+                    onChanged: controller.updateSelectedObjectScale,
                   ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'annotation.action.deleteLayer'.tr,
-                    onPressed: controller.deleteSelectedObject,
-                    icon: const Icon(Icons.delete_outline),
+                ),
+                const Icon(Icons.rotate_90_degrees_ccw, size: 18),
+                Expanded(
+                  child: Slider(
+                    value: degrees.clamp(-180, 180),
+                    min: -180,
+                    max: 180,
+                    divisions: 36,
+                    label: '${degrees.round()}°',
+                    onChanged: controller.updateSelectedObjectRotation,
                   ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.zoom_out_map, size: 18),
-                  Expanded(
-                    child: Slider(
-                      value: layer.scale.clamp(0.4, 3.0),
-                      min: 0.4,
-                      max: 3,
-                      divisions: 26,
-                      label: '${(layer.scale * 100).round()}%',
-                      onChanged: controller.updateSelectedObjectScale,
-                    ),
-                  ),
-                  const Icon(Icons.rotate_90_degrees_ccw, size: 18),
-                  Expanded(
-                    child: Slider(
-                      value: degrees.clamp(-180, 180),
-                      min: -180,
-                      max: 180,
-                      divisions: 36,
-                      label: '${degrees.round()}°',
-                      onChanged: controller.updateSelectedObjectRotation,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       );
     });
-  }
-}
-
-class _BottomToolbar extends StatelessWidget {
-  const _BottomToolbar({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 8,
-      color: Theme.of(context).colorScheme.surface,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-          child: Obx(
-            () => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _TextInputRow(controller: controller),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _ToolButton(
-                              icon: Icons.pan_tool_alt_outlined,
-                              label: AnnotationMode.select.label,
-                              selected:
-                                  controller.mode.value ==
-                                  AnnotationMode.select,
-                              onTap: () =>
-                                  controller.setMode(AnnotationMode.select),
-                            ),
-                            _ToolButton(
-                              icon: Icons.brush_outlined,
-                              label: AnnotationMode.brush.label,
-                              selected:
-                                  controller.mode.value == AnnotationMode.brush,
-                              onTap: () =>
-                                  controller.setMode(AnnotationMode.brush),
-                            ),
-                            _ToolButton(
-                              icon: Icons.grid_on_outlined,
-                              label: AnnotationMode.mosaic.label,
-                              selected:
-                                  controller.mode.value ==
-                                  AnnotationMode.mosaic,
-                              onTap: () =>
-                                  controller.setMode(AnnotationMode.mosaic),
-                            ),
-                            _ToolButton(
-                              icon: Icons.text_fields,
-                              label: AnnotationMode.text.label,
-                              selected:
-                                  controller.mode.value == AnnotationMode.text,
-                              onTap: () =>
-                                  controller.setMode(AnnotationMode.text),
-                            ),
-                            _ToolButton(
-                              icon: Icons.crop_square,
-                              label: AnnotationMode.rectangle.label,
-                              selected: false,
-                              onTap: () => controller.addShapeLayer(
-                                EditableLayerType.rectangle,
-                              ),
-                            ),
-                            _ToolButton(
-                              icon: Icons.circle_outlined,
-                              label: AnnotationMode.circle.label,
-                              selected: false,
-                              onTap: () => controller.addShapeLayer(
-                                EditableLayerType.circle,
-                              ),
-                            ),
-                            _ToolButton(
-                              icon: Icons.arrow_forward,
-                              label: AnnotationMode.arrow.label,
-                              selected: false,
-                              onTap: () => controller.addShapeLayer(
-                                EditableLayerType.arrow,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'annotation.action.undo'.tr,
-                      onPressed: controller.hasEdits ? controller.undo : null,
-                      icon: const Icon(Icons.undo),
-                    ),
-                    IconButton(
-                      tooltip: 'annotation.action.clear'.tr,
-                      onPressed: controller.hasEdits
-                          ? () => controller.clearEdits()
-                          : null,
-                      icon: const Icon(Icons.layers_clear_outlined),
-                    ),
-                  ],
-                ),
-                _StyleControls(controller: controller),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -377,31 +325,36 @@ class _TextInputRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (controller.mode.value != AnnotationMode.text) {
-      return const SizedBox.shrink();
-    }
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller.textController,
-            maxLength: 40,
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: 'annotation.text.label'.tr,
-              border: const OutlineInputBorder(),
-              isDense: true,
+    return Obx(() {
+      if (controller.mode.value != AnnotationMode.text) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller.textController,
+                maxLength: 40,
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: 'annotation.text.label'.tr,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: controller.addTextLayer,
+              icon: const Icon(Icons.add),
+              label: Text('annotation.action.addText'.tr),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        FilledButton.icon(
-          onPressed: controller.addTextLayer,
-          icon: const Icon(Icons.add),
-          label: Text('annotation.action.addText'.tr),
-        ),
-      ],
-    );
+      );
+    });
   }
 }
 
@@ -412,46 +365,97 @@ class _StyleControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: AnnotationColor.values
-                  .map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: Text(item.label),
-                        selected: controller.color.value == item,
-                        avatar: CircleAvatar(backgroundColor: item.color),
-                        onSelected: (_) => controller.setColor(item),
+    return Obx(() {
+      final selectedColor = controller.color.value;
+      final strokeWidth = controller.strokeWidth.value;
+      return Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: AnnotationColor.values
+                    .map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(item.label),
+                          selected: selectedColor == item,
+                          avatar: CircleAvatar(backgroundColor: item.color),
+                          onSelected: (_) => controller.setColor(item),
+                        ),
                       ),
-                    ),
-                  )
-                  .toList(growable: false),
+                    )
+                    .toList(growable: false),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          'annotation.strokeWidth'.trParams({
-            'value': controller.strokeWidth.value.toString(),
-          }),
-        ),
-        SizedBox(
-          width: 120,
-          child: Slider(
-            value: controller.strokeWidth.value.toDouble(),
-            min: 2,
-            max: 60,
-            divisions: 29,
-            onChanged: controller.updateStrokeWidth,
+          const SizedBox(width: 8),
+          Text(
+            'annotation.strokeWidth'.trParams({
+              'value': strokeWidth.toString(),
+            }),
           ),
-        ),
-      ],
-    );
+          SizedBox(
+            width: 120,
+            child: Slider(
+              value: strokeWidth.toDouble(),
+              min: 2,
+              max: 60,
+              divisions: 29,
+              onChanged: controller.updateStrokeWidth,
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _AnnotationActionToolbar extends StatelessWidget {
+  const _AnnotationActionToolbar({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isBusy = controller.isBusy.value;
+      final selectedObject = controller.selectedObject.value;
+      final hasEdits = controller.hasEdits;
+      return Row(
+        children: [
+          IconButton(
+            tooltip: 'annotation.action.undo'.tr,
+            onPressed: hasEdits ? controller.undo : null,
+            icon: const Icon(Icons.undo),
+          ),
+          IconButton(
+            tooltip: 'annotation.action.clear'.tr,
+            onPressed: hasEdits ? () => controller.clearEdits() : null,
+            icon: const Icon(Icons.layers_clear_outlined),
+          ),
+          IconButton(
+            tooltip: 'annotation.action.deleteLayer'.tr,
+            onPressed: selectedObject == null
+                ? null
+                : controller.deleteSelectedObject,
+            icon: const Icon(Icons.delete_outline),
+          ),
+          const Spacer(),
+          FilledButton.icon(
+            onPressed: isBusy ? null : controller.exportEditedImage,
+            icon: isBusy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: Text('common.saveToGallery'.tr),
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -479,84 +483,6 @@ class _ToolButton extends StatelessWidget {
         onSelected: (_) => onTap(),
       ),
     );
-  }
-}
-
-class _EmptyEditor extends StatelessWidget {
-  const _EmptyEditor({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.image_outlined, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              'annotation.image.empty'.tr,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: controller.pickImage,
-              icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: Text('annotation.action.pickImage'.tr),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageInfo extends StatelessWidget {
-  const _ImageInfo({required this.controller, required this.image});
-
-  final AnnotationController controller;
-  final LocalImageFile image;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(Icons.image_outlined, size: 18),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-        Text(controller.formatDimensions(image)),
-      ],
-    );
-  }
-}
-
-class _ResultText extends StatelessWidget {
-  const _ResultText({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final result = controller.result.value;
-      if (result == null) {
-        return const SizedBox(height: 8);
-      }
-      return Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Text(
-          '${'annotation.result.outputSize'.trParams({'size': controller.formatBytes(result.outputSizeBytes)})} · ${result.outputPath}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      );
-    });
   }
 }
 
