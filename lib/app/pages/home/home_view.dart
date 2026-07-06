@@ -113,10 +113,10 @@ class HomeView extends GetView<HomeController> {
                     sliver: SliverGrid.builder(
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 236,
-                            mainAxisSpacing: 14,
-                            crossAxisSpacing: 14,
-                            childAspectRatio: 1.04,
+                            maxCrossAxisExtent: 198,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                            childAspectRatio: 1.12,
                           ),
                       itemCount: controller.filteredTools.length,
                       itemBuilder: (context, index) {
@@ -288,23 +288,24 @@ class _ToolCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: isAvailable
                           ? colorScheme.primaryContainer
                           : colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(13),
                     ),
                     child: Icon(
                       _toolIconFor(tool.icon),
+                      size: 21,
                       color: isAvailable
                           ? colorScheme.onPrimaryContainer
                           : foreground,
@@ -312,6 +313,11 @@ class _ToolCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 34,
+                      height: 34,
+                    ),
+                    padding: EdgeInsets.zero,
                     tooltip: isFavorite
                         ? 'home.favorite.remove'.tr
                         : 'home.favorite.add'.tr,
@@ -323,7 +329,7 @@ class _ToolCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               Text(
                 tool.title,
                 maxLines: 1,
