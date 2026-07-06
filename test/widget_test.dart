@@ -14,6 +14,8 @@ import 'package:flutter_image_tools/app/pages/cache/cache_controller.dart';
 import 'package:flutter_image_tools/app/pages/cache/cache_view.dart';
 import 'package:flutter_image_tools/app/pages/color_picker/color_picker_controller.dart';
 import 'package:flutter_image_tools/app/pages/color_picker/color_picker_view.dart';
+import 'package:flutter_image_tools/app/pages/compress/compress_controller.dart';
+import 'package:flutter_image_tools/app/pages/compress/compress_view.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_controller.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
@@ -33,6 +35,7 @@ import 'package:flutter_image_tools/app/pages/qrcode/qrcode_controller.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_view.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_controller.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_view.dart';
+import 'package:flutter_image_tools/app/repositories/app_settings_repository.dart';
 import 'package:flutter_image_tools/app/repositories/cache_repository.dart';
 import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_history_repository.dart';
@@ -558,6 +561,45 @@ void main() {
     expect(find.text('Rotate Right 90°'), findsOneWidget);
     expect(find.text('Custom Angle: 90°'), findsOneWidget);
     expect(find.text('Start Rotate'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文图片压缩页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、质量和操作按钮文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      CompressController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        settingsRepository: AppSettingsRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const CompressView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Image Compression'), findsOneWidget);
+    expect(find.text('Select Image'), findsOneWidget);
+    expect(
+      find.text('Select a JPG, PNG, or WebP image to compress locally.'),
+      findsOneWidget,
+    );
+    expect(find.text('Select One'), findsOneWidget);
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Compression Quality'), findsOneWidget);
+    expect(find.text('Current Quality: 80%'), findsOneWidget);
+    expect(find.text('Start Compress'), findsOneWidget);
 
     await database.close();
     Get.reset();

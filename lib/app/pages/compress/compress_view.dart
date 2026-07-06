@@ -13,7 +13,7 @@ class CompressView extends GetView<CompressController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('图片压缩')),
+      appBar: AppBar(title: Text('compress.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -33,7 +33,11 @@ class CompressView extends GetView<CompressController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.compress),
-                label: Text(controller.isBusy.value ? '压缩中' : '开始压缩'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'compress.action.compress'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -61,19 +65,30 @@ class _ImagePickerCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'compress.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择 JPG、PNG 或 WebP 图片进行本地压缩。')
+                Text('compress.image.empty'.tr)
               else if (images.length == 1 && image != null) ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(controller.formatBytes(image.sizeBytes)),
               ] else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'compress.image.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(images.fold<int>(0, (sum, item) => sum + item.sizeBytes))}',
+                  'compress.image.totalSize'.trParams({
+                    'size': controller.formatBytes(
+                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
+                    ),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -82,22 +97,30 @@ class _ImagePickerCard extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   OutlinedButton.icon(
-                    onPressed:
-                        controller.isBusy.value ? null : controller.pickImage,
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.pickImage,
                     icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(image == null ? '选择单张' : '重新选择单张'),
+                    label: Text(
+                      image == null
+                          ? 'compress.action.pickSingle'.tr
+                          : 'compress.action.repickSingle'.tr,
+                    ),
                   ),
                   FilledButton.tonalIcon(
-                    onPressed:
-                        controller.isBusy.value ? null : controller.pickImages,
+                    onPressed: controller.isBusy.value
+                        ? null
+                        : controller.pickImages,
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('批量选择'),
+                    label: Text('compress.action.pickBatch'.tr),
                   ),
                 ],
               ),
               if (images.length > 1) ...[
                 const SizedBox(height: 12),
-                ...images.take(5).map(
+                ...images
+                    .take(5)
+                    .map(
                       (item) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
@@ -107,7 +130,12 @@ class _ImagePickerCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                if (images.length > 5) Text('还有 ${images.length - 5} 张图片'),
+                if (images.length > 5)
+                  Text(
+                    'compress.image.moreCount'.trParams({
+                      'count': (images.length - 5).toString(),
+                    }),
+                  ),
               ],
             ],
           );
@@ -136,26 +164,34 @@ class _ProgressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('批量进度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'compress.progress.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: controller.progress),
               const SizedBox(height: 8),
-              Text('已处理 $processed / $total 张'),
+              Text(
+                'compress.progress.processed'.trParams({
+                  'processed': processed.toString(),
+                  'total': total.toString(),
+                }),
+              ),
               const SizedBox(height: 12),
               ...controller.tasks.map((task) {
                 final status = task.isCompleted
                     ? task.isSuccess
-                        ? '成功'
-                        : '失败'
-                    : '等待';
+                          ? 'compress.task.success'.tr
+                          : 'compress.task.failed'.tr
+                    : 'compress.task.waiting'.tr;
                 return ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     task.isCompleted
                         ? task.isSuccess
-                            ? Icons.check_circle_outline
-                            : Icons.error_outline
+                              ? Icons.check_circle_outline
+                              : Icons.error_outline
                         : Icons.hourglass_empty,
                   ),
                   title: Text(
@@ -188,9 +224,16 @@ class _QualityCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('压缩质量', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'compress.quality.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
-              Text('当前质量：${controller.quality.value}%'),
+              Text(
+                'compress.quality.current'.trParams({
+                  'quality': controller.quality.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.quality.value.toDouble(),
                 min: 1,
@@ -228,11 +271,22 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('压缩结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'compress.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('原始大小：${controller.formatBytes(result.source.sizeBytes)}'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
-              Text('节省空间：$savedPercent%'),
+              Text(
+                'compress.result.sourceSize'.trParams({
+                  'size': controller.formatBytes(result.source.sizeBytes),
+                }),
+              ),
+              Text(
+                'compress.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
+              Text('compress.result.saved'.trParams({'percent': savedPercent})),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

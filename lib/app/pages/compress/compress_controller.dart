@@ -47,10 +47,10 @@ class CompressController extends GetxController {
     required OperationHistoryRepository historyRepository,
     required AppSettingsRepository settingsRepository,
     required RecentFilesRepository recentFilesRepository,
-  })  : _imageChannel = imageChannel,
-        _historyRepository = historyRepository,
-        _settingsRepository = settingsRepository,
-        _recentFilesRepository = recentFilesRepository;
+  }) : _imageChannel = imageChannel,
+       _historyRepository = historyRepository,
+       _settingsRepository = settingsRepository,
+       _recentFilesRepository = recentFilesRepository;
 
   final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
@@ -97,7 +97,7 @@ class CompressController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('compress.error.recentFileFailed'.tr);
     }
   }
 
@@ -121,7 +121,7 @@ class CompressController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('compress.error.recentFileFailed'.tr);
     }
   }
 
@@ -140,7 +140,7 @@ class CompressController extends GetxController {
       }
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('compress.error.pickImageFirst'.tr);
       return;
     }
 
@@ -183,11 +183,19 @@ class CompressController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar('压缩完成', '已成功压缩 $successCount 张图片');
+        Get.snackbar(
+          'compress.success.title'.tr,
+          'compress.success.message'.trParams({
+            'count': successCount.toString(),
+          }),
+        );
       } else {
         Get.snackbar(
-          '批量压缩完成',
-          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+          'compress.batch.success.title'.tr,
+          'compress.batch.success.message'.trParams({
+            'success': successCount.toString(),
+            'failed': (selectedImages.length - successCount).toString(),
+          }),
         );
       }
     } finally {
@@ -205,7 +213,7 @@ class CompressController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -220,6 +228,6 @@ class CompressController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('compress.error.title'.tr, message);
   }
 }
