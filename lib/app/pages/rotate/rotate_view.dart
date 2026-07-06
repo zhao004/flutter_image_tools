@@ -13,7 +13,7 @@ class RotateView extends GetView<RotateController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('图片旋转')),
+      appBar: AppBar(title: Text('rotate.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -33,7 +33,11 @@ class RotateView extends GetView<RotateController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.rotate_90_degrees_ccw),
-                label: Text(controller.isBusy.value ? '旋转中' : '开始旋转'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'rotate.action.rotate'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -61,19 +65,30 @@ class _ImageCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'rotate.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择 JPG、PNG、WebP 或 BMP 图片进行本地旋转。')
+                Text('rotate.image.empty'.tr)
               else if (images.length == 1 && image != null) ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(controller.formatBytes(image.sizeBytes)),
               ] else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'rotate.image.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(images.fold<int>(0, (sum, item) => sum + item.sizeBytes))}',
+                  'rotate.image.totalSize'.trParams({
+                    'size': controller.formatBytes(
+                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
+                    ),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -86,14 +101,18 @@ class _ImageCard extends StatelessWidget {
                         ? null
                         : controller.pickImage,
                     icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(image == null ? '选择单张' : '重新选择单张'),
+                    label: Text(
+                      image == null
+                          ? 'rotate.action.pickSingle'.tr
+                          : 'rotate.action.repickSingle'.tr,
+                    ),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: controller.isBusy.value
                         ? null
                         : controller.pickImages,
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('批量选择'),
+                    label: Text('rotate.action.pickBatch'.tr),
                   ),
                 ],
               ),
@@ -111,7 +130,12 @@ class _ImageCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                if (images.length > 5) Text('还有 ${images.length - 5} 张图片'),
+                if (images.length > 5)
+                  Text(
+                    'rotate.image.moreCount'.trParams({
+                      'count': (images.length - 5).toString(),
+                    }),
+                  ),
               ],
             ],
           );
@@ -135,31 +159,38 @@ class _AngleCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('旋转角度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'rotate.angle.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
                   ChoiceChip(
-                    label: const Text('左旋 90°'),
+                    label: Text('rotate.angle.left90'.tr),
                     selected: controller.degrees.value == -90,
                     onSelected: (_) => controller.setDegrees(-90),
                   ),
                   ChoiceChip(
-                    label: const Text('右旋 90°'),
+                    label: Text('rotate.angle.right90'.tr),
                     selected: controller.degrees.value == 90,
                     onSelected: (_) => controller.setDegrees(90),
                   ),
                   ChoiceChip(
-                    label: const Text('180°'),
+                    label: Text('rotate.angle.oneEighty'.tr),
                     selected: controller.degrees.value == 180,
                     onSelected: (_) => controller.setDegrees(180),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Text('自定义角度：${controller.degrees.value}°'),
+              Text(
+                'rotate.angle.custom'.trParams({
+                  'degrees': controller.degrees.value.toString(),
+                }),
+              ),
               Slider(
                 value: controller.degrees.value.clamp(-180, 180).toDouble(),
                 min: -180,
@@ -197,18 +228,26 @@ class _ProgressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('批量进度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'rotate.progress.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: controller.progress),
               const SizedBox(height: 8),
-              Text('已处理 $processed / $total 张'),
+              Text(
+                'rotate.progress.processed'.trParams({
+                  'processed': processed.toString(),
+                  'total': total.toString(),
+                }),
+              ),
               const SizedBox(height: 12),
               ...controller.tasks.map((task) {
                 final status = task.isCompleted
                     ? task.isSuccess
-                          ? '成功'
-                          : '失败'
-                    : '等待';
+                          ? 'rotate.task.success'.tr
+                          : 'rotate.task.failed'.tr
+                    : 'rotate.task.waiting'.tr;
                 return ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -253,10 +292,21 @@ class _ResultCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('旋转结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'rotate.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('旋转角度：${result.degrees}°'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text(
+                'rotate.result.degrees'.trParams({
+                  'degrees': result.degrees.toString(),
+                }),
+              ),
+              Text(
+                'rotate.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

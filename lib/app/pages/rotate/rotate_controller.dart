@@ -80,7 +80,7 @@ class RotateController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('rotate.error.recentFileFailed'.tr);
     }
   }
 
@@ -104,7 +104,7 @@ class RotateController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('rotate.error.recentFileFailed'.tr);
     }
   }
 
@@ -127,11 +127,11 @@ class RotateController extends GetxController {
       }
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('rotate.error.pickImageFirst'.tr);
       return;
     }
     if (degrees.value == 0) {
-      _showError('旋转角度不能为 0');
+      _showError('rotate.error.zeroDegrees'.tr);
       return;
     }
 
@@ -152,7 +152,7 @@ class RotateController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationSuccess(
-            featureName: '图片旋转',
+            featureName: 'rotate.featureName'.tr,
             inputPath: source.path,
             outputPath: rotated.outputPath,
             parameters: <String, Object>{'degrees': degrees.value},
@@ -163,7 +163,7 @@ class RotateController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationFailure(
-            featureName: '图片旋转',
+            featureName: 'rotate.featureName'.tr,
             inputPath: source.path,
             parameters: <String, Object>{'degrees': degrees.value},
             errorMessage: error.message,
@@ -174,11 +174,17 @@ class RotateController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar('旋转完成', '已成功旋转 $successCount 张图片');
+        Get.snackbar(
+          'rotate.success.title'.tr,
+          'rotate.success.message'.trParams({'count': successCount.toString()}),
+        );
       } else {
         Get.snackbar(
-          '批量旋转完成',
-          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+          'rotate.batch.success.title'.tr,
+          'rotate.batch.success.message'.trParams({
+            'success': successCount.toString(),
+            'failed': (selectedImages.length - successCount).toString(),
+          }),
         );
       }
     } finally {
@@ -196,7 +202,7 @@ class RotateController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -211,6 +217,6 @@ class RotateController extends GetxController {
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('rotate.error.title'.tr, message);
   }
 }

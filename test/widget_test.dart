@@ -31,6 +31,8 @@ import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
 import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_controller.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_view.dart';
+import 'package:flutter_image_tools/app/pages/rotate/rotate_controller.dart';
+import 'package:flutter_image_tools/app/pages/rotate/rotate_view.dart';
 import 'package:flutter_image_tools/app/repositories/cache_repository.dart';
 import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_history_repository.dart';
@@ -516,6 +518,46 @@ void main() {
     expect(find.text('Horizontal Flip'), findsOneWidget);
     expect(find.text('Vertical Flip'), findsOneWidget);
     expect(find.text('Start Flip'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文图片旋转页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、角度和操作按钮文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      RotateController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const RotateView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Image Rotate'), findsOneWidget);
+    expect(find.text('Select Image'), findsOneWidget);
+    expect(
+      find.text('Select a JPG, PNG, WebP, or BMP image to rotate locally.'),
+      findsOneWidget,
+    );
+    expect(find.text('Select One'), findsOneWidget);
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Rotation Angle'), findsOneWidget);
+    expect(find.text('Rotate Left 90°'), findsOneWidget);
+    expect(find.text('Rotate Right 90°'), findsOneWidget);
+    expect(find.text('Custom Angle: 90°'), findsOneWidget);
+    expect(find.text('Start Rotate'), findsOneWidget);
 
     await database.close();
     Get.reset();
