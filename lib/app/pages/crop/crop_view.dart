@@ -260,18 +260,6 @@ class _CropToolbar extends StatelessWidget {
             ],
           ),
         ],
-        if (controller.tasks.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          LinearProgressIndicator(value: controller.progress),
-          const SizedBox(height: 6),
-          Text(
-            'crop.progress.processed'.trParams({
-              'processed': controller.processedCount.value.toString(),
-              'total': controller.selectedImages.length.toString(),
-            }),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
       ],
     );
   }
