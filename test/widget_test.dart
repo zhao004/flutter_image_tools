@@ -18,6 +18,8 @@ import 'package:flutter_image_tools/app/pages/exif/exif_controller.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_view.dart';
+import 'package:flutter_image_tools/app/pages/flip/flip_controller.dart';
+import 'package:flutter_image_tools/app/pages/flip/flip_view.dart';
 import 'package:flutter_image_tools/app/pages/filter/filter_controller.dart';
 import 'package:flutter_image_tools/app/pages/filter/filter_view.dart'
     as filter_page;
@@ -475,6 +477,45 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文图片翻转页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、方向和操作按钮文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      FlipController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const FlipView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Image Flip'), findsOneWidget);
+    expect(find.text('Select Image'), findsOneWidget);
+    expect(
+      find.text('Select a JPG, PNG, WebP, or BMP image to flip locally.'),
+      findsOneWidget,
+    );
+    expect(find.text('Select One'), findsOneWidget);
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Flip Direction'), findsOneWidget);
+    expect(find.text('Horizontal Flip'), findsOneWidget);
+    expect(find.text('Vertical Flip'), findsOneWidget);
+    expect(find.text('Start Flip'), findsOneWidget);
 
     await database.close();
     Get.reset();

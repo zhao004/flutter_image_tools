@@ -13,7 +13,7 @@ class FlipView extends GetView<FlipController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('图片翻转')),
+      appBar: AppBar(title: Text('flip.title'.tr)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -33,7 +33,11 @@ class FlipView extends GetView<FlipController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.flip),
-                label: Text(controller.isBusy.value ? '翻转中' : '开始翻转'),
+                label: Text(
+                  controller.isBusy.value
+                      ? 'common.processing'.tr
+                      : 'flip.action.flip'.tr,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -61,19 +65,30 @@ class _ImageCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('选择图片', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'flip.image.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               if (images.isEmpty)
-                const Text('请选择 JPG、PNG、WebP 或 BMP 图片进行本地翻转。')
+                Text('flip.image.empty'.tr)
               else if (images.length == 1 && image != null) ...[
                 Text(image.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(controller.formatBytes(image.sizeBytes)),
               ] else ...[
-                Text('已选择 ${images.length} 张图片'),
+                Text(
+                  'flip.image.selectedCount'.trParams({
+                    'count': images.length.toString(),
+                  }),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  '总大小：${controller.formatBytes(images.fold<int>(0, (sum, item) => sum + item.sizeBytes))}',
+                  'flip.image.totalSize'.trParams({
+                    'size': controller.formatBytes(
+                      images.fold<int>(0, (sum, item) => sum + item.sizeBytes),
+                    ),
+                  }),
                 ),
               ],
               const SizedBox(height: 12),
@@ -86,14 +101,18 @@ class _ImageCard extends StatelessWidget {
                         ? null
                         : controller.pickImage,
                     icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(image == null ? '选择单张' : '重新选择单张'),
+                    label: Text(
+                      image == null
+                          ? 'flip.action.pickSingle'.tr
+                          : 'flip.action.repickSingle'.tr,
+                    ),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: controller.isBusy.value
                         ? null
                         : controller.pickImages,
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('批量选择'),
+                    label: Text('flip.action.pickBatch'.tr),
                   ),
                 ],
               ),
@@ -111,7 +130,12 @@ class _ImageCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                if (images.length > 5) Text('还有 ${images.length - 5} 张图片'),
+                if (images.length > 5)
+                  Text(
+                    'flip.image.moreCount'.trParams({
+                      'count': (images.length - 5).toString(),
+                    }),
+                  ),
               ],
             ],
           );
@@ -135,7 +159,10 @@ class _DirectionCard extends StatelessWidget {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('翻转方向', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'flip.direction.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               SegmentedButton<FlipDirection>(
                 segments: FlipDirection.values
@@ -176,18 +203,26 @@ class _ProgressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('批量进度', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'flip.progress.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: controller.progress),
               const SizedBox(height: 8),
-              Text('已处理 $processed / $total 张'),
+              Text(
+                'flip.progress.processed'.trParams({
+                  'processed': processed.toString(),
+                  'total': total.toString(),
+                }),
+              ),
               const SizedBox(height: 12),
               ...controller.tasks.map((task) {
                 final status = task.isCompleted
                     ? task.isSuccess
-                          ? '成功'
-                          : '失败'
-                    : '等待';
+                          ? 'flip.task.success'.tr
+                          : 'flip.task.failed'.tr
+                    : 'flip.task.waiting'.tr;
                 return ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -226,19 +261,24 @@ class _ResultCard extends StatelessWidget {
       if (result == null) {
         return const SizedBox.shrink();
       }
-      final direction = result.direction == FlipDirection.horizontal.value
-          ? '水平翻转'
-          : '垂直翻转';
+      final direction = controller.labelForDirectionValue(result.direction);
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('翻转结果', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'flip.result.title'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
-              Text('翻转方向：$direction'),
-              Text('导出大小：${controller.formatBytes(result.outputSizeBytes)}'),
+              Text('flip.result.direction'.trParams({'direction': direction})),
+              Text(
+                'flip.result.outputSize'.trParams({
+                  'size': controller.formatBytes(result.outputSizeBytes),
+                }),
+              ),
               const SizedBox(height: 8),
               Text(
                 result.outputPath,

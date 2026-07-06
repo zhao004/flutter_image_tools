@@ -37,13 +37,15 @@ class FlipTask {
 }
 
 enum FlipDirection {
-  horizontal(label: '水平翻转', value: 'horizontal'),
-  vertical(label: '垂直翻转', value: 'vertical');
+  horizontal(labelKey: 'flip.direction.horizontal', value: 'horizontal'),
+  vertical(labelKey: 'flip.direction.vertical', value: 'vertical');
 
-  const FlipDirection({required this.label, required this.value});
+  const FlipDirection({required this.labelKey, required this.value});
 
-  final String label;
+  final String labelKey;
   final String value;
+
+  String get label => labelKey.tr;
 }
 
 /// 图片翻转控制器，管理选图、翻转方向、执行状态和结果展示。
@@ -90,7 +92,7 @@ class FlipController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('flip.error.recentFileFailed'.tr);
     }
   }
 
@@ -114,7 +116,7 @@ class FlipController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('flip.error.recentFileFailed'.tr);
     }
   }
 
@@ -133,7 +135,7 @@ class FlipController extends GetxController {
       }
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('flip.error.pickImageFirst'.tr);
       return;
     }
 
@@ -154,7 +156,7 @@ class FlipController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationSuccess(
-            featureName: '图片翻转',
+            featureName: 'flip.featureName'.tr,
             inputPath: source.path,
             outputPath: flipped.outputPath,
             parameters: <String, Object>{'direction': direction.value.value},
@@ -165,7 +167,7 @@ class FlipController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationFailure(
-            featureName: '图片翻转',
+            featureName: 'flip.featureName'.tr,
             inputPath: source.path,
             parameters: <String, Object>{'direction': direction.value.value},
             errorMessage: error.message,
@@ -176,11 +178,17 @@ class FlipController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar('翻转完成', '已成功翻转 $successCount 张图片');
+        Get.snackbar(
+          'flip.success.title'.tr,
+          'flip.success.message'.trParams({'count': successCount.toString()}),
+        );
       } else {
         Get.snackbar(
-          '批量翻转完成',
-          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+          'flip.batch.success.title'.tr,
+          'flip.batch.success.message'.trParams({
+            'success': successCount.toString(),
+            'failed': (selectedImages.length - successCount).toString(),
+          }),
         );
       }
     } finally {
@@ -198,7 +206,7 @@ class FlipController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -212,7 +220,16 @@ class FlipController extends GetxController {
     return '${mib.toStringAsFixed(1)} MB';
   }
 
+  String labelForDirectionValue(String value) {
+    for (final direction in FlipDirection.values) {
+      if (direction.value == value) {
+        return direction.label;
+      }
+    }
+    return value;
+  }
+
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('flip.error.title'.tr, message);
   }
 }
