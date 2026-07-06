@@ -18,7 +18,7 @@ class HomeView extends GetView<HomeController> {
         title: const Text('Image Toolkit'),
         actions: [
           IconButton(
-            tooltip: '设置',
+            tooltip: 'home.tool.settings.title'.tr,
             onPressed: () => controller.openTool(controller.tools[2]),
             icon: const Icon(Icons.settings_outlined),
           ),
@@ -38,10 +38,10 @@ class HomeView extends GetView<HomeController> {
               sliver: SliverToBoxAdapter(
                 child: TextField(
                   onChanged: controller.updateQuery,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: '搜索工具',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: 'home.search.hint'.tr,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ),
@@ -50,7 +50,7 @@ class HomeView extends GetView<HomeController> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               sliver: SliverToBoxAdapter(
                 child: Text(
-                  '功能入口',
+                  'home.section.shortcuts'.tr,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -77,7 +77,7 @@ class HomeView extends GetView<HomeController> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               sliver: SliverToBoxAdapter(
                 child: Text(
-                  '最近图片',
+                  'home.section.recentImages'.tr,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -87,7 +87,7 @@ class HomeView extends GetView<HomeController> {
               sliver: SliverToBoxAdapter(
                 child: Obx(() {
                   if (controller.recentFiles.isEmpty) {
-                    return const Text('选择图片后会显示在这里');
+                    return Text('home.recentImages.empty'.tr);
                   }
                   return SizedBox(
                     height: 72,
@@ -117,7 +117,7 @@ class HomeView extends GetView<HomeController> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               sliver: SliverToBoxAdapter(
                 child: Text(
-                  '全部工具',
+                  'home.section.allTools'.tr,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -169,7 +169,7 @@ class _HeaderCard extends StatelessWidget {
             Icon(Icons.lock_outline, color: colorScheme.onPrimaryContainer),
             const SizedBox(height: 12),
             Text(
-              '本地离线图片工具',
+              'home.header.title'.tr,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: colorScheme.onPrimaryContainer,
                 fontWeight: FontWeight.w700,
@@ -177,7 +177,7 @@ class _HeaderCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '图片只在手机本地处理，不上传服务器；已开放压缩、裁剪、拼接、滤镜等本地处理能力。',
+              'home.header.subtitle'.tr,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onPrimaryContainer,
               ),
@@ -237,7 +237,7 @@ class _ToolCard extends StatelessWidget {
               if (!isAvailable) ...[
                 const SizedBox(height: 8),
                 Text(
-                  '规划中',
+                  'home.planned.badge'.tr,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.outline,
                   ),

@@ -8,18 +8,22 @@ enum ToolAvailability { available, planned }
 
 class HomeToolItem {
   const HomeToolItem({
-    required this.title,
-    required this.description,
+    required this.titleKey,
+    required this.descriptionKey,
     required this.icon,
     required this.availability,
     this.route,
   });
 
-  final String title;
-  final String description;
+  final String titleKey;
+  final String descriptionKey;
   final String icon;
   final ToolAvailability availability;
   final String? route;
+
+  String get title => titleKey.tr;
+
+  String get description => descriptionKey.tr;
 }
 
 /// 首页状态控制器，负责维护工具入口、搜索和近期常用展示。
@@ -37,148 +41,148 @@ class HomeController extends GetxController {
 
   final tools = <HomeToolItem>[
     const HomeToolItem(
-      title: '图片压缩',
-      description: '按质量压缩本地图片',
+      titleKey: 'home.tool.compress.title',
+      descriptionKey: 'home.tool.compress.description',
       icon: 'compress',
       availability: ToolAvailability.available,
       route: Routes.compress,
     ),
     const HomeToolItem(
-      title: '批量处理',
-      description: '队列、暂停、重试和取消',
+      titleKey: 'home.tool.batch.title',
+      descriptionKey: 'home.tool.batch.description',
       icon: 'batch',
       availability: ToolAvailability.available,
       route: Routes.batch,
     ),
     const HomeToolItem(
-      title: '历史记录',
-      description: '查看本机处理记录',
+      titleKey: 'home.tool.history.title',
+      descriptionKey: 'home.tool.history.description',
       icon: 'history',
       availability: ToolAvailability.available,
       route: Routes.history,
     ),
     const HomeToolItem(
-      title: '设置',
-      description: '导出、质量和主题偏好',
+      titleKey: 'home.tool.settings.title',
+      descriptionKey: 'home.tool.settings.description',
       icon: 'settings',
       availability: ToolAvailability.available,
       route: Routes.settings,
     ),
     const HomeToolItem(
-      title: '图片裁剪',
-      description: '自由比例和常用比例',
+      titleKey: 'home.tool.crop.title',
+      descriptionKey: 'home.tool.crop.description',
       icon: 'crop',
       availability: ToolAvailability.available,
       route: Routes.crop,
     ),
     const HomeToolItem(
-      title: '图片拼接',
-      description: '横向、纵向和网格拼接',
+      titleKey: 'home.tool.merge.title',
+      descriptionKey: 'home.tool.merge.description',
       icon: 'merge',
       availability: ToolAvailability.available,
       route: Routes.merge,
     ),
     const HomeToolItem(
-      title: '尺寸调整',
-      description: '按宽高或百分比缩放',
+      titleKey: 'home.tool.resize.title',
+      descriptionKey: 'home.tool.resize.description',
       icon: 'resize',
       availability: ToolAvailability.available,
       route: Routes.resize,
     ),
     const HomeToolItem(
-      title: '图片翻转',
-      description: '水平或垂直翻转',
+      titleKey: 'home.tool.flip.title',
+      descriptionKey: 'home.tool.flip.description',
       icon: 'flip',
       availability: ToolAvailability.available,
       route: Routes.flip,
     ),
     const HomeToolItem(
-      title: '图片旋转',
-      description: '90 度、180 度或任意角度',
+      titleKey: 'home.tool.rotate.title',
+      descriptionKey: 'home.tool.rotate.description',
       icon: 'rotate',
       availability: ToolAvailability.available,
       route: Routes.rotate,
     ),
     const HomeToolItem(
-      title: '文字水印',
-      description: '多行文字、透明度和位置',
+      titleKey: 'home.tool.watermark.title',
+      descriptionKey: 'home.tool.watermark.description',
       icon: 'watermark',
       availability: ToolAvailability.available,
       route: Routes.watermark,
     ),
     const HomeToolItem(
-      title: '图片水印',
-      description: 'Logo、二维码和透明 PNG',
+      titleKey: 'home.tool.imageWatermark.title',
+      descriptionKey: 'home.tool.imageWatermark.description',
       icon: 'imageWatermark',
       availability: ToolAvailability.available,
       route: Routes.imageWatermark,
     ),
     const HomeToolItem(
-      title: '图片滤镜',
-      description: '灰度、怀旧、反色和冷暖色',
+      titleKey: 'home.tool.filter.title',
+      descriptionKey: 'home.tool.filter.description',
       icon: 'filter',
       availability: ToolAvailability.available,
       route: Routes.filter,
     ),
     const HomeToolItem(
-      title: '图片标注',
-      description: '画笔、箭头、形状、文本和马赛克',
+      titleKey: 'home.tool.annotation.title',
+      descriptionKey: 'home.tool.annotation.description',
       icon: 'annotation',
       availability: ToolAvailability.available,
       route: Routes.annotation,
     ),
     const HomeToolItem(
-      title: '九宫格切图',
-      description: '2×2 到 5×5 编号切片',
+      titleKey: 'home.tool.grid.title',
+      descriptionKey: 'home.tool.grid.description',
       icon: 'grid',
       availability: ToolAvailability.available,
       route: Routes.grid,
     ),
     const HomeToolItem(
-      title: '格式转换',
-      description: 'PNG、JPG、WebP、BMP',
+      titleKey: 'home.tool.convert.title',
+      descriptionKey: 'home.tool.convert.description',
       icon: 'convert',
       availability: ToolAvailability.available,
       route: Routes.convert,
     ),
     const HomeToolItem(
-      title: 'EXIF 管理',
-      description: '查看拍摄信息并清除隐私元数据',
+      titleKey: 'home.tool.exif.title',
+      descriptionKey: 'home.tool.exif.description',
       icon: 'exif',
       availability: ToolAvailability.available,
       route: Routes.exif,
     ),
     const HomeToolItem(
-      title: 'PDF 工具',
-      description: '图片转 PDF 与页面导出',
+      titleKey: 'home.tool.pdf.title',
+      descriptionKey: 'home.tool.pdf.description',
       icon: 'pdf',
       availability: ToolAvailability.available,
       route: Routes.pdf,
     ),
     const HomeToolItem(
-      title: '二维码',
-      description: '本地生成二维码 PNG',
+      titleKey: 'home.tool.qrcode.title',
+      descriptionKey: 'home.tool.qrcode.description',
       icon: 'qrcode',
       availability: ToolAvailability.available,
       route: Routes.qrcode,
     ),
     const HomeToolItem(
-      title: 'GIF 工具',
-      description: '多图本地生成动图',
+      titleKey: 'home.tool.gif.title',
+      descriptionKey: 'home.tool.gif.description',
       icon: 'gif',
       availability: ToolAvailability.available,
       route: Routes.gif,
     ),
     const HomeToolItem(
-      title: 'Base64',
-      description: '图片和文本互转',
+      titleKey: 'home.tool.base64.title',
+      descriptionKey: 'home.tool.base64.description',
       icon: 'base64',
       availability: ToolAvailability.available,
       route: Routes.base64,
     ),
     const HomeToolItem(
-      title: '颜色提取',
-      description: '点击取色并复制 RGB/HEX/HSV',
+      titleKey: 'home.tool.color.title',
+      descriptionKey: 'home.tool.color.description',
       icon: 'color',
       availability: ToolAvailability.available,
       route: Routes.colorPicker,
@@ -190,11 +194,12 @@ class HomeController extends GetxController {
     if (keyword.isEmpty) {
       return tools;
     }
+    final normalizedKeyword = keyword.toLowerCase();
     return tools
         .where(
           (tool) =>
-              tool.title.contains(keyword) ||
-              tool.description.contains(keyword),
+              tool.title.toLowerCase().contains(normalizedKeyword) ||
+              tool.description.toLowerCase().contains(normalizedKeyword),
         )
         .toList(growable: false);
   }
@@ -224,7 +229,10 @@ class HomeController extends GetxController {
   void openTool(HomeToolItem tool) {
     final route = tool.route;
     if (tool.availability != ToolAvailability.available || route == null) {
-      Get.snackbar('功能规划中', '${tool.title} 将在后续版本中提供');
+      Get.snackbar(
+        'home.planned.title'.tr,
+        'home.planned.message'.trParams({'tool': tool.title}),
+      );
       return;
     }
     Get.toNamed(route);
