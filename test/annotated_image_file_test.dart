@@ -1,5 +1,5 @@
-import 'package:flutter_image_tools/app/core/models/annotated_image_file.dart';
-import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
+import 'package:flutter_image_tools/app/models/annotated_image_file.dart';
+import 'package:flutter_image_tools/app/models/local_image_file.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

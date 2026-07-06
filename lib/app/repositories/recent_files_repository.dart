@@ -1,4 +1,4 @@
-import '../core/models/local_image_file.dart';
+import '../models/local_image_file.dart';
 import '../database/database.dart';
 
 /// 最近文件仓储，记录用户选择过的本地图片。

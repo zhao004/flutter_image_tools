@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../core/exceptions/app_exception.dart';
-import '../../core/models/local_image_file.dart';
-import '../../core/models/pdf_document_file.dart';
-import '../../core/models/pdf_image_file.dart';
-import '../../core/models/pdf_page_image_file.dart';
-import '../../core/models/pdf_pages_image_export.dart';
+import '../../exceptions/app_exception.dart';
+import '../../models/local_image_file.dart';
+import '../../models/pdf_document_file.dart';
+import '../../models/pdf_image_file.dart';
+import '../../models/pdf_page_image_file.dart';
+import '../../models/pdf_pages_image_export.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';

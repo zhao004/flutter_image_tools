@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../core/models/local_image_file.dart';
+import '../../models/local_image_file.dart';
 import 'image_watermark_controller.dart';
 
 /// 图片水印页，支持 PNG/Logo/二维码图片作为水印叠加到底图上。

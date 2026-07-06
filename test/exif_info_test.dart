@@ -1,5 +1,5 @@
-import 'package:flutter_image_tools/app/core/models/exif_info.dart';
-import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
+import 'package:flutter_image_tools/app/models/exif_info.dart';
+import 'package:flutter_image_tools/app/models/local_image_file.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

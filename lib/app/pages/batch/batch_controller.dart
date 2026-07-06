@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../core/exceptions/app_exception.dart';
-import '../../core/models/local_image_file.dart';
+import '../../exceptions/app_exception.dart';
+import '../../models/local_image_file.dart';
 import '../../repositories/app_settings_repository.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';

@@ -1,7 +1,7 @@
-import 'package:flutter_image_tools/app/core/models/compressed_gif_file.dart';
-import 'package:flutter_image_tools/app/core/models/gif_frames_export.dart';
-import 'package:flutter_image_tools/app/core/models/gif_image_file.dart';
-import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
+import 'package:flutter_image_tools/app/models/compressed_gif_file.dart';
+import 'package:flutter_image_tools/app/models/gif_frames_export.dart';
+import 'package:flutter_image_tools/app/models/gif_image_file.dart';
+import 'package:flutter_image_tools/app/models/local_image_file.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

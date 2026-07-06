@@ -1,5 +1,5 @@
-import 'package:flutter_image_tools/app/core/models/filtered_image_file.dart';
-import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
+import 'package:flutter_image_tools/app/models/filtered_image_file.dart';
+import 'package:flutter_image_tools/app/models/local_image_file.dart';
 import 'package:flutter_image_tools/app/services/local_image_channel.dart';
 import 'package:flutter_test/flutter_test.dart';
 

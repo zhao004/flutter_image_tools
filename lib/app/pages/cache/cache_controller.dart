@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../core/models/cache_summary.dart';
+import '../../models/cache_summary.dart';
 import '../../repositories/cache_repository.dart';
 
 /// 缓存管理控制器，负责统计应用缓存目录并清理本地缓存文件。

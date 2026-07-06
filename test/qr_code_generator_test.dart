@@ -1,9 +1,9 @@
-import 'package:flutter_image_tools/app/core/models/barcode_scan_result.dart';
-import 'package:flutter_image_tools/app/core/models/barcode_image_file.dart';
-import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
-import 'package:flutter_image_tools/app/core/models/qr_code_image_file.dart';
-import 'package:flutter_image_tools/app/core/utils/barcode_generator.dart';
-import 'package:flutter_image_tools/app/core/utils/qr_code_generator.dart';
+import 'package:flutter_image_tools/app/models/barcode_scan_result.dart';
+import 'package:flutter_image_tools/app/models/barcode_image_file.dart';
+import 'package:flutter_image_tools/app/models/local_image_file.dart';
+import 'package:flutter_image_tools/app/models/qr_code_image_file.dart';
+import 'package:flutter_image_tools/app/utils/barcode_generator.dart';
+import 'package:flutter_image_tools/app/utils/qr_code_generator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

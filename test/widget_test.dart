@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_image_tools/app/database/database.dart';
-import 'package:flutter_image_tools/app/core/models/cache_summary.dart';
+import 'package:flutter_image_tools/app/models/cache_summary.dart';
 import 'package:flutter_image_tools/app/pages/batch/batch_controller.dart';
 import 'package:flutter_image_tools/app/pages/batch/batch_view.dart';
 import 'package:flutter_image_tools/app/pages/annotation/annotation_controller.dart';

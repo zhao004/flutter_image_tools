@@ -1,4 +1,4 @@
-import 'package:flutter_image_tools/app/core/models/picked_color_sample.dart';
+import 'package:flutter_image_tools/app/models/picked_color_sample.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

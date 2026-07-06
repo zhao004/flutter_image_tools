@@ -5,9 +5,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-import '../../core/exceptions/app_exception.dart';
-import '../../core/models/local_image_file.dart';
-import '../../core/models/picked_color_sample.dart';
+import '../../exceptions/app_exception.dart';
+import '../../models/local_image_file.dart';
+import '../../models/picked_color_sample.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';

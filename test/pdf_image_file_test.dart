@@ -1,8 +1,8 @@
-import 'package:flutter_image_tools/app/core/models/local_image_file.dart';
-import 'package:flutter_image_tools/app/core/models/pdf_document_file.dart';
-import 'package:flutter_image_tools/app/core/models/pdf_image_file.dart';
-import 'package:flutter_image_tools/app/core/models/pdf_page_image_file.dart';
-import 'package:flutter_image_tools/app/core/models/pdf_pages_image_export.dart';
+import 'package:flutter_image_tools/app/models/local_image_file.dart';
+import 'package:flutter_image_tools/app/models/pdf_document_file.dart';
+import 'package:flutter_image_tools/app/models/pdf_image_file.dart';
+import 'package:flutter_image_tools/app/models/pdf_page_image_file.dart';
+import 'package:flutter_image_tools/app/models/pdf_pages_image_export.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
