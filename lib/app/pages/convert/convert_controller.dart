@@ -113,7 +113,7 @@ class ConvertController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('convert.error.recentFileFailed'.tr);
     }
   }
 
@@ -137,7 +137,7 @@ class ConvertController extends GetxController {
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('记录最近文件失败，请重试');
+      _showError('convert.error.recentFileFailed'.tr);
     }
   }
 
@@ -160,7 +160,7 @@ class ConvertController extends GetxController {
       }
     }
     if (selectedImages.isEmpty) {
-      _showError('请先选择图片');
+      _showError('convert.error.pickImageFirst'.tr);
       return;
     }
 
@@ -182,7 +182,7 @@ class ConvertController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationSuccess(
-            featureName: '格式转换',
+            featureName: 'convert.featureName'.tr,
             inputPath: source.path,
             outputPath: converted.outputPath,
             parameters: _historyParameters,
@@ -193,7 +193,7 @@ class ConvertController extends GetxController {
             isCompleted: true,
           );
           await _historyRepository.recordOperationFailure(
-            featureName: '格式转换',
+            featureName: 'convert.featureName'.tr,
             inputPath: source.path,
             parameters: _historyParameters,
             errorMessage: error.message,
@@ -204,11 +204,19 @@ class ConvertController extends GetxController {
       }
       final successCount = tasks.where((task) => task.isSuccess).length;
       if (successCount == selectedImages.length) {
-        Get.snackbar('格式转换完成', '已成功转换 $successCount 张图片');
+        Get.snackbar(
+          'convert.success.title'.tr,
+          'convert.success.message'.trParams({
+            'count': successCount.toString(),
+          }),
+        );
       } else {
         Get.snackbar(
-          '批量格式转换完成',
-          '成功 $successCount 张，失败 ${selectedImages.length - successCount} 张',
+          'convert.batch.success.title'.tr,
+          'convert.batch.success.message'.trParams({
+            'success': successCount.toString(),
+            'failed': (selectedImages.length - successCount).toString(),
+          }),
         );
       }
     } finally {
@@ -233,7 +241,7 @@ class ConvertController extends GetxController {
 
   String formatBytes(int bytes) {
     if (bytes <= 0) {
-      return '未知大小';
+      return 'common.unknownSize'.tr;
     }
     const unit = 1024;
     if (bytes < unit) {
@@ -249,20 +257,21 @@ class ConvertController extends GetxController {
 
   String formatDimensions(LocalImageFile image) {
     if (!image.hasValidDimensions) {
-      return '未知尺寸';
+      return 'convert.dimension.unknown'.tr;
     }
     return '${image.width} × ${image.height} px';
   }
 
   String qualityHint() {
     return switch (format.value) {
-      ConvertFormat.jpg || ConvertFormat.webp => 'JPG 和 WebP 会使用导出质量。',
-      ConvertFormat.png || ConvertFormat.bmp => 'PNG 和 BMP 为无损导出，质量参数会被忽略。',
+      ConvertFormat.jpg || ConvertFormat.webp => 'convert.quality.lossyHint'.tr,
+      ConvertFormat.png ||
+      ConvertFormat.bmp => 'convert.quality.losslessHint'.tr,
     };
   }
 
   void _showError(String message) {
-    Get.snackbar('操作失败', message);
+    Get.snackbar('convert.error.title'.tr, message);
   }
 
   ConvertFormat _convertFormatForValue(String value) {

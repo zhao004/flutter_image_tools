@@ -16,6 +16,8 @@ import 'package:flutter_image_tools/app/pages/color_picker/color_picker_controll
 import 'package:flutter_image_tools/app/pages/color_picker/color_picker_view.dart';
 import 'package:flutter_image_tools/app/pages/compress/compress_controller.dart';
 import 'package:flutter_image_tools/app/pages/compress/compress_view.dart';
+import 'package:flutter_image_tools/app/pages/convert/convert_controller.dart';
+import 'package:flutter_image_tools/app/pages/convert/convert_view.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_controller.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_view.dart';
 import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
@@ -600,6 +602,48 @@ void main() {
     expect(find.text('Compression Quality'), findsOneWidget);
     expect(find.text('Current Quality: 80%'), findsOneWidget);
     expect(find.text('Start Compress'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('显示英文格式转换页面', (WidgetTester tester) async {
+    // 直接注入控制器依赖，仅验证选图、格式和质量文案国际化。
+    final database = AppDatabase(NativeDatabase.memory());
+    Get.put(
+      ConvertController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        settingsRepository: AppSettingsRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const ConvertView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Format Convert'), findsOneWidget);
+    expect(find.text('Select Image'), findsOneWidget);
+    expect(
+      find.text('Select a JPG, PNG, WebP, or BMP image to convert locally.'),
+      findsOneWidget,
+    );
+    expect(find.text('Select One'), findsOneWidget);
+    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Export Format'), findsOneWidget);
+    expect(find.text('JPG'), findsOneWidget);
+    expect(find.text('PNG'), findsOneWidget);
+    expect(find.text('Export Quality: 95%'), findsOneWidget);
+    expect(find.text('JPG and WebP use the export quality.'), findsOneWidget);
+    expect(find.text('Start Convert'), findsOneWidget);
 
     await database.close();
     Get.reset();
