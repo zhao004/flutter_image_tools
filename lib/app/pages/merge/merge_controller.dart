@@ -11,8 +11,7 @@ import '../../services/local_image_channel.dart';
 enum MergeMode {
   horizontal(labelKey: 'merge.mode.horizontal', value: 'horizontal'),
   vertical(labelKey: 'merge.mode.vertical', value: 'vertical'),
-  grid(labelKey: 'merge.mode.grid', value: 'grid'),
-  long(labelKey: 'merge.mode.long', value: 'long');
+  grid(labelKey: 'merge.mode.grid', value: 'grid');
 
   const MergeMode({required this.labelKey, required this.value});
 
@@ -115,7 +114,7 @@ class MergeController extends GetxController {
 
   void setMode(MergeMode value) {
     mode.value = value;
-    if (value == MergeMode.long) {
+    if (value == MergeMode.vertical) {
       scaleMode.value = MergeScaleMode.sameWidth;
     }
   }

@@ -97,7 +97,7 @@ class _MergePreview extends StatelessWidget {
   double _previewAspectRatio(MergeMode mode) {
     return switch (mode) {
       MergeMode.horizontal => 16 / 9,
-      MergeMode.vertical || MergeMode.long => 3 / 4,
+      MergeMode.vertical => 3 / 4,
       MergeMode.grid => 1,
     };
   }
@@ -134,7 +134,7 @@ class _MergePreviewLayout extends StatelessWidget {
           isHorizontal: true,
         ),
       ),
-      MergeMode.vertical || MergeMode.long => Column(
+      MergeMode.vertical => Column(
         children: _withSpacing(
           images.map((image) => Expanded(child: _tile(image))).toList(),
           isHorizontal: false,
@@ -298,13 +298,6 @@ class _MergeToolbar extends StatelessWidget {
                   onChanged: controller.isBusy.value
                       ? null
                       : controller.updateColumns,
-                ),
-              ],
-              if (controller.mode.value == MergeMode.long) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'merge.layout.longHint'.tr,
-                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
               const SizedBox(height: 12),
