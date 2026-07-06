@@ -15,7 +15,8 @@ enum BatchOperation {
   resize(label: '尺寸调整', featureName: '批量尺寸调整'),
   textWatermark(label: '文字水印', featureName: '批量文字水印'),
   imageWatermark(label: '图片水印', featureName: '批量图片水印'),
-  filter(label: '图片滤镜', featureName: '批量图片滤镜');
+  filter(label: '图片滤镜', featureName: '批量图片滤镜'),
+  crop(label: '图片裁剪', featureName: '批量图片裁剪');
 
   const BatchOperation({required this.label, required this.featureName});
 
@@ -97,6 +98,24 @@ enum BatchFilterType {
 
   final String label;
   final String value;
+}
+
+enum BatchCropPreset {
+  square(label: '正方形', ratioText: '1:1', aspectRatio: 1),
+  landscape16x9(label: '横版', ratioText: '16:9', aspectRatio: 16 / 9),
+  landscape4x3(label: '经典', ratioText: '4:3', aspectRatio: 4 / 3),
+  portrait9x16(label: '竖版', ratioText: '9:16', aspectRatio: 9 / 16),
+  custom(label: '自定义', ratioText: '自定义', aspectRatio: 1);
+
+  const BatchCropPreset({
+    required this.label,
+    required this.ratioText,
+    required this.aspectRatio,
+  });
+
+  final String label;
+  final String ratioText;
+  final double aspectRatio;
 }
 
 enum BatchTaskStatus {
@@ -199,6 +218,9 @@ class BatchController extends GetxController {
   final imageWatermarkScale = 25.obs;
   final imageWatermarkRotation = 0.obs;
   final filter = BatchFilterType.grayscale.obs;
+  final cropPreset = BatchCropPreset.square.obs;
+  final cropRatioWidth = 1.obs;
+  final cropRatioHeight = 1.obs;
   final degrees = 90.obs;
   final quality = 80.obs;
   final processedCount = 0.obs;
@@ -404,6 +426,35 @@ class BatchController extends GetxController {
     filter.value = value;
   }
 
+  void setCropPreset(BatchCropPreset value) {
+    if (isRunning.value) {
+      return;
+    }
+    cropPreset.value = value;
+  }
+
+  void updateCropRatioWidth(String value) {
+    if (isRunning.value) {
+      return;
+    }
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null) {
+      return;
+    }
+    cropRatioWidth.value = parsed.clamp(1, 100);
+  }
+
+  void updateCropRatioHeight(String value) {
+    if (isRunning.value) {
+      return;
+    }
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null) {
+      return;
+    }
+    cropRatioHeight.value = parsed.clamp(1, 100);
+  }
+
   Future<void> startQueue() async {
     if (isRunning.value) {
       return;
@@ -426,6 +477,9 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.imageWatermark &&
         !_hasValidImageWatermarkSettings()) {
+      return;
+    }
+    if (operation.value == BatchOperation.crop && _cropAspectRatio() == null) {
       return;
     }
     _resetTasksForCurrentSelection();
@@ -541,6 +595,8 @@ class BatchController extends GetxController {
           await _processImageWatermarkTask(index, task.source);
         case BatchOperation.filter:
           await _processFilterTask(index, task.source);
+        case BatchOperation.crop:
+          await _processCropTask(index, task.source);
       }
     } on AppException catch (error) {
       tasks[index] = tasks[index].copyWith(
@@ -739,6 +795,30 @@ class BatchController extends GetxController {
     );
   }
 
+  Future<void> _processCropTask(int index, LocalImageFile source) async {
+    final aspectRatio = _cropAspectRatio();
+    if (aspectRatio == null) {
+      throw const AppException('裁剪比例无效');
+    }
+    final cropped = await _imageChannel.cropImage(
+      source: source,
+      aspectRatio: aspectRatio,
+    );
+    tasks[index] = tasks[index].copyWith(
+      outputPath: cropped.outputPath,
+      outputSizeBytes: cropped.outputSizeBytes,
+      resultLabel: '${cropped.width}×${cropped.height}',
+      status: BatchTaskStatus.success,
+      clearError: true,
+    );
+    await _historyRepository.recordOperationSuccess(
+      featureName: operation.value.featureName,
+      inputPath: source.path,
+      outputPath: cropped.outputPath,
+      parameters: _historyParametersForCrop(aspectRatio),
+    );
+  }
+
   void _markPendingAsPaused() {
     for (var index = 0; index < tasks.length; index++) {
       if (tasks[index].status == BatchTaskStatus.pending) {
@@ -840,6 +920,11 @@ class BatchController extends GetxController {
         });
       case BatchOperation.filter:
         parameters['filter'] = filter.value.value;
+      case BatchOperation.crop:
+        parameters.addAll(<String, Object>{
+          'preset': cropPreset.value.name,
+          'aspectRatio': _cropAspectRatio() ?? cropPreset.value.aspectRatio,
+        });
     }
     return parameters;
   }
@@ -853,6 +938,14 @@ class BatchController extends GetxController {
       'percent': resizePercent.value,
       'width': dimensions.width,
       'height': dimensions.height,
+    };
+  }
+
+  Map<String, Object> _historyParametersForCrop(double aspectRatio) {
+    return <String, Object>{
+      'operation': operation.value.name,
+      'preset': cropPreset.value.name,
+      'aspectRatio': aspectRatio,
     };
   }
 
@@ -880,6 +973,9 @@ class BatchController extends GetxController {
     }
     if (operation.value == BatchOperation.filter) {
       return '滤镜会按当前类型批量导出新图片，不会覆盖原文件。';
+    }
+    if (operation.value == BatchOperation.crop) {
+      return '裁剪会从每张图片中心保留当前比例区域并导出新图片。';
     }
     return switch (convertFormat.value) {
       BatchConvertFormat.jpg ||
@@ -975,6 +1071,24 @@ class BatchController extends GetxController {
       return false;
     }
     return true;
+  }
+
+  double? _cropAspectRatio() {
+    if (cropPreset.value != BatchCropPreset.custom) {
+      return cropPreset.value.aspectRatio;
+    }
+    final width = cropRatioWidth.value;
+    final height = cropRatioHeight.value;
+    if (width <= 0 || height <= 0) {
+      _showError('自定义比例必须大于 0');
+      return null;
+    }
+    final ratio = width / height;
+    if (ratio < 0.1 || ratio > 10) {
+      _showError('自定义比例必须在 0.1 到 10 之间');
+      return null;
+    }
+    return ratio;
   }
 
   _BatchResizeDimensions _resizeDimensionsForSource(LocalImageFile source) {

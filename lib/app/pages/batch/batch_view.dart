@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 import 'batch_controller.dart';
 
-/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印、图片滤镜和队列控制。
+/// 批量处理中心，当前提供批量压缩、格式转换、批量旋转、批量翻转、尺寸调整、文字水印、图片水印、图片滤镜、图片裁剪和队列控制。
 ///
 /// 构建设计：选择、参数、队列状态和任务明细集中在同一页；暂停、继续、
 /// 取消都只影响未开始任务，正在处理的单个本地任务会自然结束后再停队列。
@@ -294,6 +294,26 @@ class _OperationCard extends StatelessWidget {
                       .toList(growable: false),
                 ),
               ],
+              if (controller.operation.value == BatchOperation.crop) ...[
+                const SizedBox(height: 16),
+                const Text('裁剪比例'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: BatchCropPreset.values
+                      .map(
+                        (item) => ChoiceChip(
+                          label: Text('${item.label} ${item.ratioText}'),
+                          selected: controller.cropPreset.value == item,
+                          onSelected: controller.isRunning.value
+                              ? null
+                              : (_) => controller.setCropPreset(item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ],
           ),
         ),
@@ -464,6 +484,50 @@ class _SettingsCard extends StatelessWidget {
               ] else if (controller.operation.value ==
                   BatchOperation.filter) ...[
                 Text('滤镜：${controller.filter.value.label}'),
+              ] else if (controller.operation.value == BatchOperation.crop) ...[
+                if (controller.cropPreset.value == BatchCropPreset.custom) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey(controller.cropRatioWidth.value),
+                          initialValue: controller.cropRatioWidth.value
+                              .toString(),
+                          enabled: !controller.isRunning.value,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: const InputDecoration(
+                            labelText: '比例宽',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: controller.updateCropRatioWidth,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey(controller.cropRatioHeight.value),
+                          initialValue: controller.cropRatioHeight.value
+                              .toString(),
+                          enabled: !controller.isRunning.value,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: const InputDecoration(
+                            labelText: '比例高',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: controller.updateCropRatioHeight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  Text('当前比例：${controller.cropPreset.value.ratioText}'),
+                ],
               ] else ...[
                 Text('质量：${controller.quality.value}%'),
                 Slider(
