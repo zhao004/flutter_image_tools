@@ -207,6 +207,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                         end: _shapeDragEnd,
                         color: controller.color.value.color,
                         strokeWidth: controller.strokeWidth.value.toDouble(),
+                        arrowStyle: controller.arrowStyle.value,
                       ),
                     ),
                   );
@@ -240,6 +241,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                   ),
                 );
               }),
+              _ObjectControlOverlay(controller: controller),
             ],
           ),
         );
@@ -441,6 +443,7 @@ class _AnnotationPropertyPanel extends StatelessWidget {
       children: [
         _TextToolPanel(controller: controller),
         _MosaicToolPanel(controller: controller),
+        _ArrowStyleControls(controller: controller),
         _StrokeWidthControls(controller: controller),
         _ColorControls(controller: controller),
       ],
@@ -485,6 +488,47 @@ class _MosaicToolPanel extends StatelessWidget {
   }
 }
 
+class _ArrowStyleControls extends StatelessWidget {
+  const _ArrowStyleControls({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final selectedObject = controller.selectedObject.value;
+      final showControls =
+          controller.mode.value == AnnotationMode.arrow ||
+          selectedObject is EditableArrowDrawable;
+      if (!showControls) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<EditableArrowStyle>(
+            segments: EditableArrowStyle.values
+                .map(
+                  (style) => ButtonSegment<EditableArrowStyle>(
+                    value: style,
+                    label: Text(style.label),
+                  ),
+                )
+                .toList(growable: false),
+            selected: {controller.arrowStyle.value},
+            onSelectionChanged: (values) {
+              if (values.isNotEmpty) {
+                controller.setArrowStyle(values.first);
+              }
+            },
+          ),
+        ),
+      );
+    });
+  }
+}
+
 class _TextToolPanel extends StatelessWidget {
   const _TextToolPanel({required this.controller});
 
@@ -511,10 +555,11 @@ class _StrokeWidthControls extends StatelessWidget {
     return Obx(() {
       final showControls = switch (controller.mode.value) {
         AnnotationMode.brush ||
-        AnnotationMode.mosaic ||
         AnnotationMode.rectangle ||
         AnnotationMode.circle ||
         AnnotationMode.arrow => true,
+        AnnotationMode.mosaic =>
+          controller.mosaicDrawMode.value == MosaicDrawMode.freehand,
         AnnotationMode.select =>
           controller.selectedObject.value is ShapeDrawable,
         AnnotationMode.text => false,
@@ -614,6 +659,166 @@ class _ToolButton extends StatelessWidget {
   }
 }
 
+class _ObjectControlOverlay extends StatelessWidget {
+  const _ObjectControlOverlay({required this.controller});
+
+  static const double _controlSize = 28;
+  static const double _dragDotSize = 18;
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final geometry = controller.selectedControlGeometry;
+      if (geometry == null) {
+        return const SizedBox.shrink();
+      }
+      return Stack(
+        children: [
+          if (geometry.rotateHandle != null)
+            _PositionedControl(
+              center: geometry.rotateHandle!,
+              size: _controlSize,
+              child: _RotationHandle(
+                onPanUpdate: (details) => controller.rotateSelectedShapeTo(
+                  _canvasPointFromHandle(
+                    center: geometry.rotateHandle!,
+                    size: _controlSize,
+                    localPosition: details.localPosition,
+                  ),
+                ),
+              ),
+            ),
+          if (geometry.arrowStart != null)
+            _PositionedControl(
+              center: geometry.arrowStart!,
+              size: _dragDotSize,
+              child: _ArrowEndpointHandle(
+                onPanUpdate: (details) =>
+                    controller.updateSelectedArrowEndpoint(
+                      isHead: false,
+                      point: _canvasPointFromHandle(
+                        center: geometry.arrowStart!,
+                        size: _dragDotSize,
+                        localPosition: details.localPosition,
+                      ),
+                    ),
+              ),
+            ),
+          if (geometry.arrowEnd != null)
+            _PositionedControl(
+              center: geometry.arrowEnd!,
+              size: _dragDotSize,
+              child: _ArrowEndpointHandle(
+                onPanUpdate: (details) =>
+                    controller.updateSelectedArrowEndpoint(
+                      isHead: true,
+                      point: _canvasPointFromHandle(
+                        center: geometry.arrowEnd!,
+                        size: _dragDotSize,
+                        localPosition: details.localPosition,
+                      ),
+                    ),
+              ),
+            ),
+        ],
+      );
+    });
+  }
+
+  Offset _canvasPointFromHandle({
+    required Offset center,
+    required double size,
+    required Offset localPosition,
+  }) {
+    final origin = Offset(center.dx - size / 2, center.dy - size / 2);
+    return origin + localPosition;
+  }
+}
+
+class _PositionedControl extends StatelessWidget {
+  const _PositionedControl({
+    required this.center,
+    required this.size,
+    required this.child,
+  });
+
+  final Offset center;
+  final double size;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: center.dx - size / 2,
+      top: center.dy - size / 2,
+      width: size,
+      height: size,
+      child: child,
+    );
+  }
+}
+
+class _RotationHandle extends StatelessWidget {
+  const _RotationHandle({required this.onPanUpdate});
+
+  final GestureDragUpdateCallback onPanUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanUpdate: onPanUpdate,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.primary,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.onPrimary, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(Icons.rotate_right, color: colorScheme.onPrimary, size: 18),
+      ),
+    );
+  }
+}
+
+class _ArrowEndpointHandle extends StatelessWidget {
+  const _ArrowEndpointHandle({required this.onPanUpdate});
+
+  final GestureDragUpdateCallback onPanUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanUpdate: onPanUpdate,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.primary, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MosaicPainter extends CustomPainter {
   const _MosaicPainter({
     required this.strokes,
@@ -689,6 +894,7 @@ class _ShapeDraftPainter extends CustomPainter {
     required this.end,
     required this.color,
     required this.strokeWidth,
+    required this.arrowStyle,
   });
 
   final AnnotationMode mode;
@@ -696,6 +902,7 @@ class _ShapeDraftPainter extends CustomPainter {
   final Offset? end;
   final Color color;
   final double strokeWidth;
+  final EditableArrowStyle arrowStyle;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -745,9 +952,23 @@ class _ShapeDraftPainter extends CustomPainter {
     final angle = direction.direction;
     final first = to - Offset.fromDirection(angle - headAngle, headLength);
     final second = to - Offset.fromDirection(angle + headAngle, headLength);
-    canvas
-      ..drawLine(to, first, paint)
-      ..drawLine(to, second, paint);
+    if (arrowStyle == EditableArrowStyle.outline) {
+      canvas
+        ..drawLine(to, first, paint)
+        ..drawLine(to, second, paint);
+      return;
+    }
+    final headPath = Path()
+      ..moveTo(to.dx, to.dy)
+      ..lineTo(first.dx, first.dy)
+      ..lineTo(second.dx, second.dy)
+      ..close();
+    canvas.drawPath(
+      headPath,
+      Paint()
+        ..color = paint.color
+        ..style = PaintingStyle.fill,
+    );
   }
 
   Rect _rectFromPoints(Offset start, Offset end) {
@@ -765,6 +986,7 @@ class _ShapeDraftPainter extends CustomPainter {
         end != oldDelegate.end ||
         mode != oldDelegate.mode ||
         color != oldDelegate.color ||
-        strokeWidth != oldDelegate.strokeWidth;
+        strokeWidth != oldDelegate.strokeWidth ||
+        arrowStyle != oldDelegate.arrowStyle;
   }
 }

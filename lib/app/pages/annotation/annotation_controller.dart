@@ -52,6 +52,17 @@ enum AnnotationColor {
 
 enum EditableLayerType { text, rectangle, circle, arrow }
 
+enum EditableArrowStyle {
+  solid(labelKey: 'annotation.arrow.solid'),
+  outline(labelKey: 'annotation.arrow.outline');
+
+  const EditableArrowStyle({required this.labelKey});
+
+  final String labelKey;
+
+  String get label => labelKey.tr;
+}
+
 enum MosaicDrawMode {
   freehand(labelKey: 'annotation.mosaic.freehand'),
   rectangle(labelKey: 'annotation.mosaic.rectangle'),
@@ -80,6 +91,111 @@ class DrawingStroke {
   final Color color;
   final double width;
   final List<Offset> points;
+}
+
+class AnnotationObjectControlGeometry {
+  const AnnotationObjectControlGeometry({
+    this.rotateHandle,
+    this.arrowStart,
+    this.arrowEnd,
+  });
+
+  final Offset? rotateHandle;
+  final Offset? arrowStart;
+  final Offset? arrowEnd;
+}
+
+/// 可编辑箭头图层，支持实心/空心箭头并暴露稳定的首尾端点。
+///
+/// 设计意图：第三方默认箭头只支持实心箭头且端点控制有限，因此在本地实现
+/// 一个兼容 `ObjectDrawable` 的箭头，避免修改依赖源码。
+class EditableArrowDrawable extends ObjectDrawable implements ShapeDrawable {
+  EditableArrowDrawable({
+    required this.length,
+    required super.position,
+    required this.paint,
+    required this.style,
+    this.arrowHeadSize,
+    super.rotationAngle = 0,
+    super.scale = 1,
+    super.assists = const <ObjectDrawableAssist>{},
+    super.assistPaints = const <ObjectDrawableAssist, Paint>{},
+    super.locked = false,
+    super.hidden = false,
+  });
+
+  final double length;
+  final double? arrowHeadSize;
+  final EditableArrowStyle style;
+
+  @override
+  Paint paint;
+
+  double get _headSize => arrowHeadSize ?? math.max(18, paint.strokeWidth * 4);
+
+  @override
+  void drawObject(Canvas canvas, Size size) {
+    final headSize = _headSize;
+    final halfLength = length * scale / 2;
+    final start = position.translate(-halfLength, 0);
+    final headBaseX = position.dx + halfLength - headSize;
+    final tip = position.translate(halfLength, 0);
+    final shaftEnd = Offset(headBaseX, position.dy);
+    if ((shaftEnd - start).distance > 0) {
+      canvas.drawLine(start, shaftEnd, paint);
+    }
+
+    final headPath = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(headBaseX, position.dy - headSize / 2)
+      ..lineTo(headBaseX, position.dy + headSize / 2)
+      ..close();
+    final headPaint = Paint()
+      ..color = paint.color
+      ..strokeWidth = paint.strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = style == EditableArrowStyle.solid
+          ? PaintingStyle.fill
+          : PaintingStyle.stroke;
+    canvas.drawPath(headPath, headPaint);
+  }
+
+  @override
+  Size getSize({double minWidth = 0.0, double maxWidth = double.infinity}) {
+    final width = math.max(minWidth, length * scale + paint.strokeWidth);
+    final height = _headSize + paint.strokeWidth * 2;
+    return Size(width, height);
+  }
+
+  @override
+  EditableArrowDrawable copyWith({
+    bool? hidden,
+    Set<ObjectDrawableAssist>? assists,
+    Offset? position,
+    double? rotation,
+    double? scale,
+    double? length,
+    Paint? paint,
+    bool? locked,
+    double? arrowHeadSize,
+    EditableArrowStyle? style,
+    Map<ObjectDrawableAssist, Paint>? assistPaints,
+  }) {
+    return EditableArrowDrawable(
+      hidden: hidden ?? this.hidden,
+      assists: assists ?? this.assists,
+      assistPaints: assistPaints ?? this.assistPaints,
+      position: position ?? this.position,
+      rotationAngle: rotation ?? rotationAngle,
+      scale: scale ?? this.scale,
+      length: length ?? this.length,
+      paint: paint ?? this.paint,
+      locked: locked ?? this.locked,
+      arrowHeadSize: arrowHeadSize ?? this.arrowHeadSize,
+      style: style ?? this.style,
+    );
+  }
 }
 
 /// 图片编辑控制器，使用第三方画布库处理文字、形状、箭头、画笔和对象变换。
@@ -111,6 +227,7 @@ class AnnotationController extends GetxController {
   final result = Rxn<AnnotatedImageFile>();
   final mode = AnnotationMode.select.obs;
   final mosaicDrawMode = MosaicDrawMode.freehand.obs;
+  final arrowStyle = EditableArrowStyle.solid.obs;
   final color = AnnotationColor.red.obs;
   final strokeWidth = 12.obs;
   final isBusy = false.obs;
@@ -146,6 +263,7 @@ class AnnotationController extends GetxController {
         .copyWith(
           // 设计意图：移动端默认会放大对象控制点；这里固定为较小尺寸，避免矩形/圆形四个拖动点遮挡图层。
           enlargeControlsResolver: () => false,
+          showScaleRotationControlsResolver: () => false,
         );
     _applyPainterMode();
   }
@@ -279,10 +397,11 @@ class AnnotationController extends GetxController {
         position: _canvasCenter,
         paint: paint,
       ),
-      EditableLayerType.arrow => ArrowDrawable(
+      EditableLayerType.arrow => EditableArrowDrawable(
         length: _defaultArrowLength,
         position: _canvasCenter,
         paint: paint,
+        style: arrowStyle.value,
         arrowHeadSize: 24,
       ),
     };
@@ -335,6 +454,9 @@ class AnnotationController extends GetxController {
           .clamp(2, _maxShapeStrokeWidth)
           .toInt();
     }
+    if (drawable is EditableArrowDrawable) {
+      arrowStyle.value = drawable.style;
+    }
     _applyPainterMode();
   }
 
@@ -352,6 +474,72 @@ class AnnotationController extends GetxController {
 
   void setMosaicDrawMode(MosaicDrawMode value) {
     mosaicDrawMode.value = value;
+  }
+
+  void setArrowStyle(EditableArrowStyle value) {
+    arrowStyle.value = value;
+    _updateSelectedArrowStyle(value);
+  }
+
+  void rotateSelectedShapeTo(Offset point) {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable is RectangleDrawable) {
+      final vector = point - drawable.position;
+      if (vector.distance < _minDrawableSide) {
+        return;
+      }
+      final next = drawable.copyWith(rotation: vector.direction - math.pi / 2);
+      painterController.replaceDrawable(drawable, next);
+      painterController.selectObjectDrawable(next);
+      selectedObject.value = next;
+      result.value = null;
+      editRevision.value++;
+    }
+    if (drawable is OvalDrawable) {
+      final vector = point - drawable.position;
+      if (vector.distance < _minDrawableSide) {
+        return;
+      }
+      final next = drawable.copyWith(rotation: vector.direction - math.pi / 2);
+      painterController.replaceDrawable(drawable, next);
+      painterController.selectObjectDrawable(next);
+      selectedObject.value = next;
+      result.value = null;
+      editRevision.value++;
+    }
+  }
+
+  void updateSelectedArrowEndpoint({
+    required bool isHead,
+    required Offset point,
+  }) {
+    final drawable = painterController.selectedObjectDrawable;
+    final endpoints = _arrowEndpoints(drawable);
+    if (drawable == null || endpoints == null) {
+      return;
+    }
+    final fixed = isHead ? endpoints.start : endpoints.end;
+    final start = isHead ? fixed : point;
+    final end = isHead ? point : fixed;
+    final delta = end - start;
+    if (delta.distance < _minDrawableSide) {
+      return;
+    }
+    final next = _copyArrowDrawable(
+      drawable,
+      position: Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2),
+      length: delta.distance,
+      rotation: delta.direction,
+      scale: 1,
+    );
+    if (next == null) {
+      return;
+    }
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
+    result.value = null;
+    editRevision.value++;
   }
 
   void addMosaicStroke(List<Offset> points, {required MosaicStrokeKind kind}) {
@@ -524,6 +712,29 @@ class AnnotationController extends GetxController {
     return value == 'editor' ? 'annotation.mode.editor'.tr : value;
   }
 
+  AnnotationObjectControlGeometry? get selectedControlGeometry {
+    editRevision.value;
+    final drawable = selectedObject.value;
+    if (drawable is RectangleDrawable) {
+      return AnnotationObjectControlGeometry(
+        rotateHandle: _shapeBottomCenter(drawable),
+      );
+    }
+    if (drawable is OvalDrawable) {
+      return AnnotationObjectControlGeometry(
+        rotateHandle: _shapeBottomCenter(drawable),
+      );
+    }
+    final endpoints = _arrowEndpoints(drawable);
+    if (endpoints != null) {
+      return AnnotationObjectControlGeometry(
+        arrowStart: endpoints.start,
+        arrowEnd: endpoints.end,
+      );
+    }
+    return null;
+  }
+
   void _addObjectDrawable(ObjectDrawable drawable) {
     painterController.addDrawables([drawable]);
     painterController.selectObjectDrawable(drawable);
@@ -652,6 +863,20 @@ class AnnotationController extends GetxController {
     painterController.selectObjectDrawable(next);
     selectedObject.value = next;
     result.value = null;
+    editRevision.value++;
+  }
+
+  void _updateSelectedArrowStyle(EditableArrowStyle style) {
+    final drawable = painterController.selectedObjectDrawable;
+    final next = _copyArrowDrawable(drawable, style: style);
+    if (drawable == null || next == null) {
+      return;
+    }
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
+    result.value = null;
+    editRevision.value++;
   }
 
   bool updateSelectedTextLayer() {
@@ -803,12 +1028,94 @@ class AnnotationController extends GetxController {
     final delta = end - start;
     final length = math.max(delta.distance, _minDrawableSide);
     final center = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-    return ArrowDrawable(
+    return EditableArrowDrawable(
       length: length,
       position: center,
       rotationAngle: math.atan2(delta.dy, delta.dx),
       paint: paint,
+      style: arrowStyle.value,
       arrowHeadSize: math.max(18, paint.strokeWidth * 4),
+    );
+  }
+
+  Offset _shapeBottomCenter(ObjectDrawable drawable) {
+    final Size size = switch (drawable) {
+      RectangleDrawable item => item.size * item.scale,
+      OvalDrawable item => item.size * item.scale,
+      _ => Size.zero,
+    };
+    final localBottom = Offset(0, size.height / 2);
+    return drawable.position +
+        _rotateOffset(localBottom, drawable.rotationAngle);
+  }
+
+  _ArrowEndpoints? _arrowEndpoints(ObjectDrawable? drawable) {
+    if (drawable is EditableArrowDrawable) {
+      final half = drawable.length * drawable.scale / 2;
+      final start =
+          drawable.position +
+          Offset.fromDirection(drawable.rotationAngle, -half);
+      final end =
+          drawable.position +
+          Offset.fromDirection(drawable.rotationAngle, half);
+      return _ArrowEndpoints(start: start, end: end);
+    }
+    if (drawable is ArrowDrawable) {
+      final half = drawable.length * drawable.scale / 2;
+      final start =
+          drawable.position +
+          Offset.fromDirection(drawable.rotationAngle, -half);
+      final end =
+          drawable.position +
+          Offset.fromDirection(drawable.rotationAngle, half);
+      return _ArrowEndpoints(start: start, end: end);
+    }
+    return null;
+  }
+
+  ObjectDrawable? _copyArrowDrawable(
+    ObjectDrawable? drawable, {
+    Offset? position,
+    double? length,
+    double? rotation,
+    double? scale,
+    Paint? paint,
+    EditableArrowStyle? style,
+  }) {
+    if (drawable is EditableArrowDrawable) {
+      return drawable.copyWith(
+        position: position,
+        length: length,
+        rotation: rotation,
+        scale: scale,
+        paint: paint,
+        style: style,
+      );
+    }
+    if (drawable is ArrowDrawable) {
+      return EditableArrowDrawable(
+        position: position ?? drawable.position,
+        length: length ?? drawable.length,
+        rotationAngle: rotation ?? drawable.rotationAngle,
+        scale: scale ?? drawable.scale,
+        paint: paint ?? drawable.paint,
+        style: style ?? arrowStyle.value,
+        arrowHeadSize: drawable.arrowHeadSize,
+        assists: drawable.assists,
+        assistPaints: drawable.assistPaints,
+        locked: drawable.locked,
+        hidden: drawable.hidden,
+      );
+    }
+    return null;
+  }
+
+  Offset _rotateOffset(Offset offset, double radians) {
+    final cos = math.cos(radians);
+    final sin = math.sin(radians);
+    return Offset(
+      offset.dx * cos - offset.dy * sin,
+      offset.dx * sin + offset.dy * cos,
     );
   }
 
@@ -871,6 +1178,13 @@ class AnnotationController extends GetxController {
   void _showError(String message) {
     showLatestSnackbar('annotation.error.title'.tr, message);
   }
+}
+
+class _ArrowEndpoints {
+  const _ArrowEndpoints({required this.start, required this.end});
+
+  final Offset start;
+  final Offset end;
 }
 
 Color _colorFromHex(String value) {

@@ -635,6 +635,25 @@ void main() {
     expect(find.text('Stroke: 12 px'), findsOneWidget);
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
+    controller.setMode(AnnotationMode.mosaic);
+    await tester.pump();
+
+    expect(find.text('Freehand'), findsOneWidget);
+    expect(find.text('Rectangle Mosaic'), findsOneWidget);
+    expect(find.text('Stroke: 12 px'), findsOneWidget);
+
+    controller.setMosaicDrawMode(MosaicDrawMode.rectangle);
+    await tester.pump();
+
+    expect(find.text('Stroke: 12 px'), findsNothing);
+
+    controller.selectShapeTool(EditableLayerType.arrow);
+    await tester.pump();
+
+    expect(find.text('Solid Arrow'), findsOneWidget);
+    expect(find.text('Outline Arrow'), findsOneWidget);
+    expect(find.text('Stroke: 12 px'), findsOneWidget);
+
     await database.close();
     Get.reset();
   });
