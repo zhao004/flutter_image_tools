@@ -37,11 +37,7 @@ class CompressView extends GetView<CompressController> {
         previewBuilder: (context, previewImage) =>
             EditorImagePreview(image: previewImage),
         showEditingControlsWhenEmpty: true,
-        tabBar: EditorSingleToolTab(
-          icon: Icons.tune_outlined,
-          label: 'compress.quality.title'.tr,
-        ),
-        toolbar: _CompressPropertyPanel(controller: controller),
+        bottomToolbar: _CompressBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -64,6 +60,29 @@ class CompressView extends GetView<CompressController> {
     }
     final totalSize = images.fold<int>(0, (sum, item) => sum + item.sizeBytes);
     return '${'compress.image.selectedCount'.trParams({'count': images.length.toString()})} · ${controller.formatBytes(totalSize)}';
+  }
+}
+
+class _CompressBottomToolPanel extends StatelessWidget {
+  const _CompressBottomToolPanel({required this.controller});
+
+  final CompressController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return EditorDynamicToolPanel(
+      categories: [
+        ToolCategory(
+          id: 'quality',
+          name: 'compress.quality.title'.tr,
+          icon: Icons.tune_outlined,
+        ),
+      ],
+      activeCategoryId: 'quality',
+      activePanelTitle: 'compress.quality.title'.tr,
+      activePanel: _CompressPropertyPanel(controller: controller),
+      onCategorySelected: (_) {},
+    );
   }
 }
 

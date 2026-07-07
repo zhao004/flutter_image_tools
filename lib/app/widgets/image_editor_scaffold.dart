@@ -4,6 +4,33 @@ import 'package:flutter/material.dart';
 
 import '../models/local_image_file.dart';
 
+/// 图片编辑底部一级工具模型。
+///
+/// 设计意图：所有图片编辑页共享“一级工具 + 可选二级工具”的数据结构，
+/// 页面只负责提供业务回调，通用组件负责横向滚动、选中态和紧凑布局。
+class ToolCategory {
+  const ToolCategory({
+    required this.id,
+    required this.name,
+    required this.icon,
+    this.subItems = const <ToolSubItem>[],
+  });
+
+  final String id;
+  final String name;
+  final IconData icon;
+  final List<ToolSubItem> subItems;
+}
+
+/// 图片编辑底部二级工具模型。
+class ToolSubItem {
+  const ToolSubItem({required this.id, required this.name, required this.icon});
+
+  final String id;
+  final String name;
+  final IconData icon;
+}
+
 /// 图片编辑页通用骨架：选图前显示空状态，选图后展示统一五段式编辑布局。
 ///
 /// 设计意图：滤镜、水印、裁剪、尺寸调整、翻转和旋转都遵循“先选图、
@@ -26,14 +53,11 @@ class ImageEditorScaffold extends StatelessWidget {
     required this.onPickImage,
     this.onExport,
     required this.previewBuilder,
-    this.toolbar,
     this.imageMeta,
     this.resultSummary,
     this.appBarActions = const [],
     this.lockPreviewScroll = false,
-    this.tabBar,
     this.bottomToolbar,
-    this.toolbarMaxHeight,
     this.showEditingControlsWhenEmpty = false,
     this.showPreviewInfo = true,
     this.showDefaultAppBarActions = true,
@@ -55,14 +79,11 @@ class ImageEditorScaffold extends StatelessWidget {
   final VoidCallback? onExport;
   final Widget Function(BuildContext context, LocalImageFile image)
   previewBuilder;
-  final Widget? toolbar;
   final String? imageMeta;
   final Widget? resultSummary;
   final List<Widget> appBarActions;
   final bool lockPreviewScroll;
-  final Widget? tabBar;
   final Widget? bottomToolbar;
-  final double? toolbarMaxHeight;
   final bool showEditingControlsWhenEmpty;
   final bool showPreviewInfo;
   final bool showDefaultAppBarActions;
@@ -91,12 +112,9 @@ class ImageEditorScaffold extends StatelessWidget {
             showPreviewInfo: showPreviewInfo,
             expandPreviewToAvailableHeight: expandPreviewToAvailableHeight,
           );
-    final toolbarSurface = toolbar == null
+    final bottomToolbarSurface = bottomToolbar == null
         ? null
-        : _EditorPropertyPanelSurface(
-            maxHeight: toolbarMaxHeight,
-            child: toolbar!,
-          );
+        : _EditorBottomToolbarSurface(child: bottomToolbar!);
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -129,15 +147,20 @@ class ImageEditorScaffold extends StatelessWidget {
               children: [
                 Expanded(child: previewContent),
                 if (showEditingControls) ...[
-                  if (tabBar != null) _EditorTabBarSurface(child: tabBar!),
-                  if (!overlayToolbar && toolbarSurface != null) toolbarSurface,
-                  if (bottomToolbar != null)
-                    _EditorBottomToolbarSurface(child: bottomToolbar!),
+                  if (!overlayToolbar && bottomToolbarSurface != null)
+                    bottomToolbarSurface,
                 ],
               ],
             ),
-            if (showEditingControls && overlayToolbar && toolbarSurface != null)
-              Positioned(left: 0, right: 0, bottom: 0, child: toolbarSurface),
+            if (showEditingControls &&
+                overlayToolbar &&
+                bottomToolbarSurface != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: bottomToolbarSurface,
+              ),
           ],
         ),
       ),
@@ -234,7 +257,9 @@ class _EditorPreviewStage extends StatelessWidget {
         final availableHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight - _stagePadding * 2
             : null;
-        final previewFrame = _PreviewFrame(child: previewBuilder(context, image));
+        final previewFrame = _PreviewFrame(
+          child: previewBuilder(context, image),
+        );
         final reservedHeight =
             (showPreviewInfo ? _previewInfoReservedHeight : 0) +
             (resultSummary == null ? 0 : _resultSummaryReservedHeight);
@@ -324,61 +349,6 @@ class _PreviewFrame extends StatelessWidget {
   }
 }
 
-class _EditorTabBarSurface extends StatelessWidget {
-  const _EditorTabBarSurface({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _EditorPropertyPanelSurface extends StatelessWidget {
-  const _EditorPropertyPanelSurface({
-    required this.child,
-    required this.maxHeight,
-  });
-
-  final Widget child;
-  final double? maxHeight;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxPanelHeight =
-        maxHeight ??
-        (MediaQuery.sizeOf(context).height * 0.28).clamp(120.0, 240.0);
-    final panel = SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: child,
-    );
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxPanelHeight),
-        child: panel,
-      ),
-    );
-  }
-}
-
 class _EditorBottomToolbarSurface extends StatelessWidget {
   const _EditorBottomToolbarSurface({required this.child});
 
@@ -399,6 +369,258 @@ class _EditorBottomToolbarSurface extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
           child: child,
         ),
+      ),
+    );
+  }
+}
+
+/// 图片编辑页统一动态底部工具栏。
+///
+/// 设计意图：用固定高度一级菜单承载工具入口，选中工具后在同一区域上方
+/// 渲染对应属性面板；二级工具使用可选横向列表承载，避免每个页面重复维护
+/// TabBar、属性面板和底部按钮三套布局。异常策略：组件不保存业务状态，所有
+/// 选中、关闭、确认行为都交回页面控制器处理，避免通用层产生隐式状态。
+class EditorDynamicToolPanel extends StatelessWidget {
+  const EditorDynamicToolPanel({
+    super.key,
+    required this.categories,
+    required this.activeCategoryId,
+    required this.onCategorySelected,
+    this.activeSubItemId,
+    this.onSubItemSelected,
+    this.activePanel,
+    this.activePanelTitle,
+    this.onClosePanel,
+    this.onConfirmPanel,
+    this.maxPanelHeight = 180,
+    this.showPanelHeader = true,
+  });
+
+  final List<ToolCategory> categories;
+  final String? activeCategoryId;
+  final ValueChanged<ToolCategory> onCategorySelected;
+  final String? activeSubItemId;
+  final ValueChanged<ToolSubItem>? onSubItemSelected;
+  final Widget? activePanel;
+  final String? activePanelTitle;
+  final VoidCallback? onClosePanel;
+  final VoidCallback? onConfirmPanel;
+  final double maxPanelHeight;
+  final bool showPanelHeader;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeCategory = _activeCategory;
+    final hasActiveSubItems = activeCategory?.subItems.isNotEmpty ?? false;
+    final shouldShowSubPanel = activePanel != null || hasActiveSubItems;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (shouldShowSubPanel) ...[
+          _DynamicToolSubPanel(
+            title: activePanelTitle ?? activeCategory?.name,
+            maxHeight: maxPanelHeight,
+            subItems: activeCategory?.subItems ?? const <ToolSubItem>[],
+            activeSubItemId: activeSubItemId,
+            onSubItemSelected: onSubItemSelected,
+            onClosePanel: onClosePanel,
+            onConfirmPanel: onConfirmPanel,
+            showHeader: showPanelHeader,
+            child: activePanel ?? const SizedBox.shrink(),
+          ),
+          const Divider(height: 12),
+        ],
+        SizedBox(
+          height: 68,
+          child: ListView.builder(
+            clipBehavior: Clip.none,
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final item = categories[index];
+              return _PrimaryToolButton(
+                category: item,
+                selected: item.id == activeCategoryId,
+                onTap: () => onCategorySelected(item),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  ToolCategory? get _activeCategory {
+    for (final category in categories) {
+      if (category.id == activeCategoryId) {
+        return category;
+      }
+    }
+    return null;
+  }
+}
+
+class _DynamicToolSubPanel extends StatelessWidget {
+  const _DynamicToolSubPanel({
+    required this.title,
+    required this.maxHeight,
+    required this.subItems,
+    required this.activeSubItemId,
+    required this.onSubItemSelected,
+    required this.onClosePanel,
+    required this.onConfirmPanel,
+    required this.showHeader,
+    required this.child,
+  });
+
+  final String? title;
+  final double maxHeight;
+  final List<ToolSubItem> subItems;
+  final String? activeSubItemId;
+  final ValueChanged<ToolSubItem>? onSubItemSelected;
+  final VoidCallback? onClosePanel;
+  final VoidCallback? onConfirmPanel;
+  final bool showHeader;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showHeader &&
+                (title != null ||
+                    onClosePanel != null ||
+                    onConfirmPanel != null))
+              Row(
+                children: [
+                  if (onClosePanel != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).closeButtonTooltip,
+                      onPressed: onClosePanel,
+                      icon: const Icon(Icons.close),
+                    ),
+                  if (title != null)
+                    Expanded(
+                      child: Text(
+                        title!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  if (onConfirmPanel != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: MaterialLocalizations.of(context).okButtonLabel,
+                      onPressed: onConfirmPanel,
+                      icon: const Icon(Icons.check),
+                    ),
+                ],
+              ),
+            if (subItems.isNotEmpty) ...[
+              SizedBox(
+                height: 58,
+                child: ListView.builder(
+                  clipBehavior: Clip.none,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: subItems.length,
+                  itemBuilder: (context, index) {
+                    final item = subItems[index];
+                    return _SecondaryToolButton(
+                      item: item,
+                      selected: item.id == activeSubItemId,
+                      onTap: () => onSubItemSelected?.call(item),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryToolButton extends StatelessWidget {
+  const _PrimaryToolButton({
+    required this.category,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ToolCategory category;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = selected ? colorScheme.primary : colorScheme.onSurface;
+    return SizedBox(
+      width: 72,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(category.icon, size: 24, color: foreground),
+              const SizedBox(height: 4),
+              Text(
+                category.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: foreground,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryToolButton extends StatelessWidget {
+  const _SecondaryToolButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ToolSubItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        avatar: Icon(item.icon, size: 18),
+        label: Text(item.name),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        selectedColor: colorScheme.secondaryContainer,
       ),
     );
   }
@@ -486,38 +708,6 @@ class EditorOptionWrap<T> extends StatelessWidget {
               ),
             )
             .toList(growable: false),
-      ),
-    );
-  }
-}
-
-/// 单工具编辑页通用标签栏，用于压缩、格式转换、裁剪等只有一个参数面板的页面。
-///
-/// 设计意图：这些页面仍遵循五段式结构，但不需要多标签切换；用固定选中的
-/// Chip 保持视觉层级一致，同时避免每个页面重复实现相同的横向容器。
-class EditorSingleToolTab extends StatelessWidget {
-  const EditorSingleToolTab({
-    super.key,
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          ChoiceChip(
-            avatar: Icon(icon, size: 18),
-            label: Text(label),
-            selected: true,
-            onSelected: (_) {},
-          ),
-        ],
       ),
     );
   }

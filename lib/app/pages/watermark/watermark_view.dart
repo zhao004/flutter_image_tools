@@ -38,9 +38,7 @@ class WatermarkView extends GetView<WatermarkController> {
         ),
         showPreviewInfo: false,
         expandPreviewToAvailableHeight: true,
-        overlayToolbar: true,
-        toolbarMaxHeight: 96,
-        toolbar: _WatermarkPropertyPanel(controller: controller),
+        bottomToolbar: _WatermarkBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -126,6 +124,30 @@ class _TextWatermarkOverlay extends StatelessWidget {
       case WatermarkColor.yellow:
         return const Color(0xFFFDD835);
     }
+  }
+}
+
+class _WatermarkBottomToolPanel extends StatelessWidget {
+  const _WatermarkBottomToolPanel({required this.controller});
+
+  final WatermarkController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return EditorDynamicToolPanel(
+      categories: [
+        ToolCategory(
+          id: 'watermark',
+          name: 'watermark.config.text'.tr,
+          icon: Icons.text_fields_outlined,
+        ),
+      ],
+      activeCategoryId: 'watermark',
+      onCategorySelected: (_) {},
+      activePanel: _WatermarkPropertyPanel(controller: controller),
+      maxPanelHeight: 96,
+      showPanelHeader: false,
+    );
   }
 }
 

@@ -45,11 +45,7 @@ class CropView extends GetView<CropController> {
           controller: controller,
           aspectRatio: _previewAspectRatio(),
         ),
-        tabBar: EditorSingleToolTab(
-          icon: Icons.crop_outlined,
-          label: 'crop.ratio.title'.tr,
-        ),
-        toolbar: _CropPropertyPanel(controller: controller),
+        bottomToolbar: _CropBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -75,6 +71,52 @@ class CropView extends GetView<CropController> {
       return 1;
     }
     return (width / height).clamp(0.1, 10);
+  }
+}
+
+class _CropBottomToolPanel extends StatelessWidget {
+  const _CropBottomToolPanel({required this.controller});
+
+  final CropController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return EditorDynamicToolPanel(
+      categories: [
+        ToolCategory(
+          id: 'ratio',
+          name: 'crop.ratio.title'.tr,
+          icon: Icons.crop_outlined,
+          subItems: CropPreset.values
+              .map(
+                (preset) => ToolSubItem(
+                  id: preset.name,
+                  name: '${preset.labelKey.tr} ${preset.ratioText.tr}',
+                  icon: _cropPresetIcon(preset),
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ],
+      activeCategoryId: 'ratio',
+      activeSubItemId: controller.preset.value.name,
+      onCategorySelected: (_) {},
+      onSubItemSelected: controller.isBusy.value
+          ? null
+          : (item) {
+              final preset = CropPreset.values.firstWhereOrNull(
+                (value) => value.name == item.id,
+              );
+              if (preset != null) {
+                controller.setPreset(preset);
+              }
+            },
+      activePanel: controller.preset.value == CropPreset.custom
+          ? _CropCustomRatioPanel(controller: controller)
+          : _CropRatioSummary(controller: controller),
+      maxPanelHeight: 150,
+      showPanelHeader: false,
+    );
   }
 }
 
@@ -182,81 +224,72 @@ class _CropEditorState extends State<_CropEditor> {
   }
 }
 
-class _CropPropertyPanel extends StatelessWidget {
-  const _CropPropertyPanel({required this.controller});
+class _CropRatioSummary extends StatelessWidget {
+  const _CropRatioSummary({required this.controller});
 
   final CropController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Text(
+      'crop.ratio.current'.trParams({'ratio': controller.currentRatioText()}),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+class _CropCustomRatioPanel extends StatelessWidget {
+  const _CropCustomRatioPanel({required this.controller});
+
+  final CropController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        Row(
-          children: [
-            Text(
-              'crop.ratio.title'.tr,
-              style: Theme.of(context).textTheme.titleSmall,
+        Expanded(
+          child: TextField(
+            controller: controller.customWidthController,
+            enabled: !controller.isBusy.value,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: (_) => controller.preset.refresh(),
+            decoration: InputDecoration(
+              labelText: 'crop.ratio.width'.tr,
+              border: const OutlineInputBorder(),
+              isDense: true,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'crop.ratio.current'.trParams({
-                  'ratio': controller.currentRatioText(),
-                }),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        EditorOptionWrap<CropPreset>(
-          values: CropPreset.values,
-          selected: controller.preset.value,
-          labelFor: (value) => '${value.labelKey.tr} ${value.ratioText.tr}',
-          enabled: !controller.isBusy.value,
-          onSelected: controller.setPreset,
-        ),
-        if (controller.preset.value == CropPreset.custom) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller.customWidthController,
-                  enabled: !controller.isBusy.value,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => controller.preset.refresh(),
-                  decoration: InputDecoration(
-                    labelText: 'crop.ratio.width'.tr,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: controller.customHeightController,
-                  enabled: !controller.isBusy.value,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => controller.preset.refresh(),
-                  decoration: InputDecoration(
-                    labelText: 'crop.ratio.height'.tr,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-              ),
-            ],
           ),
-        ],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            controller: controller.customHeightController,
+            enabled: !controller.isBusy.value,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: (_) => controller.preset.refresh(),
+            decoration: InputDecoration(
+              labelText: 'crop.ratio.height'.tr,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ),
       ],
     );
   }
+}
+
+IconData _cropPresetIcon(CropPreset preset) {
+  return switch (preset) {
+    CropPreset.square => Icons.crop_square,
+    CropPreset.landscape16x9 || CropPreset.landscape4x3 => Icons.crop_landscape,
+    CropPreset.portrait9x16 => Icons.crop_portrait,
+    CropPreset.custom => Icons.tune,
+  };
 }

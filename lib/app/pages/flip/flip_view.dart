@@ -40,11 +40,7 @@ class FlipView extends GetView<FlipController> {
             1,
           ),
         ),
-        tabBar: EditorSingleToolTab(
-          icon: Icons.flip_outlined,
-          label: 'flip.direction.title'.tr,
-        ),
-        toolbar: _FlipPropertyPanel(controller: controller),
+        bottomToolbar: _FlipBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -58,40 +54,73 @@ class FlipView extends GetView<FlipController> {
   }
 }
 
-class _FlipPropertyPanel extends StatelessWidget {
-  const _FlipPropertyPanel({required this.controller});
+class _FlipBottomToolPanel extends StatelessWidget {
+  const _FlipBottomToolPanel({required this.controller});
 
   final FlipController controller;
 
   @override
   Widget build(BuildContext context) {
+    return Obx(
+      () => EditorDynamicToolPanel(
+        categories: [
+          ToolCategory(
+            id: 'direction',
+            name: 'flip.direction.title'.tr,
+            icon: Icons.flip_outlined,
+            subItems: FlipDirection.values
+                .map(
+                  (direction) => ToolSubItem(
+                    id: direction.value,
+                    name: direction.label,
+                    icon: direction == FlipDirection.horizontal
+                        ? Icons.swap_horiz
+                        : Icons.swap_vert,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+        activeCategoryId: 'direction',
+        activeSubItemId: controller.direction.value.value,
+        activePanelTitle: 'flip.direction.title'.tr,
+        activePanel: _FlipProgressPanel(controller: controller),
+        onCategorySelected: (_) {},
+        onSubItemSelected: (item) {
+          final direction = FlipDirection.values.firstWhereOrNull(
+            (value) => value.value == item.id,
+          );
+          if (direction != null) {
+            controller.setDirection(direction);
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _FlipProgressPanel extends StatelessWidget {
+  const _FlipProgressPanel({required this.controller});
+
+  final FlipController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.tasks.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        LinearProgressIndicator(value: controller.progress),
+        const SizedBox(height: 6),
         Text(
-          'flip.direction.title'.tr,
-          style: Theme.of(context).textTheme.titleSmall,
+          'flip.progress.processed'.trParams({
+            'processed': controller.processedCount.value.toString(),
+            'total': controller.selectedImages.length.toString(),
+          }),
+          style: Theme.of(context).textTheme.bodySmall,
         ),
-        const SizedBox(height: 8),
-        EditorOptionWrap<FlipDirection>(
-          values: FlipDirection.values,
-          selected: controller.direction.value,
-          labelFor: (value) => value.label,
-          enabled: !controller.isBusy.value,
-          onSelected: controller.setDirection,
-        ),
-        if (controller.tasks.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          LinearProgressIndicator(value: controller.progress),
-          const SizedBox(height: 6),
-          Text(
-            'flip.progress.processed'.trParams({
-              'processed': controller.processedCount.value.toString(),
-              'total': controller.selectedImages.length.toString(),
-            }),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
       ],
     );
   }

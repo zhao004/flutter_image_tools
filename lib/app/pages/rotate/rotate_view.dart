@@ -40,11 +40,7 @@ class RotateView extends GetView<RotateController> {
             controller.degrees.value * math.pi / 180,
           ),
         ),
-        tabBar: EditorSingleToolTab(
-          icon: Icons.rotate_90_degrees_ccw_outlined,
-          label: 'rotate.angle.title'.tr,
-        ),
-        toolbar: _RotatePropertyPanel(controller: controller),
+        bottomToolbar: _RotateBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -58,101 +54,104 @@ class RotateView extends GetView<RotateController> {
   }
 }
 
-class _RotatePropertyPanel extends StatelessWidget {
-  const _RotatePropertyPanel({required this.controller});
+class _RotateBottomToolPanel extends StatelessWidget {
+  const _RotateBottomToolPanel({required this.controller});
 
   final RotateController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'rotate.angle.title'.tr,
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _AngleChip(
-                label: 'rotate.angle.left90'.tr,
-                selected: controller.degrees.value == -90,
-                enabled: !controller.isBusy.value,
-                onTap: () => controller.setDegrees(-90),
+    return Obx(
+      () => EditorDynamicToolPanel(
+        categories: [
+          ToolCategory(
+            id: 'angle',
+            name: 'rotate.angle.title'.tr,
+            icon: Icons.rotate_90_degrees_ccw_outlined,
+            subItems: [
+              ToolSubItem(
+                id: '-90',
+                name: 'rotate.angle.left90'.tr,
+                icon: Icons.rotate_left,
               ),
-              _AngleChip(
-                label: 'rotate.angle.right90'.tr,
-                selected: controller.degrees.value == 90,
-                enabled: !controller.isBusy.value,
-                onTap: () => controller.setDegrees(90),
+              ToolSubItem(
+                id: '90',
+                name: 'rotate.angle.right90'.tr,
+                icon: Icons.rotate_right,
               ),
-              _AngleChip(
-                label: 'rotate.angle.oneEighty'.tr,
-                selected: controller.degrees.value == 180,
-                enabled: !controller.isBusy.value,
-                onTap: () => controller.setDegrees(180),
+              ToolSubItem(
+                id: '180',
+                name: 'rotate.angle.oneEighty'.tr,
+                icon: Icons.refresh,
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'rotate.angle.custom'.trParams({
-            'degrees': controller.degrees.value.toString(),
-          }),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        Slider(
-          value: controller.degrees.value.clamp(-180, 180).toDouble(),
-          min: -180,
-          max: 180,
-          divisions: 360,
-          label: '${controller.degrees.value}°',
-          onChanged: controller.isBusy.value
-              ? null
-              : controller.updateCustomDegrees,
-        ),
-        if (controller.tasks.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          LinearProgressIndicator(value: controller.progress),
-          const SizedBox(height: 6),
-          Text(
-            'rotate.progress.processed'.trParams({
-              'processed': controller.processedCount.value.toString(),
-              'total': controller.selectedImages.length.toString(),
-            }),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
         ],
-      ],
+        activeCategoryId: 'angle',
+        activeSubItemId: _presetAngleId(controller.degrees.value),
+        activePanelTitle: 'rotate.angle.title'.tr,
+        activePanel: _RotateCustomAnglePanel(controller: controller),
+        onCategorySelected: (_) {},
+        onSubItemSelected: (item) {
+          final degrees = int.tryParse(item.id);
+          if (degrees != null) {
+            controller.setDegrees(degrees);
+          }
+        },
+      ),
     );
+  }
+
+  String? _presetAngleId(int degrees) {
+    return switch (degrees) {
+      -90 => '-90',
+      90 => '90',
+      180 => '180',
+      _ => null,
+    };
   }
 }
 
-class _AngleChip extends StatelessWidget {
-  const _AngleChip({
-    required this.label,
-    required this.selected,
-    required this.enabled,
-    required this.onTap,
-  });
+class _RotateCustomAnglePanel extends StatelessWidget {
+  const _RotateCustomAnglePanel({required this.controller});
 
-  final String label;
-  final bool selected;
-  final bool enabled;
-  final VoidCallback onTap;
+  final RotateController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: enabled ? (_) => onTap() : null,
+    return Obx(
+      () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'rotate.angle.custom'.trParams({
+              'degrees': controller.degrees.value.toString(),
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          Slider(
+            value: controller.degrees.value.clamp(-180, 180).toDouble(),
+            min: -180,
+            max: 180,
+            divisions: 360,
+            label: '${controller.degrees.value}°',
+            onChanged: controller.isBusy.value
+                ? null
+                : controller.updateCustomDegrees,
+          ),
+          if (controller.tasks.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: controller.progress),
+            const SizedBox(height: 6),
+            Text(
+              'rotate.progress.processed'.trParams({
+                'processed': controller.processedCount.value.toString(),
+                'total': controller.selectedImages.length.toString(),
+              }),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ],
       ),
     );
   }

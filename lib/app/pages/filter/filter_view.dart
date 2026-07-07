@@ -36,11 +36,7 @@ class FilterView extends GetView<FilterController> {
           image: previewImage,
           colorFilter: _colorFilterFor(controller.filter.value),
         ),
-        tabBar: EditorSingleToolTab(
-          icon: Icons.filter_vintage_outlined,
-          label: 'filter.type.title'.tr,
-        ),
-        toolbar: _FilterPropertyPanel(controller: controller),
+        bottomToolbar: _FilterBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -289,29 +285,44 @@ class FilterView extends GetView<FilterController> {
   }
 }
 
-class _FilterPropertyPanel extends StatelessWidget {
-  const _FilterPropertyPanel({required this.controller});
+class _FilterBottomToolPanel extends StatelessWidget {
+  const _FilterBottomToolPanel({required this.controller});
 
   final FilterController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'filter.type.title'.tr,
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        const SizedBox(height: 8),
-        EditorOptionWrap<ImageFilterType>(
-          values: ImageFilterType.values,
-          selected: controller.filter.value,
-          labelFor: (value) => value.label,
-          enabled: !controller.isBusy.value,
-          onSelected: controller.setFilter,
-        ),
-      ],
+    return Obx(
+      () => EditorDynamicToolPanel(
+        categories: [
+          ToolCategory(
+            id: 'filter',
+            name: 'filter.type.title'.tr,
+            icon: Icons.filter_vintage_outlined,
+            subItems: ImageFilterType.values
+                .map(
+                  (filter) => ToolSubItem(
+                    id: filter.value,
+                    name: filter.label,
+                    icon: Icons.image_outlined,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+        activeCategoryId: 'filter',
+        activeSubItemId: controller.filter.value.value,
+        activePanelTitle: 'filter.type.title'.tr,
+        onCategorySelected: (_) {},
+        onSubItemSelected: (item) {
+          final filter = ImageFilterType.values.firstWhereOrNull(
+            (value) => value.value == item.id,
+          );
+          if (filter != null) {
+            controller.setFilter(filter);
+          }
+        },
+      ),
     );
   }
 }

@@ -39,9 +39,7 @@ class GridView extends GetView<GridController> {
         lockPreviewScroll: true,
         previewBuilder: (context, previewImage) =>
             _GridEditorCanvas(controller: controller, image: previewImage),
-        tabBar: _GridToolTabs(controller: controller),
-        toolbar: _GridPropertyPanel(controller: controller),
-        bottomToolbar: _GridActionToolbar(controller: controller),
+        bottomToolbar: _GridBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -239,28 +237,44 @@ class _GridOverlayPainter extends CustomPainter {
   }
 }
 
-class _GridToolTabs extends StatelessWidget {
-  const _GridToolTabs({required this.controller});
+class _GridBottomToolPanel extends StatelessWidget {
+  const _GridBottomToolPanel({required this.controller});
 
   final GridController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            ChoiceChip(
-              avatar: const Icon(Icons.grid_view_outlined, size: 18),
-              label: Text('grid.editor.scale'.tr),
-              selected: true,
-              onSelected: controller.isBusy.value ? null : (_) {},
-            ),
-          ],
-        ),
-      ),
-    );
+    return Obx(() {
+      return EditorDynamicToolPanel(
+        categories: [
+          ToolCategory(
+            id: 'grid',
+            name: 'grid.editor.scale'.tr,
+            icon: Icons.grid_view_outlined,
+            subItems: const [
+              ToolSubItem(id: '2', name: '2 × 2', icon: Icons.grid_3x3),
+              ToolSubItem(id: '3', name: '3 × 3', icon: Icons.grid_3x3),
+              ToolSubItem(id: '4', name: '4 × 4', icon: Icons.grid_4x4),
+              ToolSubItem(id: '5', name: '5 × 5', icon: Icons.grid_4x4),
+            ],
+          ),
+        ],
+        activeCategoryId: 'grid',
+        activeSubItemId: controller.gridSize.value.toString(),
+        onCategorySelected: (_) {},
+        onSubItemSelected: controller.isBusy.value
+            ? null
+            : (item) {
+                final size = int.tryParse(item.id);
+                if (size != null) {
+                  controller.setGridSize(size);
+                }
+              },
+        activePanel: _GridPropertyPanel(controller: controller),
+        maxPanelHeight: 150,
+        showPanelHeader: false,
+      );
+    });
   }
 }
 
@@ -282,9 +296,7 @@ class _GridPropertyPanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 10),
-          _GridSizeSelector(controller: controller),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             children: [
               Text('grid.editor.scale'.tr),
@@ -303,57 +315,18 @@ class _GridPropertyPanel extends StatelessWidget {
                 ),
               ),
               Text('${(controller.gridScale.value * 100).round()}%'),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: 'grid.action.centerGrid'.tr,
+                onPressed: hasImage && !controller.isBusy.value
+                    ? controller.resetGridPosition
+                    : null,
+                icon: const Icon(Icons.center_focus_strong_outlined),
+              ),
             ],
           ),
         ],
       );
     });
-  }
-}
-
-class _GridActionToolbar extends StatelessWidget {
-  const _GridActionToolbar({required this.controller});
-
-  final GridController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasImage = controller.selectedImage.value != null;
-      return Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: hasImage && !controller.isBusy.value
-                ? controller.resetGridPosition
-                : null,
-            icon: const Icon(Icons.center_focus_strong_outlined),
-            label: Text('grid.action.centerGrid'.tr),
-          ),
-        ],
-      );
-    });
-  }
-}
-
-class _GridSizeSelector extends StatelessWidget {
-  const _GridSizeSelector({required this.controller});
-
-  final GridController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return SegmentedButton<int>(
-      segments: const [
-        ButtonSegment<int>(value: 2, label: Text('2 × 2')),
-        ButtonSegment<int>(value: 3, label: Text('3 × 3')),
-        ButtonSegment<int>(value: 4, label: Text('4 × 4')),
-        ButtonSegment<int>(value: 5, label: Text('5 × 5')),
-      ],
-      selected: {controller.gridSize.value},
-      showSelectedIcon: false,
-      onSelectionChanged: controller.isBusy.value
-          ? null
-          : (values) => controller.setGridSize(values.first),
-    );
   }
 }

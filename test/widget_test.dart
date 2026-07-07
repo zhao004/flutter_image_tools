@@ -469,8 +469,6 @@ void main() {
             height: 160,
             child: ColoredBox(color: Colors.black12),
           ),
-          tabBar: const Text('Range'),
-          toolbar: const Text('Property Panel'),
           bottomToolbar: const Text('Bottom Toolbar'),
           resultSummary: const Text('Result Summary'),
         ),
@@ -483,15 +481,13 @@ void main() {
     expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-canvas')), findsOneWidget);
     expect(find.text('preview.png'), findsOneWidget);
-    expect(find.text('Range'), findsOneWidget);
-    expect(find.text('Property Panel'), findsOneWidget);
     expect(find.text('Bottom Toolbar'), findsOneWidget);
     expect(find.text('Result Summary'), findsOneWidget);
   });
 
   testWidgets('统一编辑器覆盖属性面板不压缩预览区', (WidgetTester tester) async {
     // 覆盖式属性面板叠在预览区底部，避免面板打开时改变画布约束导致标注元素抖动。
-    Widget buildEditor({required Widget? toolbar}) {
+    Widget buildEditor({required Widget? bottomToolbar}) {
       return GetMaterialApp(
         translations: AppTranslations(),
         locale: const Locale('en'),
@@ -523,14 +519,13 @@ void main() {
             key: ValueKey('overlay-editor-canvas'),
             child: ColoredBox(color: Colors.black12),
           ),
-          tabBar: const Text('Range'),
-          toolbar: toolbar,
+          bottomToolbar: bottomToolbar,
           overlayToolbar: true,
         ),
       );
     }
 
-    await tester.pumpWidget(buildEditor(toolbar: null));
+    await tester.pumpWidget(buildEditor(bottomToolbar: null));
     await tester.pump();
     final initialSize = tester.getSize(
       find.byKey(const ValueKey('overlay-editor-canvas')),
@@ -538,7 +533,7 @@ void main() {
 
     await tester.pumpWidget(
       buildEditor(
-        toolbar: const SizedBox(
+        bottomToolbar: const SizedBox(
           key: ValueKey('overlay-property-panel'),
           height: 180,
           child: Text('Property Panel'),
@@ -555,9 +550,11 @@ void main() {
     final panelRect = tester.getRect(
       find.byKey(const ValueKey('overlay-property-panel')),
     );
-    final tabRect = tester.getRect(find.text('Range'));
-    expect(panelRect.top, lessThan(tabRect.top));
-    expect(panelRect.bottom, greaterThan(tabRect.bottom));
+    final canvasRect = tester.getRect(
+      find.byKey(const ValueKey('overlay-editor-canvas')),
+    );
+    expect(panelRect.bottom, greaterThan(canvasRect.bottom));
+    expect(panelRect.top, lessThan(canvasRect.bottom));
   });
 
   testWidgets('显示英文图片滤镜页面', (WidgetTester tester) async {
@@ -784,9 +781,7 @@ void main() {
     expect(find.text('Circle'), findsOneWidget);
     expect(find.text('Arrow'), findsOneWidget);
 
-    await tester.tap(
-      find.widgetWithText(CheckedPopupMenuItem<AnnotationMode>, 'Brush'),
-    );
+    await tester.tap(find.text('Brush'));
     await tester.pumpAndSettle();
 
     expect(find.text('Annotation Style'), findsOneWidget);
@@ -805,18 +800,16 @@ void main() {
     await tester.tap(find.text('Mosaic'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Freehand'), findsOneWidget);
-    expect(find.text('Rectangle Mosaic'), findsOneWidget);
+    expect(find.text('Freehand'), findsWidgets);
+    expect(find.text('Rectangle Mosaic'), findsWidgets);
     expect(find.text('Circle Mosaic'), findsOneWidget);
 
-    await tester.tap(
-      find.widgetWithText(CheckedPopupMenuItem<MosaicDrawMode>, 'Freehand'),
-    );
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Freehand'));
     await tester.pumpAndSettle();
 
     expect(find.text('Annotation Style'), findsNothing);
-    expect(find.text('Freehand'), findsOneWidget);
-    expect(find.text('Rectangle Mosaic'), findsNothing);
+    expect(find.text('Freehand'), findsWidgets);
+    expect(find.text('Rectangle Mosaic'), findsWidgets);
     expect(find.text('#123456'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
 
@@ -828,7 +821,7 @@ void main() {
     await tester.pump();
 
     expect(controller.strokes.last.color, const Color(0xFF123456));
-    expect(find.text('Rectangle Mosaic'), findsOneWidget);
+    expect(find.text('Rectangle Mosaic'), findsWidgets);
     expect(find.text('Stroke: 12 px'), findsNothing);
 
     controller.selectShapeTool(EditableLayerType.arrow);
@@ -1208,7 +1201,7 @@ void main() {
     );
     expect(find.text('Select One'), findsOneWidget);
     expect(find.text('Select Batch'), findsNothing);
-    expect(find.text('Compression Quality'), findsOneWidget);
+    expect(find.text('Compression Quality'), findsWidgets);
     expect(find.text('Current Quality: 80%'), findsOneWidget);
     expect(find.text('Save to Gallery'), findsNothing);
 
@@ -1247,7 +1240,7 @@ void main() {
     );
     expect(find.text('Select One'), findsOneWidget);
     expect(find.text('Select Batch'), findsNothing);
-    expect(find.text('Export Format'), findsOneWidget);
+    expect(find.text('Export Format'), findsWidgets);
     expect(find.text('JPG'), findsOneWidget);
     expect(find.text('PNG'), findsOneWidget);
     expect(find.text('Export Quality: 95%'), findsOneWidget);
@@ -1476,7 +1469,7 @@ void main() {
     controller.selectedImages.assignAll([controller.selectedImage.value!]);
     await tester.pump();
 
-    expect(find.text('Watermark Text'), findsOneWidget);
+    expect(find.text('Watermark Text'), findsWidgets);
     expect(find.text('Bottom Right'), findsOneWidget);
     expect(find.text('White'), findsOneWidget);
     expect(find.text('Font Size: 36px'), findsOneWidget);

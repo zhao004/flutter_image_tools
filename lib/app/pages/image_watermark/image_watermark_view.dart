@@ -42,9 +42,7 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
         ),
         showPreviewInfo: false,
         expandPreviewToAvailableHeight: true,
-        overlayToolbar: true,
-        toolbarMaxHeight: 96,
-        toolbar: _ImageWatermarkPropertyPanel(controller: controller),
+        bottomToolbar: _ImageWatermarkBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -115,6 +113,30 @@ class _ImageWatermarkOverlay extends StatelessWidget {
       case ImageWatermarkPosition.tile:
         return Alignment.center;
     }
+  }
+}
+
+class _ImageWatermarkBottomToolPanel extends StatelessWidget {
+  const _ImageWatermarkBottomToolPanel({required this.controller});
+
+  final ImageWatermarkController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return EditorDynamicToolPanel(
+      categories: [
+        ToolCategory(
+          id: 'watermark',
+          name: 'imageWatermark.watermark.title'.tr,
+          icon: Icons.layers_outlined,
+        ),
+      ],
+      activeCategoryId: 'watermark',
+      onCategorySelected: (_) {},
+      activePanel: _ImageWatermarkPropertyPanel(controller: controller),
+      maxPanelHeight: 96,
+      showPanelHeader: false,
+    );
   }
 }
 

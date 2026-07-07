@@ -37,11 +37,7 @@ class ResizeView extends GetView<ResizeController> {
           image: previewImage,
           child: _ResizeOverlay(aspectRatio: _targetAspectRatio(previewImage)),
         ),
-        tabBar: EditorSingleToolTab(
-          icon: Icons.aspect_ratio_outlined,
-          label: 'resize.size.title'.tr,
-        ),
-        toolbar: _ResizePropertyPanel(controller: controller),
+        bottomToolbar: _ResizeBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -75,6 +71,30 @@ class ResizeView extends GetView<ResizeController> {
       return image.width / image.height;
     }
     return 1;
+  }
+}
+
+class _ResizeBottomToolPanel extends StatelessWidget {
+  const _ResizeBottomToolPanel({required this.controller});
+
+  final ResizeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return EditorDynamicToolPanel(
+      categories: [
+        ToolCategory(
+          id: 'size',
+          name: 'resize.size.title'.tr,
+          icon: Icons.aspect_ratio_outlined,
+        ),
+      ],
+      activeCategoryId: 'size',
+      onCategorySelected: (_) {},
+      activePanel: _ResizePropertyPanel(controller: controller),
+      maxPanelHeight: 210,
+      showPanelHeader: false,
+    );
   }
 }
 

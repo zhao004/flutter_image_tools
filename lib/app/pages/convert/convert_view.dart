@@ -37,11 +37,7 @@ class ConvertView extends GetView<ConvertController> {
         previewBuilder: (context, previewImage) =>
             EditorImagePreview(image: previewImage),
         showEditingControlsWhenEmpty: true,
-        tabBar: EditorSingleToolTab(
-          icon: Icons.tune_outlined,
-          label: 'convert.format.title'.tr,
-        ),
-        toolbar: _ConvertPropertyPanel(controller: controller),
+        bottomToolbar: _ConvertBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -68,8 +64,51 @@ class ConvertView extends GetView<ConvertController> {
   }
 }
 
-class _ConvertPropertyPanel extends StatelessWidget {
-  const _ConvertPropertyPanel({required this.controller});
+class _ConvertBottomToolPanel extends StatelessWidget {
+  const _ConvertBottomToolPanel({required this.controller});
+
+  final ConvertController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => EditorDynamicToolPanel(
+        categories: [
+          ToolCategory(
+            id: 'format',
+            name: 'convert.format.title'.tr,
+            icon: Icons.swap_horiz,
+            subItems: ConvertFormat.values
+                .map(
+                  (format) => ToolSubItem(
+                    id: format.value,
+                    name: format.label,
+                    icon: Icons.image_outlined,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+        activeCategoryId: 'format',
+        activeSubItemId: controller.format.value.value,
+        activePanelTitle: 'convert.format.title'.tr,
+        activePanel: _ConvertQualityPanel(controller: controller),
+        onCategorySelected: (_) {},
+        onSubItemSelected: (item) {
+          final format = ConvertFormat.values.firstWhereOrNull(
+            (value) => value.value == item.id,
+          );
+          if (format != null) {
+            controller.setFormat(format);
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _ConvertQualityPanel extends StatelessWidget {
+  const _ConvertQualityPanel({required this.controller});
 
   final ConvertController controller;
 
@@ -79,14 +118,6 @@ class _ConvertPropertyPanel extends StatelessWidget {
       () => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          EditorOptionWrap<ConvertFormat>(
-            values: ConvertFormat.values,
-            selected: controller.format.value,
-            labelFor: (value) => value.label,
-            enabled: !controller.isBusy.value,
-            onSelected: controller.setFormat,
-          ),
-          const SizedBox(height: 10),
           Text(
             'convert.quality.current'.trParams({
               'quality': controller.quality.value.toString(),

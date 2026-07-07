@@ -39,8 +39,7 @@ class MergeView extends GetView<MergeController> {
             ? null
             : '${'merge.image.selectedCount'.trParams({'count': images.length.toString()})} · ${controller.formatBytes(controller.totalSizeBytes)}',
         previewBuilder: (context, _) => _MergePreview(controller: controller),
-        tabBar: _MergeToolTabs(controller: controller),
-        toolbar: _MergePropertyPanel(controller: controller),
+        bottomToolbar: _MergeBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -211,8 +210,8 @@ class _PreviewImageTile extends StatelessWidget {
   }
 }
 
-class _MergePropertyPanel extends StatelessWidget {
-  const _MergePropertyPanel({required this.controller});
+class _MergeBottomToolPanel extends StatelessWidget {
+  const _MergeBottomToolPanel({required this.controller});
 
   final MergeController controller;
 
@@ -220,39 +219,33 @@ class _MergePropertyPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final selectedTab = controller.toolbarTab.value;
-      return _MergeToolPanel(controller: controller, selectedTab: selectedTab);
-    });
-  }
-}
-
-class _MergeToolTabs extends StatelessWidget {
-  const _MergeToolTabs({required this.controller});
-
-  final MergeController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(
-      () => SizedBox(
-        width: double.infinity,
-        child: SegmentedButton<MergeToolbarTab>(
-          showSelectedIcon: false,
-          segments: MergeToolbarTab.values
-              .map(
-                (tab) => ButtonSegment<MergeToolbarTab>(
-                  value: tab,
-                  icon: Icon(_toolbarTabIcon(tab), size: 18),
-                  label: Text(tab.labelKey.tr),
-                ),
-              )
-              .toList(growable: false),
-          selected: {controller.toolbarTab.value},
-          onSelectionChanged: controller.isBusy.value
-              ? null
-              : (values) => controller.setToolbarTab(values.first),
+      return EditorDynamicToolPanel(
+        categories: MergeToolbarTab.values
+            .map(
+              (tab) => ToolCategory(
+                id: tab.name,
+                name: tab.labelKey.tr,
+                icon: _toolbarTabIcon(tab),
+              ),
+            )
+            .toList(growable: false),
+        activeCategoryId: selectedTab.name,
+        onCategorySelected: (category) {
+          final tab = MergeToolbarTab.values.firstWhereOrNull(
+            (value) => value.name == category.id,
+          );
+          if (tab != null && !controller.isBusy.value) {
+            controller.setToolbarTab(tab);
+          }
+        },
+        activePanel: _MergeToolPanel(
+          controller: controller,
+          selectedTab: selectedTab,
         ),
-      ),
-    );
+        maxPanelHeight: selectedTab == MergeToolbarTab.order ? 220 : 190,
+        showPanelHeader: false,
+      );
+    });
   }
 }
 

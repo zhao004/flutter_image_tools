@@ -45,8 +45,7 @@ class AnnotationView extends GetView<AnnotationController> {
         previewBuilder: (context, previewImage) =>
             _AnnotationCanvasFrame(controller: controller, image: previewImage),
         appBarActions: [_AnnotationTopActions(controller: controller)],
-        tabBar: _AnnotationToolTabs(controller: controller),
-        toolbar: _annotationToolbar(),
+        bottomToolbar: _AnnotationBottomToolPanel(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -58,21 +57,6 @@ class AnnotationView extends GetView<AnnotationController> {
               ),
       );
     });
-  }
-
-  Widget? _annotationToolbar() {
-    final mode = controller.mode.value;
-    final hasSelectedLayer = controller.selectedObject.value != null;
-    final hasSelectedMosaic = controller.selectedMosaicIndex.value != null;
-    if (!controller.isPropertyPanelVisible.value) {
-      return null;
-    }
-    if (mode == AnnotationMode.select &&
-        !hasSelectedLayer &&
-        !hasSelectedMosaic) {
-      return null;
-    }
-    return _AnnotationPropertyPanel(controller: controller);
   }
 }
 
@@ -724,64 +708,268 @@ class _ImageAdjustmentPreview extends StatelessWidget {
   }
 }
 
-class _AnnotationToolTabs extends StatelessWidget {
-  const _AnnotationToolTabs({required this.controller});
+class _AnnotationBottomToolPanel extends StatelessWidget {
+  const _AnnotationBottomToolPanel({required this.controller});
 
   final AnnotationController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _MarkupToolMenu(controller: controller),
-            _MosaicModeMenu(controller: controller),
-            _ToolButton(
-              icon: Icons.text_fields,
-              label: AnnotationMode.text.label,
-              selected: controller.mode.value == AnnotationMode.text,
-              onTap: () async {
-                controller.setMode(AnnotationMode.text);
-                controller.createDefaultTextLayer();
-                await _showTextEditor(context, controller);
-              },
-            ),
-            _ToolButton(
-              icon: Icons.filter_vintage_outlined,
-              label: AnnotationMode.filter.label,
-              selected: controller.mode.value == AnnotationMode.filter,
-              onTap: () => controller.setMode(AnnotationMode.filter),
-            ),
-            _ToolButton(
-              icon: Icons.rotate_right,
-              label: AnnotationMode.rotate.label,
-              selected: controller.mode.value == AnnotationMode.rotate,
-              onTap: () => controller.setMode(AnnotationMode.rotate),
-            ),
-            _ToolButton(
-              icon: Icons.flip_outlined,
-              label: AnnotationMode.flip.label,
-              selected: controller.mode.value == AnnotationMode.flip,
-              onTap: () => controller.setMode(AnnotationMode.flip),
-            ),
-            _ToolButton(
-              icon: Icons.aspect_ratio_outlined,
-              label: AnnotationMode.resize.label,
-              selected: controller.mode.value == AnnotationMode.resize,
-              onTap: () => controller.setMode(AnnotationMode.resize),
-            ),
-            _ToolButton(
-              icon: Icons.crop_outlined,
-              label: AnnotationMode.crop.label,
-              selected: controller.mode.value == AnnotationMode.crop,
-              onTap: () => controller.setMode(AnnotationMode.crop),
-            ),
-          ],
-        ),
+    return Obx(() {
+      final activeCategoryId = _activeCategoryId;
+      return EditorDynamicToolPanel(
+        categories: _toolCategories(showSubItems: _shouldShowPanel),
+        activeCategoryId: activeCategoryId,
+        activeSubItemId: _activeSubItemId(activeCategoryId),
+        onCategorySelected: (category) =>
+            _handleCategorySelected(context, category.id),
+        onSubItemSelected: (item) =>
+            _handleSubItemSelected(context, activeCategoryId, item.id),
+        activePanel: _activePanel(),
+        maxPanelHeight: 260,
+        showPanelHeader: false,
+      );
+    });
+  }
+
+  List<ToolCategory> _toolCategories({required bool showSubItems}) {
+    return [
+      ToolCategory(
+        id: 'markup',
+        name: 'annotation.mode.markup'.tr,
+        icon: Icons.edit_outlined,
+        subItems: showSubItems
+            ? [
+                ToolSubItem(
+                  id: AnnotationMode.brush.value,
+                  name: AnnotationMode.brush.label,
+                  icon: Icons.brush_outlined,
+                ),
+                ToolSubItem(
+                  id: AnnotationMode.rectangle.value,
+                  name: AnnotationMode.rectangle.label,
+                  icon: Icons.crop_square,
+                ),
+                ToolSubItem(
+                  id: AnnotationMode.circle.value,
+                  name: AnnotationMode.circle.label,
+                  icon: Icons.circle_outlined,
+                ),
+                ToolSubItem(
+                  id: AnnotationMode.arrow.value,
+                  name: AnnotationMode.arrow.label,
+                  icon: Icons.arrow_forward,
+                ),
+              ]
+            : const <ToolSubItem>[],
       ),
+      ToolCategory(
+        id: AnnotationMode.mosaic.value,
+        name: AnnotationMode.mosaic.label,
+        icon: Icons.grid_on_outlined,
+        subItems: showSubItems
+            ? [
+                ToolSubItem(
+                  id: MosaicDrawMode.freehand.name,
+                  name: MosaicDrawMode.freehand.label,
+                  icon: Icons.gesture,
+                ),
+                ToolSubItem(
+                  id: MosaicDrawMode.rectangle.name,
+                  name: MosaicDrawMode.rectangle.label,
+                  icon: Icons.crop_square,
+                ),
+                ToolSubItem(
+                  id: MosaicDrawMode.circle.name,
+                  name: MosaicDrawMode.circle.label,
+                  icon: Icons.circle_outlined,
+                ),
+              ]
+            : const <ToolSubItem>[],
+      ),
+      ToolCategory(
+        id: AnnotationMode.text.value,
+        name: AnnotationMode.text.label,
+        icon: Icons.text_fields,
+      ),
+      ToolCategory(
+        id: AnnotationMode.filter.value,
+        name: AnnotationMode.filter.label,
+        icon: Icons.filter_vintage_outlined,
+      ),
+      ToolCategory(
+        id: AnnotationMode.rotate.value,
+        name: AnnotationMode.rotate.label,
+        icon: Icons.rotate_right,
+      ),
+      ToolCategory(
+        id: AnnotationMode.flip.value,
+        name: AnnotationMode.flip.label,
+        icon: Icons.flip_outlined,
+      ),
+      ToolCategory(
+        id: AnnotationMode.resize.value,
+        name: AnnotationMode.resize.label,
+        icon: Icons.aspect_ratio_outlined,
+      ),
+      ToolCategory(
+        id: AnnotationMode.crop.value,
+        name: AnnotationMode.crop.label,
+        icon: Icons.crop_outlined,
+      ),
+    ];
+  }
+
+  bool get _shouldShowPanel {
+    final mode = controller.mode.value;
+    final hasSelectedLayer = controller.selectedObject.value != null;
+    final hasSelectedMosaic = controller.selectedMosaicIndex.value != null;
+    if (!controller.isPropertyPanelVisible.value) {
+      return false;
+    }
+    return mode != AnnotationMode.select ||
+        hasSelectedLayer ||
+        hasSelectedMosaic;
+  }
+
+  Widget? _activePanel() {
+    return _shouldShowPanel
+        ? _AnnotationPropertyPanel(controller: controller)
+        : null;
+  }
+
+  String? get _activeCategoryId {
+    if (controller.selectedMosaicIndex.value != null) {
+      return AnnotationMode.mosaic.value;
+    }
+    final selectedObject = controller.selectedObject.value;
+    if (selectedObject is TextDrawable) {
+      return AnnotationMode.text.value;
+    }
+    if (selectedObject is ShapeDrawable ||
+        selectedObject is EditableArrowDrawable) {
+      return 'markup';
+    }
+    final mode = controller.mode.value;
+    if (_isMarkupMode(mode)) {
+      return 'markup';
+    }
+    if (mode == AnnotationMode.select) {
+      return null;
+    }
+    return mode.value;
+  }
+
+  String? _activeSubItemId(String? activeCategoryId) {
+    if (activeCategoryId == 'markup') {
+      final selectedObject = controller.selectedObject.value;
+      if (selectedObject is EditableArrowDrawable) {
+        return AnnotationMode.arrow.value;
+      }
+      if (selectedObject is RectangleDrawable) {
+        return AnnotationMode.rectangle.value;
+      }
+      if (selectedObject is OvalDrawable) {
+        return AnnotationMode.circle.value;
+      }
+      final mode = controller.mode.value;
+      return _isMarkupMode(mode) ? mode.value : null;
+    }
+    if (activeCategoryId == AnnotationMode.mosaic.value) {
+      return controller.mosaicDrawMode.value.name;
+    }
+    return null;
+  }
+
+  Future<void> _handleCategorySelected(
+    BuildContext context,
+    String categoryId,
+  ) async {
+    if (categoryId == 'markup') {
+      final mode = controller.mode.value;
+      if (_isMarkupMode(mode)) {
+        controller.setMode(mode);
+      } else {
+        controller.setMode(AnnotationMode.brush);
+      }
+      return;
+    }
+    if (categoryId == AnnotationMode.mosaic.value) {
+      controller.setMosaicDrawMode(controller.mosaicDrawMode.value);
+      return;
+    }
+    if (categoryId == AnnotationMode.text.value) {
+      controller.setMode(AnnotationMode.text);
+      controller.createDefaultTextLayer();
+      await _showTextEditor(context, controller);
+      return;
+    }
+    final mode = AnnotationMode.values.firstWhereOrNull(
+      (value) => value.value == categoryId,
     );
+    if (mode != null) {
+      controller.setMode(mode);
+    }
+  }
+
+  void _handleSubItemSelected(
+    BuildContext context,
+    String? activeCategoryId,
+    String itemId,
+  ) {
+    if (activeCategoryId == 'markup') {
+      final mode = AnnotationMode.values.firstWhereOrNull(
+        (value) => value.value == itemId,
+      );
+      if (mode == null) {
+        return;
+      }
+      switch (mode) {
+        case AnnotationMode.brush:
+          controller.setMode(AnnotationMode.brush);
+        case AnnotationMode.rectangle:
+          controller.selectShapeTool(EditableLayerType.rectangle);
+        case AnnotationMode.circle:
+          controller.selectShapeTool(EditableLayerType.circle);
+        case AnnotationMode.arrow:
+          controller.selectShapeTool(EditableLayerType.arrow);
+        case AnnotationMode.select:
+        case AnnotationMode.mosaic:
+        case AnnotationMode.text:
+        case AnnotationMode.filter:
+        case AnnotationMode.rotate:
+        case AnnotationMode.flip:
+        case AnnotationMode.resize:
+        case AnnotationMode.crop:
+          break;
+      }
+      return;
+    }
+    if (activeCategoryId == AnnotationMode.mosaic.value) {
+      final mode = MosaicDrawMode.values.firstWhereOrNull(
+        (value) => value.name == itemId,
+      );
+      if (mode != null) {
+        controller.setMosaicDrawMode(mode);
+      }
+    }
+  }
+
+  bool _isMarkupMode(AnnotationMode mode) {
+    return switch (mode) {
+      AnnotationMode.brush ||
+      AnnotationMode.rectangle ||
+      AnnotationMode.circle ||
+      AnnotationMode.arrow => true,
+      AnnotationMode.select ||
+      AnnotationMode.mosaic ||
+      AnnotationMode.text ||
+      AnnotationMode.filter ||
+      AnnotationMode.rotate ||
+      AnnotationMode.flip ||
+      AnnotationMode.resize ||
+      AnnotationMode.crop => false,
+    };
   }
 }
 
@@ -1540,239 +1728,6 @@ class _DimensionField extends StatelessWidget {
         isDense: true,
       ),
       onChanged: onChanged,
-    );
-  }
-}
-
-class _ToolButton extends StatelessWidget {
-  const _ToolButton({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: FilterChip(
-        avatar: Icon(icon, size: 18),
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
-      ),
-    );
-  }
-}
-
-class _MarkupToolMenu extends StatelessWidget {
-  const _MarkupToolMenu({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = _isMarkupMode(controller.mode.value);
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: PopupMenuButton<AnnotationMode>(
-        tooltip: 'annotation.mode.markup'.tr,
-        onSelected: (mode) => _selectMarkupTool(controller, mode),
-        itemBuilder: (context) => [
-          _markupMenuItem(
-            mode: AnnotationMode.brush,
-            icon: Icons.brush_outlined,
-            selected: controller.mode.value == AnnotationMode.brush,
-          ),
-          _markupMenuItem(
-            mode: AnnotationMode.rectangle,
-            icon: Icons.crop_square,
-            selected: controller.mode.value == AnnotationMode.rectangle,
-          ),
-          _markupMenuItem(
-            mode: AnnotationMode.circle,
-            icon: Icons.circle_outlined,
-            selected: controller.mode.value == AnnotationMode.circle,
-          ),
-          _markupMenuItem(
-            mode: AnnotationMode.arrow,
-            icon: Icons.arrow_forward,
-            selected: controller.mode.value == AnnotationMode.arrow,
-          ),
-        ],
-        child: _ToolChipShell(
-          icon: Icons.edit_outlined,
-          label: 'annotation.mode.markup'.tr,
-          selected: selected,
-        ),
-      ),
-    );
-  }
-
-  bool _isMarkupMode(AnnotationMode mode) {
-    return switch (mode) {
-      AnnotationMode.brush ||
-      AnnotationMode.rectangle ||
-      AnnotationMode.circle ||
-      AnnotationMode.arrow => true,
-      AnnotationMode.select ||
-      AnnotationMode.mosaic ||
-      AnnotationMode.text ||
-      AnnotationMode.filter ||
-      AnnotationMode.rotate ||
-      AnnotationMode.flip ||
-      AnnotationMode.resize ||
-      AnnotationMode.crop => false,
-    };
-  }
-
-  PopupMenuEntry<AnnotationMode> _markupMenuItem({
-    required AnnotationMode mode,
-    required IconData icon,
-    required bool selected,
-  }) {
-    return CheckedPopupMenuItem<AnnotationMode>(
-      value: mode,
-      checked: selected,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Flexible(child: Text(mode.label, overflow: TextOverflow.ellipsis)),
-        ],
-      ),
-    );
-  }
-
-  void _selectMarkupTool(AnnotationController controller, AnnotationMode mode) {
-    switch (mode) {
-      case AnnotationMode.brush:
-        controller.setMode(AnnotationMode.brush);
-      case AnnotationMode.rectangle:
-        controller.selectShapeTool(EditableLayerType.rectangle);
-      case AnnotationMode.circle:
-        controller.selectShapeTool(EditableLayerType.circle);
-      case AnnotationMode.arrow:
-        controller.selectShapeTool(EditableLayerType.arrow);
-      case AnnotationMode.select:
-      case AnnotationMode.mosaic:
-      case AnnotationMode.text:
-      case AnnotationMode.filter:
-      case AnnotationMode.rotate:
-      case AnnotationMode.flip:
-      case AnnotationMode.resize:
-      case AnnotationMode.crop:
-        break;
-    }
-  }
-}
-
-class _MosaicModeMenu extends StatelessWidget {
-  const _MosaicModeMenu({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = controller.mode.value == AnnotationMode.mosaic;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: PopupMenuButton<MosaicDrawMode>(
-        tooltip: AnnotationMode.mosaic.label,
-        onSelected: controller.setMosaicDrawMode,
-        itemBuilder: (context) => [
-          _mosaicMenuItem(
-            mode: MosaicDrawMode.freehand,
-            icon: Icons.gesture,
-            selected:
-                controller.mosaicDrawMode.value == MosaicDrawMode.freehand,
-          ),
-          _mosaicMenuItem(
-            mode: MosaicDrawMode.rectangle,
-            icon: Icons.crop_square,
-            selected:
-                controller.mosaicDrawMode.value == MosaicDrawMode.rectangle,
-          ),
-          _mosaicMenuItem(
-            mode: MosaicDrawMode.circle,
-            icon: Icons.circle_outlined,
-            selected: controller.mosaicDrawMode.value == MosaicDrawMode.circle,
-          ),
-        ],
-        child: _ToolChipShell(
-          icon: Icons.grid_on_outlined,
-          label: AnnotationMode.mosaic.label,
-          selected: selected,
-        ),
-      ),
-    );
-  }
-
-  PopupMenuEntry<MosaicDrawMode> _mosaicMenuItem({
-    required MosaicDrawMode mode,
-    required IconData icon,
-    required bool selected,
-  }) {
-    return CheckedPopupMenuItem<MosaicDrawMode>(
-      value: mode,
-      checked: selected,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Flexible(child: Text(mode.label, overflow: TextOverflow.ellipsis)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToolChipShell extends StatelessWidget {
-  const _ToolChipShell({
-    required this.icon,
-    required this.label,
-    required this.selected,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: selected
-            ? colorScheme.secondaryContainer
-            : colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: selected ? colorScheme.primary : colorScheme.outlineVariant,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 6),
-            Text(label, style: theme.textTheme.labelLarge),
-            const SizedBox(width: 2),
-            const Icon(Icons.arrow_drop_up, size: 18),
-          ],
-        ),
-      ),
     );
   }
 }
