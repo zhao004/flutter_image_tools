@@ -704,9 +704,6 @@ void main() {
       find.byKey(const ValueKey('editor-primary-tool-tabs')),
     );
     expect(primaryTabsRect.top - toolbarRect.top, lessThanOrEqualTo(12));
-    final initialPainterSize =
-        controller.painterController.painterKey.currentContext!.size!;
-
     await tester.tap(find.text('Text'));
     await tester.pumpAndSettle();
 
@@ -716,10 +713,6 @@ void main() {
     expect(find.text('Text Size: 32 px'), findsOneWidget);
     expect(find.text('System'), findsOneWidget);
     expect(find.text('Monospace'), findsOneWidget);
-    expect(
-      controller.painterController.painterKey.currentContext!.size!,
-      initialPainterSize,
-    );
 
     controller.textController.text = 'Updated text';
     controller.updateTextSize(48);
@@ -801,10 +794,6 @@ void main() {
 
     await tester.tap(find.text('Annotate'));
     await tester.pumpAndSettle();
-    expect(
-      controller.painterController.painterKey.currentContext!.size!,
-      initialPainterSize,
-    );
     expect(find.text('Brush'), findsOneWidget);
     expect(find.text('Rectangle'), findsOneWidget);
     expect(find.text('Circle'), findsOneWidget);
@@ -828,10 +817,6 @@ void main() {
 
     await tester.tap(find.text('Mosaic'));
     await tester.pumpAndSettle();
-    expect(
-      controller.painterController.painterKey.currentContext!.size!,
-      initialPainterSize,
-    );
 
     expect(find.text('Freehand'), findsWidgets);
     expect(find.text('Rectangle Mosaic'), findsWidgets);
@@ -1066,6 +1051,13 @@ void main() {
       greaterThan(initialRectangle.size.height),
     );
 
+    controller.addTextLayer(text: '比例稳定');
+    final stableText = controller.selectedObject.value as TextDrawable;
+    final stableTextRatio = Offset(
+      stableText.position.dx / 300,
+      stableText.position.dy / 200,
+    );
+
     controller.addShapeLayer(EditableLayerType.circle);
     final circleGeometry = controller.selectedControlGeometry!;
     expect(circleGeometry.shapeScaleHandles, hasLength(4));
@@ -1112,6 +1104,40 @@ void main() {
     );
     expect(resizedRectangleMosaic.width, greaterThan(60));
     expect(resizedRectangleMosaic.height, greaterThan(40));
+    final stableMosaicRatio = Offset(
+      controller.strokes.first.points.first.dx / 300,
+      controller.strokes.first.points.first.dy / 200,
+    );
+
+    controller.updateCanvasSize(const Size(300, 150));
+    final compactText = controller.painterController.drawables
+        .whereType<TextDrawable>()
+        .singleWhere((drawable) => drawable.text == '比例稳定');
+    expect(compactText.position.dx / 300, closeTo(stableTextRatio.dx, 0.001));
+    expect(compactText.position.dy / 150, closeTo(stableTextRatio.dy, 0.001));
+    expect(
+      controller.strokes.first.points.first.dx / 300,
+      closeTo(stableMosaicRatio.dx, 0.001),
+    );
+    expect(
+      controller.strokes.first.points.first.dy / 150,
+      closeTo(stableMosaicRatio.dy, 0.001),
+    );
+
+    controller.updateCanvasSize(const Size(300, 200));
+    final restoredText = controller.painterController.drawables
+        .whereType<TextDrawable>()
+        .singleWhere((drawable) => drawable.text == '比例稳定');
+    expect(restoredText.position.dx, closeTo(stableText.position.dx, 0.001));
+    expect(restoredText.position.dy, closeTo(stableText.position.dy, 0.001));
+    expect(
+      controller.strokes.first.points.first.dx,
+      closeTo(stableMosaicRatio.dx * 300, 0.001),
+    );
+    expect(
+      controller.strokes.first.points.first.dy,
+      closeTo(stableMosaicRatio.dy * 200, 0.001),
+    );
 
     controller.addMosaicStroke(const [
       Offset(100, 40),

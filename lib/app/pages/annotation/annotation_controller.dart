@@ -1243,48 +1243,21 @@ class AnnotationController extends GetxController {
         to.height <= 0) {
       return;
     }
-    final scaleX = to.width / from.width;
-    final scaleY = to.height / from.height;
+    final snapshot = _CanvasContentRatioSnapshot.capture(
+      drawables: painterController.drawables,
+      selected: painterController.selectedObjectDrawable,
+      strokes: strokes,
+      size: from,
+    );
     if (strokes.isNotEmpty) {
-      final scaledStrokes = strokes
-          .map(
-            (stroke) => DrawingStroke(
-              mode: stroke.mode,
-              kind: stroke.kind,
-              color: stroke.color,
-              width: stroke.width * ((scaleX + scaleY) / 2),
-              points: stroke.points
-                  .map((point) => Offset(point.dx * scaleX, point.dy * scaleY))
-                  .toList(growable: false),
-            ),
-          )
-          .toList(growable: false);
-      strokes.assignAll(scaledStrokes);
+      strokes.assignAll(snapshot.restoreStrokes(to));
     }
     if (painterController.drawables.isEmpty) {
       editRevision.value++;
       return;
     }
-    final updatedDrawables = painterController.drawables
-        .map((drawable) {
-          if (drawable is! ObjectDrawable) {
-            return drawable;
-          }
-          return drawable.copyWith(
-            position: Offset(
-              drawable.position.dx * scaleX,
-              drawable.position.dy * scaleY,
-            ),
-          );
-        })
-        .toList(growable: false);
-    final selected = painterController.selectedObjectDrawable;
-    final selectedIndex = selected == null
-        ? -1
-        : painterController.drawables.indexOf(selected);
-    final nextSelected = selectedIndex < 0
-        ? null
-        : updatedDrawables[selectedIndex] as ObjectDrawable;
+    final updatedDrawables = snapshot.restoreDrawables(to);
+    final nextSelected = snapshot.restoreSelected(updatedDrawables);
     painterController.value = painterController.value.copyWith(
       drawables: updatedDrawables,
       selectedObjectDrawable: nextSelected,
@@ -2321,6 +2294,119 @@ class _ShapeResizeGeometry {
 
   final Offset center;
   final Size size;
+}
+
+class _CanvasContentRatioSnapshot {
+  const _CanvasContentRatioSnapshot({
+    required this.drawables,
+    required this.selectedIndex,
+    required this.strokes,
+  });
+
+  final List<Drawable> drawables;
+  final int selectedIndex;
+  final List<_StrokeRatioSnapshot> strokes;
+
+  static _CanvasContentRatioSnapshot capture({
+    required List<Drawable> drawables,
+    required ObjectDrawable? selected,
+    required List<DrawingStroke> strokes,
+    required Size size,
+  }) {
+    return _CanvasContentRatioSnapshot(
+      drawables: drawables
+          .map((drawable) => _normalizeDrawable(drawable, size))
+          .toList(growable: false),
+      selectedIndex: selected == null ? -1 : drawables.indexOf(selected),
+      strokes: strokes
+          .map((stroke) => _StrokeRatioSnapshot.capture(stroke, size))
+          .toList(growable: false),
+    );
+  }
+
+  List<Drawable> restoreDrawables(Size size) {
+    return drawables
+        .map((drawable) => _restoreDrawable(drawable, size))
+        .toList(growable: false);
+  }
+
+  ObjectDrawable? restoreSelected(List<Drawable> restoredDrawables) {
+    if (selectedIndex < 0 || selectedIndex >= restoredDrawables.length) {
+      return null;
+    }
+    final selected = restoredDrawables[selectedIndex];
+    return selected is ObjectDrawable ? selected : null;
+  }
+
+  List<DrawingStroke> restoreStrokes(Size size) {
+    return strokes
+        .map((stroke) => stroke.restore(size))
+        .toList(growable: false);
+  }
+
+  static Drawable _normalizeDrawable(Drawable drawable, Size size) {
+    if (drawable is! ObjectDrawable) {
+      return drawable;
+    }
+    return drawable.copyWith(
+      position: _normalizeOffset(drawable.position, size),
+    );
+  }
+
+  static Drawable _restoreDrawable(Drawable drawable, Size size) {
+    if (drawable is! ObjectDrawable) {
+      return drawable;
+    }
+    return drawable.copyWith(position: _restoreOffset(drawable.position, size));
+  }
+}
+
+class _StrokeRatioSnapshot {
+  const _StrokeRatioSnapshot({
+    required this.stroke,
+    required this.widthRatio,
+    required this.points,
+  });
+
+  final DrawingStroke stroke;
+  final double widthRatio;
+  final List<Offset> points;
+
+  static _StrokeRatioSnapshot capture(DrawingStroke stroke, Size size) {
+    final averageSide = _averageSide(size);
+    return _StrokeRatioSnapshot(
+      stroke: stroke.copyWith(points: const <Offset>[]),
+      widthRatio: averageSide <= 0 ? stroke.width : stroke.width / averageSide,
+      points: stroke.points
+          .map((point) => _normalizeOffset(point, size))
+          .toList(growable: false),
+    );
+  }
+
+  DrawingStroke restore(Size size) {
+    final averageSide = _averageSide(size);
+    return stroke.copyWith(
+      width: averageSide <= 0 ? stroke.width : widthRatio * averageSide,
+      points: points
+          .map((point) => _restoreOffset(point, size))
+          .toList(growable: false),
+    );
+  }
+}
+
+Offset _normalizeOffset(Offset point, Size size) {
+  if (size.width <= 0 || size.height <= 0) {
+    return point;
+  }
+  return Offset(point.dx / size.width, point.dy / size.height);
+}
+
+Offset _restoreOffset(Offset point, Size size) {
+  return Offset(point.dx * size.width, point.dy * size.height);
+}
+
+double _averageSide(Size size) {
+  return (size.width + size.height) / 2;
 }
 
 class _ResizeDimensions {

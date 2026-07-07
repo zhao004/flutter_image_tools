@@ -395,7 +395,6 @@ class EditorDynamicToolPanel extends StatelessWidget {
     this.showPanelHeader = true,
     this.compactPanel = false,
     this.stackCompactPanel = false,
-    this.reserveCompactPanelSpace = false,
   });
 
   final List<ToolCategory> categories;
@@ -411,7 +410,6 @@ class EditorDynamicToolPanel extends StatelessWidget {
   final bool showPanelHeader;
   final bool compactPanel;
   final bool stackCompactPanel;
-  final bool reserveCompactPanelSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -425,10 +423,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
     final double stackedCompactHeight =
         (compactLayerCount * compactSubPanelHeight).toDouble() +
         (compactLayerCount > 1 ? 8.0 : 0.0);
-    final double reservedCompactHeight = 2.0 * compactSubPanelHeight + 8.0;
-    final double compactToolbarHeight = reserveCompactPanelSpace
-        ? reservedCompactHeight
-        : shouldShowSubPanel
+    final double compactToolbarHeight = shouldShowSubPanel
         ? stackCompactPanel
               ? (stackedCompactHeight < 60.0 ? 60.0 : stackedCompactHeight)
               : 60.0 + 8.0 + compactSubPanelHeight
@@ -455,9 +450,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
         height: compactToolbarHeight,
         child: Stack(
           clipBehavior: Clip.none,
-          alignment: reserveCompactPanelSpace && !shouldShowSubPanel
-              ? Alignment.topCenter
-              : Alignment.bottomCenter,
+          alignment: Alignment.bottomCenter,
           children: [
             primaryTools,
             if (shouldShowSubPanel)

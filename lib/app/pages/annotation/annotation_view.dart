@@ -760,7 +760,6 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
         showPanelHeader: false,
         compactPanel: true,
         stackCompactPanel: _shouldStackPropertyPanel(activeCategoryId),
-        reserveCompactPanelSpace: true,
       );
     });
   }
