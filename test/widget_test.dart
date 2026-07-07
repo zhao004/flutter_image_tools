@@ -697,6 +697,8 @@ void main() {
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
     expect(find.text('#E53935'), findsNothing);
+    final initialPainterSize =
+        controller.painterController.painterKey.currentContext!.size!;
 
     await tester.tap(find.text('Text'));
     await tester.pumpAndSettle();
@@ -707,6 +709,10 @@ void main() {
     expect(find.text('Text Size: 32 px'), findsOneWidget);
     expect(find.text('System'), findsOneWidget);
     expect(find.text('Monospace'), findsOneWidget);
+    expect(
+      controller.painterController.painterKey.currentContext!.size!,
+      initialPainterSize,
+    );
 
     controller.textController.text = 'Updated text';
     controller.updateTextSize(48);
