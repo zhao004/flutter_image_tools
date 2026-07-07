@@ -699,7 +699,7 @@ void main() {
     expect(find.byIcon(Icons.add_photo_alternate_outlined), findsNothing);
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
-    expect(find.text('Red'), findsNothing);
+    expect(find.text('#E53935'), findsNothing);
 
     await tester.tap(find.text('Text'));
     await tester.pumpAndSettle();
@@ -738,6 +738,7 @@ void main() {
     expect(find.text('Annotation Style'), findsOneWidget);
     expect(find.text('Edit Text'), findsOneWidget);
     expect(find.text('Text Size: 48 px'), findsOneWidget);
+    expect(find.text('#E53935'), findsOneWidget);
 
     controller.addShapeLayer(EditableLayerType.rectangle);
     await tester.pump();
@@ -753,8 +754,22 @@ void main() {
     await tester.pump();
 
     expect(find.text('Annotation Style'), findsOneWidget);
-    expect(find.text('Red'), findsOneWidget);
+    expect(find.text('#E53935'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
+
+    await tester.tap(find.text('#E53935'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Color'), findsOneWidget);
+    expect(find.text('R'), findsOneWidget);
+    expect(find.text('G'), findsOneWidget);
+    expect(find.text('B'), findsOneWidget);
+    controller.setColor(const Color(0xFF123456));
+    await tester.pump();
+    expect(controller.color.value, const Color(0xFF123456));
+    Navigator.of(tester.element(find.byType(AlertDialog))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('#123456'), findsOneWidget);
 
     controller.deselectSelectedObjectIfBlankTap(const Offset(0, 0));
     await tester.pump();
@@ -766,7 +781,7 @@ void main() {
 
     expect(find.text('Annotation Style'), findsOneWidget);
     expect(find.byTooltip('Close Property Panel'), findsOneWidget);
-    expect(find.text('Red'), findsOneWidget);
+    expect(find.text('#123456'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
@@ -774,7 +789,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Annotation Style'), findsNothing);
-    expect(find.text('Red'), findsNothing);
+    expect(find.text('#123456'), findsNothing);
     expect(find.text('Stroke: 12 px'), findsNothing);
 
     await tester.tap(find.text('Mosaic'));

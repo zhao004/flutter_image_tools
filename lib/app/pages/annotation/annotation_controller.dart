@@ -38,23 +38,6 @@ enum AnnotationMode {
   String get label => labelKey.tr;
 }
 
-enum AnnotationColor {
-  red(labelKey: 'annotation.color.red', value: '#E53935'),
-  yellow(labelKey: 'annotation.color.yellow', value: '#FDD835'),
-  blue(labelKey: 'annotation.color.blue', value: '#1E88E5'),
-  green(labelKey: 'annotation.color.green', value: '#43A047'),
-  white(labelKey: 'annotation.color.white', value: '#FFFFFF');
-
-  const AnnotationColor({required this.labelKey, required this.value});
-
-  final String labelKey;
-  final String value;
-
-  String get label => labelKey.tr;
-
-  Color get color => _colorFromHex(value);
-}
-
 enum EditableLayerType { text, rectangle, circle, arrow }
 
 enum AnnotationTextFont {
@@ -272,6 +255,7 @@ class AnnotationController extends GetxController {
   static const Size _defaultCircleSize = Size(120, 120);
   static const double _minDrawableSide = 16;
   static const double _maxShapeStrokeWidth = 32;
+  static const Color _defaultAnnotationColor = Color(0xFFE53935);
   static const String _defaultText = '请输入文字';
   static const int _minResizeDimension = 1;
   static const int _maxResizeDimension = LocalImageChannel.maxResizeDimension;
@@ -286,7 +270,7 @@ class AnnotationController extends GetxController {
   final isPropertyPanelVisible = false.obs;
   final mosaicDrawMode = MosaicDrawMode.freehand.obs;
   final arrowStyle = EditableArrowStyle.solid.obs;
-  final color = AnnotationColor.red.obs;
+  final color = _defaultAnnotationColor.obs;
   final strokeWidth = 12.obs;
   final isBusy = false.obs;
   final strokes = <DrawingStroke>[].obs;
@@ -524,10 +508,17 @@ class AnnotationController extends GetxController {
     _markImageAdjustmentChanged();
   }
 
-  void setColor(AnnotationColor value) {
+  String get colorHex {
+    final rgb = color.value.toARGB32() & 0x00FFFFFF;
+    return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  }
+
+  void setColor(Color value) {
     color.value = value;
     _applyPainterMode();
-    _updateSelectedObjectColor(value.color);
+    _updateSelectedObjectColor(value);
+    result.value = null;
+    editRevision.value++;
   }
 
   void updateStrokeWidth(double value) {
@@ -582,7 +573,7 @@ class AnnotationController extends GetxController {
     final drawable = TextDrawable(
       text: nextText,
       position: _canvasCenter,
-      style: _textStyle(color: color.value.color),
+      style: _textStyle(color: color.value),
       direction: TextDirection.ltr,
     );
     _addObjectDrawable(drawable);
@@ -595,7 +586,7 @@ class AnnotationController extends GetxController {
       return;
     }
 
-    final paint = _shapePaint(color.value.color, strokeWidth.value.toDouble());
+    final paint = _shapePaint(color.value, strokeWidth.value.toDouble());
     final ObjectDrawable drawable = switch (type) {
       EditableLayerType.text => throw const AppException('标注类型无效'),
       EditableLayerType.rectangle => RectangleDrawable(
@@ -634,7 +625,7 @@ class AnnotationController extends GetxController {
 
     final delta = end - start;
     final center = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-    final paint = _shapePaint(color.value.color, strokeWidth.value.toDouble());
+    final paint = _shapePaint(color.value, strokeWidth.value.toDouble());
     final ObjectDrawable? drawable = switch (type) {
       EditableLayerType.text => null,
       EditableLayerType.rectangle => _rectangleFromDrag(center, delta, paint),
@@ -1156,7 +1147,7 @@ class AnnotationController extends GetxController {
         : FreeStyleMode.none;
     painterController.freeStyleSettings = FreeStyleSettings(
       mode: nextFreeStyleMode,
-      color: color.value.color,
+      color: color.value,
       strokeWidth: strokeWidth.value.toDouble(),
     );
     painterController.shapeSettings = const ShapeSettings(factory: null);
@@ -1238,7 +1229,7 @@ class AnnotationController extends GetxController {
     final next = drawable.copyWith(
       text: nextText,
       style: _textStyle(
-        color: drawable.style.color ?? color.value.color,
+        color: drawable.style.color ?? color.value,
         shadows: drawable.style.shadows,
       ),
     );
@@ -1288,7 +1279,7 @@ class AnnotationController extends GetxController {
       'layers': painterController.drawables.length,
       'strokes': strokes.length,
       'strokeWidth': strokeWidth.value,
-      'color': color.value.value,
+      'color': colorHex,
       'filter': filter.value?.value ?? 'none',
       'rotationDegrees': rotationDegrees.value,
       'flipHorizontal': flipHorizontal.value,
@@ -1869,7 +1860,7 @@ class AnnotationController extends GetxController {
     }
     final next = drawable.copyWith(
       style: _textStyle(
-        color: drawable.style.color ?? color.value.color,
+        color: drawable.style.color ?? color.value,
         shadows: drawable.style.shadows,
       ),
     );
@@ -2047,13 +2038,4 @@ class _ResizeDimensions {
 
   final int width;
   final int height;
-}
-
-Color _colorFromHex(String value) {
-  final normalized = value.replaceFirst('#', '');
-  final parsed = int.tryParse(normalized, radix: 16);
-  if (parsed == null) {
-    return Colors.red;
-  }
-  return Color(0xFF000000 | parsed);
 }

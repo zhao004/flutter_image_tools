@@ -224,7 +224,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                         mode: mode,
                         start: _shapeDragStart,
                         end: _shapeDragEnd,
-                        color: controller.color.value.color,
+                        color: controller.color.value,
                         strokeWidth: controller.strokeWidth.value.toDouble(),
                         arrowStyle: controller.arrowStyle.value,
                       ),
@@ -863,8 +863,7 @@ class _AnnotationPropertyPanel extends StatelessWidget {
         _ResizeToolPanel(controller: controller),
         _CropToolPanel(controller: controller),
         _ArrowStyleControls(controller: controller),
-        _StrokeWidthControls(controller: controller),
-        _ColorControls(controller: controller),
+        _StrokeAndColorControls(controller: controller),
       ],
     );
   }
@@ -1269,15 +1268,15 @@ class _TextStyleControls extends StatelessWidget {
   }
 }
 
-class _StrokeWidthControls extends StatelessWidget {
-  const _StrokeWidthControls({required this.controller});
+class _StrokeAndColorControls extends StatelessWidget {
+  const _StrokeAndColorControls({required this.controller});
 
   final AnnotationController controller;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final showControls = switch (controller.mode.value) {
+      final showStrokeControls = switch (controller.mode.value) {
         AnnotationMode.brush ||
         AnnotationMode.rectangle ||
         AnnotationMode.circle ||
@@ -1293,41 +1292,7 @@ class _StrokeWidthControls extends StatelessWidget {
         AnnotationMode.resize ||
         AnnotationMode.crop => false,
       };
-      if (!showControls) {
-        return const SizedBox.shrink();
-      }
-      final value = controller.strokeWidth.value;
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Row(
-          children: [
-            Text('annotation.strokeWidth'.trParams({'value': '$value'})),
-            Expanded(
-              child: Slider(
-                min: 2,
-                max: 60,
-                divisions: 58,
-                value: value.toDouble(),
-                onChanged: controller.updateStrokeWidth,
-              ),
-            ),
-          ],
-        ),
-      );
-    });
-  }
-}
-
-class _ColorControls extends StatelessWidget {
-  const _ColorControls({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final selectedColor = controller.color.value;
-      final showControls = switch (controller.mode.value) {
+      final showColorControls = switch (controller.mode.value) {
         AnnotationMode.brush ||
         AnnotationMode.rectangle ||
         AnnotationMode.circle ||
@@ -1341,28 +1306,188 @@ class _ColorControls extends StatelessWidget {
         AnnotationMode.resize ||
         AnnotationMode.crop => false,
       };
-      if (!showControls) {
+      if (!showStrokeControls && !showColorControls) {
         return const SizedBox.shrink();
       }
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+      final strokeValue = controller.strokeWidth.value;
+      final selectedColor = controller.color.value;
+      final colorHex = controller.colorHex;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
         child: Row(
-          children: AnnotationColor.values
-              .map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text(item.label),
-                    selected: selectedColor == item,
-                    avatar: CircleAvatar(backgroundColor: item.color),
-                    onSelected: (_) => controller.setColor(item),
-                  ),
+          children: [
+            if (showColorControls) ...[
+              OutlinedButton.icon(
+                onPressed: () =>
+                    _showAnnotationColorPicker(context, controller),
+                icon: _ColorSwatch(color: selectedColor),
+                label: Text(colorHex),
+              ),
+              if (showStrokeControls) const SizedBox(width: 10),
+            ],
+            if (showStrokeControls) ...[
+              Text(
+                'annotation.strokeWidth'.trParams({'value': '$strokeValue'}),
+              ),
+              Expanded(
+                child: Slider(
+                  min: 2,
+                  max: 60,
+                  divisions: 58,
+                  value: strokeValue.toDouble(),
+                  onChanged: controller.updateStrokeWidth,
                 ),
-              )
-              .toList(growable: false),
+              ),
+            ],
+          ],
         ),
       );
     });
+  }
+}
+
+class _ColorSwatch extends StatelessWidget {
+  const _ColorSwatch({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: const SizedBox(width: 18, height: 18),
+    );
+  }
+}
+
+Future<void> _showAnnotationColorPicker(
+  BuildContext context,
+  AnnotationController controller,
+) async {
+  var draftColor = controller.color.value;
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          final red = (draftColor.r * 255).round().clamp(0, 255);
+          final green = (draftColor.g * 255).round().clamp(0, 255);
+          final blue = (draftColor.b * 255).round().clamp(0, 255);
+
+          void updateChannel({int? red, int? green, int? blue}) {
+            final nextRed = red ?? (draftColor.r * 255).round();
+            final nextGreen = green ?? (draftColor.g * 255).round();
+            final nextBlue = blue ?? (draftColor.b * 255).round();
+            setState(() {
+              draftColor = Color.fromARGB(
+                255,
+                nextRed.clamp(0, 255).toInt(),
+                nextGreen.clamp(0, 255).toInt(),
+                nextBlue.clamp(0, 255).toInt(),
+              );
+            });
+          }
+
+          return AlertDialog(
+            title: Text('annotation.color.title'.tr),
+            content: SizedBox(
+              width: 320,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ColorPreview(color: draftColor),
+                  _ColorChannelSlider(
+                    label: 'R',
+                    value: red,
+                    onChanged: (value) => updateChannel(red: value),
+                  ),
+                  _ColorChannelSlider(
+                    label: 'G',
+                    value: green,
+                    onChanged: (value) => updateChannel(green: value),
+                  ),
+                  _ColorChannelSlider(
+                    label: 'B',
+                    value: blue,
+                    onChanged: (value) => updateChannel(blue: value),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('common.cancel'.tr),
+              ),
+              FilledButton(
+                onPressed: () {
+                  controller.setColor(draftColor);
+                  Navigator.of(context).pop();
+                },
+                child: Text('common.confirm'.tr),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+class _ColorPreview extends StatelessWidget {
+  const _ColorPreview({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final rgb = color.toARGB32() & 0x00FFFFFF;
+    final hex = '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          _ColorSwatch(color: color),
+          const SizedBox(width: 10),
+          Text(hex),
+        ],
+      ),
+    );
+  }
+}
+
+class _ColorChannelSlider extends StatelessWidget {
+  const _ColorChannelSlider({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(width: 20, child: Text(label)),
+        Expanded(
+          child: Slider(
+            min: 0,
+            max: 255,
+            divisions: 255,
+            value: value.toDouble(),
+            onChanged: (value) => onChanged(value.round()),
+          ),
+        ),
+        SizedBox(width: 36, child: Text('$value', textAlign: TextAlign.end)),
+      ],
+    );
   }
 }
 
