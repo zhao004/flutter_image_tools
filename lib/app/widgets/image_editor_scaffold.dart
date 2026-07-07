@@ -30,7 +30,6 @@ class ImageEditorScaffold extends StatelessWidget {
     this.imageMeta,
     this.resultSummary,
     this.appBarActions = const [],
-    this.previewBorderRadius = 0,
     this.lockPreviewScroll = false,
     this.tabBar,
     this.bottomToolbar,
@@ -60,7 +59,6 @@ class ImageEditorScaffold extends StatelessWidget {
   final String? imageMeta;
   final Widget? resultSummary;
   final List<Widget> appBarActions;
-  final double previewBorderRadius;
   final bool lockPreviewScroll;
   final Widget? tabBar;
   final Widget? bottomToolbar;
@@ -89,7 +87,6 @@ class ImageEditorScaffold extends StatelessWidget {
             meta: imageMeta,
             previewBuilder: previewBuilder,
             resultSummary: resultSummary,
-            previewBorderRadius: previewBorderRadius,
             lockPreviewScroll: lockPreviewScroll,
             showPreviewInfo: showPreviewInfo,
             expandPreviewToAvailableHeight: expandPreviewToAvailableHeight,
@@ -211,7 +208,6 @@ class _EditorPreviewStage extends StatelessWidget {
     required this.previewBuilder,
     required this.meta,
     required this.resultSummary,
-    required this.previewBorderRadius,
     required this.lockPreviewScroll,
     required this.showPreviewInfo,
     required this.expandPreviewToAvailableHeight,
@@ -227,7 +223,6 @@ class _EditorPreviewStage extends StatelessWidget {
   previewBuilder;
   final String? meta;
   final Widget? resultSummary;
-  final double previewBorderRadius;
   final bool lockPreviewScroll;
   final bool showPreviewInfo;
   final bool expandPreviewToAvailableHeight;
@@ -239,10 +234,7 @@ class _EditorPreviewStage extends StatelessWidget {
         final availableHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight - _stagePadding * 2
             : null;
-        final previewFrame = _PreviewFrame(
-          borderRadius: previewBorderRadius,
-          child: previewBuilder(context, image),
-        );
+        final previewFrame = _PreviewFrame(child: previewBuilder(context, image));
         final reservedHeight =
             (showPreviewInfo ? _previewInfoReservedHeight : 0) +
             (resultSummary == null ? 0 : _resultSummaryReservedHeight);
@@ -308,10 +300,9 @@ class _EditorPreviewStage extends StatelessWidget {
 }
 
 class _PreviewFrame extends StatelessWidget {
-  const _PreviewFrame({required this.child, required this.borderRadius});
+  const _PreviewFrame({required this.child});
 
   final Widget child;
-  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +310,6 @@ class _PreviewFrame extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(color: colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
@@ -329,10 +319,7 @@ class _PreviewFrame extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: child,
-      ),
+      child: child,
     );
   }
 }

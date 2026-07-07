@@ -36,7 +36,6 @@ class GridView extends GetView<GridController> {
         imageMeta: image == null
             ? null
             : '${controller.formatDimensions(image)} · ${controller.formatBytes(image.sizeBytes)}',
-        previewBorderRadius: 0,
         lockPreviewScroll: true,
         previewBuilder: (context, previewImage) =>
             _GridEditorCanvas(controller: controller, image: previewImage),

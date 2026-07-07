@@ -33,7 +33,6 @@ class CropView extends GetView<CropController> {
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.cropCurrentImage,
-        previewBorderRadius: 0,
         lockPreviewScroll: true,
         imageMeta: image == null
             ? null
