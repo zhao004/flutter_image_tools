@@ -607,7 +607,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Move'), findsOneWidget);
+    expect(find.text('Move'), findsNothing);
     expect(find.text('Brush'), findsOneWidget);
     expect(find.text('Mosaic'), findsOneWidget);
     expect(find.text('Text'), findsOneWidget);
@@ -627,6 +627,11 @@ void main() {
     await tester.pump();
 
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+
+    controller.deselectSelectedObjectIfBlankTap(const Offset(0, 0));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
 
     controller.setMode(AnnotationMode.brush);
     await tester.pump();
@@ -653,6 +658,47 @@ void main() {
     expect(find.text('Solid Arrow'), findsOneWidget);
     expect(find.text('Outline Arrow'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
+
+    await database.close();
+    Get.reset();
+  });
+
+  test('箭头缩放与方向调整职责分离', () async {
+    // 箭头端点仅沿当前方向投影调整长度；独立方向手柄负责旋转，避免一个手势同时改变方向和长度。
+    final database = AppDatabase(NativeDatabase.memory());
+    final controller = AnnotationController(
+      imageChannel: LocalImageChannel(),
+      historyRepository: OperationHistoryRepository(database: database),
+      recentFilesRepository: RecentFilesRepository(database: database),
+    );
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'annotation_preview.png',
+      name: 'annotation_preview.png',
+      sizeBytes: 1200,
+      mimeType: 'image/png',
+      width: 1200,
+      height: 800,
+    );
+    controller.updateCanvasSize(const Size(300, 200));
+    controller.addShapeLayer(EditableLayerType.arrow);
+
+    final initial = controller.selectedObject.value as EditableArrowDrawable;
+    expect(initial.rotationAngle, 0);
+
+    controller.updateSelectedArrowScaleHandle(
+      isHead: true,
+      point: initial.position + const Offset(140, 80),
+    );
+    final scaled = controller.selectedObject.value as EditableArrowDrawable;
+
+    expect(scaled.length, greaterThan(initial.length));
+    expect(scaled.rotationAngle, initial.rotationAngle);
+
+    controller.rotateSelectedArrowTo(scaled.position + const Offset(0, 120));
+    final rotated = controller.selectedObject.value as EditableArrowDrawable;
+
+    expect(rotated.length, scaled.length);
+    expect(rotated.rotationAngle, closeTo(1.5707963267948966, 0.001));
 
     await database.close();
     Get.reset();

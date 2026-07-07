@@ -189,7 +189,12 @@ class _EditableCanvasState extends State<_EditableCanvas> {
               FlutterPainter.builder(
                 controller: controller.painterController,
                 onSelectedObjectDrawableChanged: controller.selectObject,
-                builder: (context, painter) => painter,
+                builder: (context, painter) => GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTapUp: (details) => controller
+                      .deselectSelectedObjectIfBlankTap(details.localPosition),
+                  child: painter,
+                ),
               ),
               Obx(() {
                 final mode = controller.mode.value;
@@ -330,12 +335,6 @@ class _AnnotationToolTabs extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _ToolButton(
-              icon: Icons.pan_tool_alt_outlined,
-              label: AnnotationMode.select.label,
-              selected: controller.mode.value == AnnotationMode.select,
-              onTap: () => controller.setMode(AnnotationMode.select),
-            ),
             _ToolButton(
               icon: Icons.brush_outlined,
               label: AnnotationMode.brush.label,
@@ -696,7 +695,7 @@ class _ObjectControlOverlay extends StatelessWidget {
               size: _dragDotSize,
               child: _ArrowEndpointHandle(
                 onPanUpdate: (details) =>
-                    controller.updateSelectedArrowEndpoint(
+                    controller.updateSelectedArrowScaleHandle(
                       isHead: false,
                       point: _canvasPointFromHandle(
                         center: geometry.arrowStart!,
@@ -712,7 +711,7 @@ class _ObjectControlOverlay extends StatelessWidget {
               size: _dragDotSize,
               child: _ArrowEndpointHandle(
                 onPanUpdate: (details) =>
-                    controller.updateSelectedArrowEndpoint(
+                    controller.updateSelectedArrowScaleHandle(
                       isHead: true,
                       point: _canvasPointFromHandle(
                         center: geometry.arrowEnd!,
@@ -720,6 +719,20 @@ class _ObjectControlOverlay extends StatelessWidget {
                         localPosition: details.localPosition,
                       ),
                     ),
+              ),
+            ),
+          if (geometry.arrowDirectionHandle != null)
+            _PositionedControl(
+              center: geometry.arrowDirectionHandle!,
+              size: _controlSize,
+              child: _ArrowDirectionHandle(
+                onPanUpdate: (details) => controller.rotateSelectedArrowTo(
+                  _canvasPointFromHandle(
+                    center: geometry.arrowDirectionHandle!,
+                    size: _controlSize,
+                    localPosition: details.localPosition,
+                  ),
+                ),
               ),
             ),
         ],
@@ -813,6 +826,40 @@ class _ArrowEndpointHandle extends StatelessWidget {
               offset: const Offset(0, 1),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ArrowDirectionHandle extends StatelessWidget {
+  const _ArrowDirectionHandle({required this.onPanUpdate});
+
+  final GestureDragUpdateCallback onPanUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanUpdate: onPanUpdate,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.primary,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.onPrimary, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.navigation_outlined,
+          color: colorScheme.onPrimary,
+          size: 17,
         ),
       ),
     );

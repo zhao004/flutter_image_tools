@@ -98,11 +98,13 @@ class AnnotationObjectControlGeometry {
     this.rotateHandle,
     this.arrowStart,
     this.arrowEnd,
+    this.arrowDirectionHandle,
   });
 
   final Offset? rotateHandle;
   final Offset? arrowStart;
   final Offset? arrowEnd;
+  final Offset? arrowDirectionHandle;
 }
 
 /// 可编辑箭头图层，支持实心/空心箭头并暴露稳定的首尾端点。
@@ -472,6 +474,22 @@ class AnnotationController extends GetxController {
     editRevision.value++;
   }
 
+  void deselectSelectedObject() {
+    if (selectedObject.value == null) {
+      return;
+    }
+    painterController.deselectObjectDrawable();
+    selectedObject.value = null;
+    editRevision.value++;
+  }
+
+  void deselectSelectedObjectIfBlankTap(Offset point) {
+    if (selectedObject.value == null || _isPointOnSelectedObject(point)) {
+      return;
+    }
+    deselectSelectedObject();
+  }
+
   void setMosaicDrawMode(MosaicDrawMode value) {
     mosaicDrawMode.value = value;
   }
@@ -509,7 +527,7 @@ class AnnotationController extends GetxController {
     }
   }
 
-  void updateSelectedArrowEndpoint({
+  void updateSelectedArrowScaleHandle({
     required bool isHead,
     required Offset point,
   }) {
@@ -518,20 +536,50 @@ class AnnotationController extends GetxController {
     if (drawable == null || endpoints == null) {
       return;
     }
-    final fixed = isHead ? endpoints.start : endpoints.end;
-    final start = isHead ? fixed : point;
-    final end = isHead ? point : fixed;
-    final delta = end - start;
-    if (delta.distance < _minDrawableSide) {
-      return;
-    }
+    final direction = Offset.fromDirection(drawable.rotationAngle);
+    final start = isHead
+        ? endpoints.start
+        : endpoints.end -
+              direction *
+                  math.max(
+                    _projectDistance(endpoints.end - point, direction),
+                    _minDrawableSide,
+                  );
+    final end = isHead
+        ? endpoints.start +
+              direction *
+                  math.max(
+                    _projectDistance(point - endpoints.start, direction),
+                    _minDrawableSide,
+                  )
+        : endpoints.end;
+    final length = (end - start).distance;
     final next = _copyArrowDrawable(
       drawable,
       position: Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2),
-      length: delta.distance,
-      rotation: delta.direction,
+      length: length,
       scale: 1,
     );
+    if (next == null) {
+      return;
+    }
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
+    result.value = null;
+    editRevision.value++;
+  }
+
+  void rotateSelectedArrowTo(Offset point) {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable == null || _arrowEndpoints(drawable) == null) {
+      return;
+    }
+    final vector = point - drawable.position;
+    if (vector.distance < _minDrawableSide) {
+      return;
+    }
+    final next = _copyArrowDrawable(drawable, rotation: vector.direction);
     if (next == null) {
       return;
     }
@@ -730,6 +778,7 @@ class AnnotationController extends GetxController {
       return AnnotationObjectControlGeometry(
         arrowStart: endpoints.start,
         arrowEnd: endpoints.end,
+        arrowDirectionHandle: _arrowDirectionHandle(drawable, endpoints),
       );
     }
     return null;
@@ -1071,6 +1120,86 @@ class AnnotationController extends GetxController {
       return _ArrowEndpoints(start: start, end: end);
     }
     return null;
+  }
+
+  Offset _arrowDirectionHandle(
+    ObjectDrawable? drawable,
+    _ArrowEndpoints endpoints,
+  ) {
+    final direction = switch (drawable) {
+      ObjectDrawable item => Offset.fromDirection(item.rotationAngle),
+      _ => const Offset(1, 0),
+    };
+    final double spacing = switch (drawable) {
+      EditableArrowDrawable item => math.max(28, item.paint.strokeWidth * 3),
+      ArrowDrawable item => math.max(28, item.paint.strokeWidth * 3),
+      _ => 28.0,
+    };
+    return endpoints.end + direction * spacing;
+  }
+
+  bool _isPointOnSelectedObject(Offset point) {
+    final drawable = selectedObject.value;
+    if (drawable == null) {
+      return false;
+    }
+    final geometry = selectedControlGeometry;
+    const controlHitRadius = 30.0;
+    final controlPoints = <Offset?>[
+      geometry?.rotateHandle,
+      geometry?.arrowStart,
+      geometry?.arrowEnd,
+      geometry?.arrowDirectionHandle,
+    ];
+    if (controlPoints.any(
+      (controlPoint) =>
+          controlPoint != null &&
+          (point - controlPoint).distance <= controlHitRadius,
+    )) {
+      return true;
+    }
+    if (drawable is EditableArrowDrawable || drawable is ArrowDrawable) {
+      final endpoints = _arrowEndpoints(drawable);
+      if (endpoints == null) {
+        return false;
+      }
+      final strokeWidth = switch (drawable) {
+        EditableArrowDrawable item => item.paint.strokeWidth,
+        ArrowDrawable item => item.paint.strokeWidth,
+        _ => 0.0,
+      };
+      return _distanceToSegment(point, endpoints.start, endpoints.end) <=
+          math.max(18, strokeWidth + 10);
+    }
+    final size = drawable.getSize();
+    final local = _rotateOffset(
+      point - drawable.position,
+      -drawable.rotationAngle,
+    );
+    return local.dx.abs() <= size.width / 2 &&
+        local.dy.abs() <= size.height / 2;
+  }
+
+  double _projectDistance(Offset vector, Offset direction) {
+    return vector.dx * direction.dx + vector.dy * direction.dy;
+  }
+
+  double _distanceToSegment(Offset point, Offset start, Offset end) {
+    final segment = end - start;
+    final lengthSquared = segment.dx * segment.dx + segment.dy * segment.dy;
+    if (lengthSquared <= 0) {
+      return (point - start).distance;
+    }
+    final t =
+        (((point.dx - start.dx) * segment.dx +
+                    (point.dy - start.dy) * segment.dy) /
+                lengthSquared)
+            .clamp(0.0, 1.0);
+    final projection = Offset(
+      start.dx + segment.dx * t,
+      start.dy + segment.dy * t,
+    );
+    return (point - projection).distance;
   }
 
   ObjectDrawable? _copyArrowDrawable(
