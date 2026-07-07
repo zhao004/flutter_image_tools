@@ -632,7 +632,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Red'), findsOneWidget);
-    expect(find.text('Stroke: 12 px'), findsNothing);
+    expect(find.text('Stroke: 12 px'), findsOneWidget);
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
     await database.close();

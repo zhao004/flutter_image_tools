@@ -162,6 +162,8 @@ class _EditableCanvas extends StatefulWidget {
 
 class _EditableCanvasState extends State<_EditableCanvas> {
   final List<Offset> _draftPoints = <Offset>[];
+  Offset? _shapeDragStart;
+  Offset? _shapeDragEnd;
 
   AnnotationController get controller => widget.controller;
 
@@ -190,12 +192,32 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                 builder: (context, painter) => painter,
               ),
               Obx(() {
-                if (controller.mode.value != AnnotationMode.mosaic) {
+                final mode = controller.mode.value;
+                final shapeType = _shapeTypeForMode(mode);
+                if (shapeType != null) {
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: _startShapeDrag,
+                    onPanUpdate: _updateShapeDrag,
+                    onPanEnd: (_) => _finishShapeDrag(shapeType),
+                    child: CustomPaint(
+                      painter: _ShapeDraftPainter(
+                        mode: mode,
+                        start: _shapeDragStart,
+                        end: _shapeDragEnd,
+                        color: controller.color.value.color,
+                        strokeWidth: controller.strokeWidth.value.toDouble(),
+                      ),
+                    ),
+                  );
+                }
+                if (mode != AnnotationMode.mosaic) {
                   return IgnorePointer(
                     child: CustomPaint(
                       painter: _MosaicPainter(
                         strokes: controller.strokes,
                         draftPoints: const [],
+                        draftKind: MosaicStrokeKind.freehand,
                         draftWidth: controller.strokeWidth.value.toDouble(),
                       ),
                     ),
@@ -210,6 +232,9 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                     painter: _MosaicPainter(
                       strokes: controller.strokes,
                       draftPoints: _draftPoints,
+                      draftKind: _mosaicKindForMode(
+                        controller.mosaicDrawMode.value,
+                      ),
                       draftWidth: controller.strokeWidth.value.toDouble(),
                     ),
                   ),
@@ -222,6 +247,38 @@ class _EditableCanvasState extends State<_EditableCanvas> {
     );
   }
 
+  EditableLayerType? _shapeTypeForMode(AnnotationMode mode) {
+    return switch (mode) {
+      AnnotationMode.rectangle => EditableLayerType.rectangle,
+      AnnotationMode.circle => EditableLayerType.circle,
+      AnnotationMode.arrow => EditableLayerType.arrow,
+      _ => null,
+    };
+  }
+
+  void _startShapeDrag(DragStartDetails details) {
+    setState(() {
+      _shapeDragStart = details.localPosition;
+      _shapeDragEnd = details.localPosition;
+    });
+  }
+
+  void _updateShapeDrag(DragUpdateDetails details) {
+    setState(() => _shapeDragEnd = details.localPosition);
+  }
+
+  void _finishShapeDrag(EditableLayerType type) {
+    final start = _shapeDragStart;
+    final end = _shapeDragEnd;
+    if (start != null && end != null) {
+      controller.addShapeFromDrag(type, start, end);
+    }
+    setState(() {
+      _shapeDragStart = null;
+      _shapeDragEnd = null;
+    });
+  }
+
   void _startMosaic(DragStartDetails details) {
     setState(() {
       _draftPoints
@@ -231,12 +288,31 @@ class _EditableCanvasState extends State<_EditableCanvas> {
   }
 
   void _appendMosaic(DragUpdateDetails details) {
-    setState(() => _draftPoints.add(details.localPosition));
+    setState(() {
+      if (controller.mosaicDrawMode.value == MosaicDrawMode.freehand) {
+        _draftPoints.add(details.localPosition);
+      } else if (_draftPoints.isNotEmpty) {
+        _draftPoints
+          ..removeRange(1, _draftPoints.length)
+          ..add(details.localPosition);
+      }
+    });
   }
 
   void _finishMosaic(DragEndDetails details) {
-    controller.addMosaicStroke(_draftPoints);
+    controller.addMosaicStroke(
+      _draftPoints,
+      kind: _mosaicKindForMode(controller.mosaicDrawMode.value),
+    );
     setState(_draftPoints.clear);
+  }
+
+  MosaicStrokeKind _mosaicKindForMode(MosaicDrawMode mode) {
+    return switch (mode) {
+      MosaicDrawMode.freehand => MosaicStrokeKind.freehand,
+      MosaicDrawMode.rectangle => MosaicStrokeKind.rectangle,
+      MosaicDrawMode.circle => MosaicStrokeKind.circle,
+    };
   }
 }
 
@@ -274,7 +350,11 @@ class _AnnotationToolTabs extends StatelessWidget {
               icon: Icons.text_fields,
               label: AnnotationMode.text.label,
               selected: controller.mode.value == AnnotationMode.text,
-              onTap: () => controller.setMode(AnnotationMode.text),
+              onTap: () async {
+                controller.setMode(AnnotationMode.text);
+                controller.createDefaultTextLayer();
+                await _showTextEditor(context, controller);
+              },
             ),
             _ToolButton(
               icon: Icons.crop_square,
@@ -300,6 +380,52 @@ class _AnnotationToolTabs extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _showTextEditor(
+    BuildContext context,
+    AnnotationController controller,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller.textController,
+                  autofocus: true,
+                  maxLength: 40,
+                  decoration: InputDecoration(
+                    counterText: '',
+                    labelText: 'annotation.text.label'.tr,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  if (controller.updateSelectedTextLayer()) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                child: Text('common.confirm'.tr),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _AnnotationPropertyPanel extends StatelessWidget {
@@ -314,38 +440,45 @@ class _AnnotationPropertyPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _TextToolPanel(controller: controller),
-        _ShapeToolPanel(controller: controller),
+        _MosaicToolPanel(controller: controller),
+        _StrokeWidthControls(controller: controller),
         _ColorControls(controller: controller),
       ],
     );
   }
 }
 
-class _ShapeToolPanel extends StatelessWidget {
-  const _ShapeToolPanel({required this.controller});
+class _MosaicToolPanel extends StatelessWidget {
+  const _MosaicToolPanel({required this.controller});
 
   final AnnotationController controller;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final layerType = switch (controller.mode.value) {
-        AnnotationMode.rectangle => EditableLayerType.rectangle,
-        AnnotationMode.circle => EditableLayerType.circle,
-        AnnotationMode.arrow => EditableLayerType.arrow,
-        _ => null,
-      };
-      if (layerType == null) {
+      if (controller.mode.value != AnnotationMode.mosaic) {
         return const SizedBox.shrink();
       }
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
-        child: FilledButton.icon(
-          onPressed: controller.selectedImage.value == null
-              ? null
-              : () => controller.addShapeLayer(layerType),
-          icon: const Icon(Icons.add),
-          label: Text('annotation.action.addLayer'.tr),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<MosaicDrawMode>(
+            segments: MosaicDrawMode.values
+                .map(
+                  (mode) => ButtonSegment<MosaicDrawMode>(
+                    value: mode,
+                    label: Text(mode.label),
+                  ),
+                )
+                .toList(growable: false),
+            selected: {controller.mosaicDrawMode.value},
+            onSelectionChanged: (values) {
+              if (values.isNotEmpty) {
+                controller.setMosaicDrawMode(values.first);
+              }
+            },
+          ),
         ),
       );
     });
@@ -363,27 +496,46 @@ class _TextToolPanel extends StatelessWidget {
       if (controller.mode.value != AnnotationMode.text) {
         return const SizedBox.shrink();
       }
+      return const SizedBox.shrink();
+    });
+  }
+}
+
+class _StrokeWidthControls extends StatelessWidget {
+  const _StrokeWidthControls({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final showControls = switch (controller.mode.value) {
+        AnnotationMode.brush ||
+        AnnotationMode.mosaic ||
+        AnnotationMode.rectangle ||
+        AnnotationMode.circle ||
+        AnnotationMode.arrow => true,
+        AnnotationMode.select =>
+          controller.selectedObject.value is ShapeDrawable,
+        AnnotationMode.text => false,
+      };
+      if (!showControls) {
+        return const SizedBox.shrink();
+      }
+      final value = controller.strokeWidth.value;
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Row(
           children: [
+            Text('annotation.strokeWidth'.trParams({'value': '$value'})),
             Expanded(
-              child: TextField(
-                controller: controller.textController,
-                maxLength: 40,
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: 'annotation.text.label'.tr,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
+              child: Slider(
+                min: 2,
+                max: 60,
+                divisions: 58,
+                value: value.toDouble(),
+                onChanged: controller.updateStrokeWidth,
               ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed: controller.addTextLayer,
-              icon: const Icon(Icons.add),
-              label: Text('annotation.action.addText'.tr),
             ),
           ],
         ),
@@ -466,11 +618,13 @@ class _MosaicPainter extends CustomPainter {
   const _MosaicPainter({
     required this.strokes,
     required this.draftPoints,
+    required this.draftKind,
     required this.draftWidth,
   });
 
   final List<DrawingStroke> strokes;
   final List<Offset> draftPoints;
+  final MosaicStrokeKind draftKind;
   final double draftWidth;
 
   @override
@@ -479,27 +633,138 @@ class _MosaicPainter extends CustomPainter {
       ..color = Colors.black.withValues(alpha: 0.28)
       ..style = PaintingStyle.fill;
     for (final stroke in strokes) {
-      _paintPoints(canvas, paint, stroke.points, stroke.width);
+      _paintStroke(canvas, paint, stroke.kind, stroke.points, stroke.width);
     }
-    _paintPoints(canvas, paint, draftPoints, draftWidth);
+    _paintStroke(canvas, paint, draftKind, draftPoints, draftWidth);
   }
 
-  void _paintPoints(
+  void _paintStroke(
     Canvas canvas,
     Paint paint,
+    MosaicStrokeKind kind,
     List<Offset> points,
     double width,
   ) {
-    for (final point in points) {
-      canvas.drawRect(
-        Rect.fromCenter(center: point, width: width * 1.8, height: width * 1.8),
-        paint,
-      );
+    if (points.length < 2) {
+      return;
     }
+    switch (kind) {
+      case MosaicStrokeKind.freehand:
+        for (final point in points) {
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: point,
+              width: width * 1.8,
+              height: width * 1.8,
+            ),
+            paint,
+          );
+        }
+      case MosaicStrokeKind.rectangle:
+        canvas.drawRect(_rectFromPoints(points.first, points.last), paint);
+      case MosaicStrokeKind.circle:
+        canvas.drawOval(_rectFromPoints(points.first, points.last), paint);
+    }
+  }
+
+  Rect _rectFromPoints(Offset start, Offset end) {
+    return Rect.fromLTRB(
+      start.dx < end.dx ? start.dx : end.dx,
+      start.dy < end.dy ? start.dy : end.dy,
+      start.dx > end.dx ? start.dx : end.dx,
+      start.dy > end.dy ? start.dy : end.dy,
+    );
   }
 
   @override
   bool shouldRepaint(covariant _MosaicPainter oldDelegate) {
     return true;
+  }
+}
+
+class _ShapeDraftPainter extends CustomPainter {
+  const _ShapeDraftPainter({
+    required this.mode,
+    required this.start,
+    required this.end,
+    required this.color,
+    required this.strokeWidth,
+  });
+
+  final AnnotationMode mode;
+  final Offset? start;
+  final Offset? end;
+  final Color color;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final from = start;
+    final to = end;
+    if (from == null || to == null) {
+      return;
+    }
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth.clamp(2, 32)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    switch (mode) {
+      case AnnotationMode.rectangle:
+        canvas.drawRect(_rectFromPoints(from, to), paint);
+      case AnnotationMode.circle:
+        final delta = to - from;
+        final side = delta.dx.abs() > delta.dy.abs()
+            ? delta.dx.abs()
+            : delta.dy.abs();
+        final rect = Rect.fromCenter(
+          center: Offset((from.dx + to.dx) / 2, (from.dy + to.dy) / 2),
+          width: side,
+          height: side,
+        );
+        canvas.drawOval(rect, paint);
+      case AnnotationMode.arrow:
+        canvas.drawLine(from, to, paint);
+        _drawArrowHead(canvas, paint, from, to);
+      case AnnotationMode.select:
+      case AnnotationMode.brush:
+      case AnnotationMode.mosaic:
+      case AnnotationMode.text:
+        break;
+    }
+  }
+
+  void _drawArrowHead(Canvas canvas, Paint paint, Offset from, Offset to) {
+    final direction = to - from;
+    if (direction.distance < 8) {
+      return;
+    }
+    const headLength = 18.0;
+    const headAngle = 0.55;
+    final angle = direction.direction;
+    final first = to - Offset.fromDirection(angle - headAngle, headLength);
+    final second = to - Offset.fromDirection(angle + headAngle, headLength);
+    canvas
+      ..drawLine(to, first, paint)
+      ..drawLine(to, second, paint);
+  }
+
+  Rect _rectFromPoints(Offset start, Offset end) {
+    return Rect.fromLTRB(
+      start.dx < end.dx ? start.dx : end.dx,
+      start.dy < end.dy ? start.dy : end.dy,
+      start.dx > end.dx ? start.dx : end.dx,
+      start.dy > end.dy ? start.dy : end.dy,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ShapeDraftPainter oldDelegate) {
+    return start != oldDelegate.start ||
+        end != oldDelegate.end ||
+        mode != oldDelegate.mode ||
+        color != oldDelegate.color ||
+        strokeWidth != oldDelegate.strokeWidth;
   }
 }

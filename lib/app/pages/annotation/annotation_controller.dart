@@ -52,15 +52,31 @@ enum AnnotationColor {
 
 enum EditableLayerType { text, rectangle, circle, arrow }
 
+enum MosaicDrawMode {
+  freehand(labelKey: 'annotation.mosaic.freehand'),
+  rectangle(labelKey: 'annotation.mosaic.rectangle'),
+  circle(labelKey: 'annotation.mosaic.circle');
+
+  const MosaicDrawMode({required this.labelKey});
+
+  final String labelKey;
+
+  String get label => labelKey.tr;
+}
+
+enum MosaicStrokeKind { freehand, rectangle, circle }
+
 class DrawingStroke {
   const DrawingStroke({
     required this.mode,
+    required this.kind,
     required this.color,
     required this.width,
     required this.points,
   });
 
   final AnnotationMode mode;
+  final MosaicStrokeKind kind;
   final Color color;
   final double width;
   final List<Offset> points;
@@ -80,10 +96,12 @@ class AnnotationController extends GetxController {
        _recentFilesRepository = recentFilesRepository;
 
   static const double _defaultTextSize = 32;
-  static const double _defaultShapeStrokeWidth = 6;
   static const double _defaultArrowLength = 180;
   static const Size _defaultRectangleSize = Size(140, 92);
   static const Size _defaultCircleSize = Size(120, 120);
+  static const double _minDrawableSide = 16;
+  static const double _maxShapeStrokeWidth = 32;
+  static const String _defaultText = '请输入文字';
 
   final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
@@ -92,6 +110,7 @@ class AnnotationController extends GetxController {
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<AnnotatedImageFile>();
   final mode = AnnotationMode.select.obs;
+  final mosaicDrawMode = MosaicDrawMode.freehand.obs;
   final color = AnnotationColor.red.obs;
   final strokeWidth = 12.obs;
   final isBusy = false.obs;
@@ -123,6 +142,11 @@ class AnnotationController extends GetxController {
   void onInit() {
     super.onInit();
     painterController.addListener(_notifyPainterChanged);
+    painterController.objectSettings = painterController.objectSettings
+        .copyWith(
+          // 设计意图：移动端默认会放大对象控制点；这里固定为较小尺寸，避免矩形/圆形四个拖动点遮挡图层。
+          enlargeControlsResolver: () => false,
+        );
     _applyPainterMode();
   }
 
@@ -174,6 +198,7 @@ class AnnotationController extends GetxController {
   void updateStrokeWidth(double value) {
     strokeWidth.value = value.round().clamp(2, 60);
     _applyPainterMode();
+    _updateSelectedShapeStrokeWidth(strokeWidth.value.toDouble());
   }
 
   void updateCanvasSize(Size size) {
@@ -195,23 +220,32 @@ class AnnotationController extends GetxController {
     _canvasSize = size;
   }
 
-  void addTextLayer() {
-    final text = textController.text.trim();
+  void createDefaultTextLayer() {
     if (selectedImage.value == null) {
       _showError('annotation.error.pickImageFirst'.tr);
       return;
     }
-    if (text.isEmpty) {
+    textController.text = _defaultText;
+    addTextLayer(text: _defaultText);
+  }
+
+  void addTextLayer({String? text}) {
+    final nextText = (text ?? textController.text).trim();
+    if (selectedImage.value == null) {
+      _showError('annotation.error.pickImageFirst'.tr);
+      return;
+    }
+    if (nextText.isEmpty) {
       _showError('annotation.error.textRequired'.tr);
       return;
     }
-    if (text.length > 40) {
+    if (nextText.length > 40) {
       _showError('annotation.error.textTooLong'.trParams({'max': '40'}));
       return;
     }
 
     final drawable = TextDrawable(
-      text: text,
+      text: nextText,
       position: _canvasCenter,
       style: TextStyle(
         color: color.value.color,
@@ -222,7 +256,7 @@ class AnnotationController extends GetxController {
       direction: TextDirection.ltr,
     );
     _addObjectDrawable(drawable);
-    textController.clear();
+    textController.text = nextText;
   }
 
   void addShapeLayer(EditableLayerType type) {
@@ -231,7 +265,7 @@ class AnnotationController extends GetxController {
       return;
     }
 
-    final paint = _shapePaint(color.value.color);
+    final paint = _shapePaint(color.value.color, strokeWidth.value.toDouble());
     final ObjectDrawable drawable = switch (type) {
       EditableLayerType.text => throw const AppException('标注类型无效'),
       EditableLayerType.rectangle => RectangleDrawable(
@@ -255,6 +289,33 @@ class AnnotationController extends GetxController {
     _addObjectDrawable(drawable);
   }
 
+  void addShapeFromDrag(EditableLayerType type, Offset start, Offset end) {
+    if (selectedImage.value == null) {
+      _showError('annotation.error.pickImageFirst'.tr);
+      return;
+    }
+    if (!start.dx.isFinite ||
+        !start.dy.isFinite ||
+        !end.dx.isFinite ||
+        !end.dy.isFinite) {
+      return;
+    }
+
+    final delta = end - start;
+    final center = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+    final paint = _shapePaint(color.value.color, strokeWidth.value.toDouble());
+    final ObjectDrawable? drawable = switch (type) {
+      EditableLayerType.text => null,
+      EditableLayerType.rectangle => _rectangleFromDrag(center, delta, paint),
+      EditableLayerType.circle => _circleFromDrag(center, delta, paint),
+      EditableLayerType.arrow => _arrowFromDrag(start, end, paint),
+    };
+    if (drawable == null) {
+      return;
+    }
+    _addObjectDrawable(drawable);
+  }
+
   void selectShapeTool(EditableLayerType type) {
     final nextMode = switch (type) {
       EditableLayerType.text => AnnotationMode.text,
@@ -268,30 +329,13 @@ class AnnotationController extends GetxController {
   void selectObject(ObjectDrawable? drawable) {
     selectedObject.value = drawable;
     mode.value = AnnotationMode.select;
+    if (drawable is ShapeDrawable) {
+      strokeWidth.value = drawable.paint.strokeWidth
+          .round()
+          .clamp(2, _maxShapeStrokeWidth)
+          .toInt();
+    }
     _applyPainterMode();
-  }
-
-  void updateSelectedObjectScale(double value) {
-    final drawable = painterController.selectedObjectDrawable;
-    if (drawable == null) {
-      return;
-    }
-    final next = drawable.copyWith(scale: value.clamp(0.4, 3.0));
-    painterController.replaceDrawable(drawable, next);
-    painterController.selectObjectDrawable(next);
-    selectedObject.value = next;
-  }
-
-  void updateSelectedObjectRotation(double degrees) {
-    final drawable = painterController.selectedObjectDrawable;
-    if (drawable == null) {
-      return;
-    }
-    final radians = degrees.clamp(-180, 180) * math.pi / 180;
-    final next = drawable.copyWith(rotation: radians);
-    painterController.replaceDrawable(drawable, next);
-    painterController.selectObjectDrawable(next);
-    selectedObject.value = next;
   }
 
   void deleteSelectedObject() {
@@ -306,13 +350,18 @@ class AnnotationController extends GetxController {
     editRevision.value++;
   }
 
-  void addMosaicStroke(List<Offset> points) {
+  void setMosaicDrawMode(MosaicDrawMode value) {
+    mosaicDrawMode.value = value;
+  }
+
+  void addMosaicStroke(List<Offset> points, {required MosaicStrokeKind kind}) {
     if (points.length < 2) {
       return;
     }
     strokes.add(
       DrawingStroke(
         mode: AnnotationMode.mosaic,
+        kind: kind,
         color: Colors.black,
         width: strokeWidth.value.toDouble(),
         points: List<Offset>.unmodifiable(points),
@@ -498,6 +547,7 @@ class AnnotationController extends GetxController {
           .map(
             (stroke) => DrawingStroke(
               mode: stroke.mode,
+              kind: stroke.kind,
               color: stroke.color,
               width: stroke.width * ((scaleX + scaleY) / 2),
               points: stroke.points
@@ -576,7 +626,9 @@ class AnnotationController extends GetxController {
       TextDrawable item => item.copyWith(
         style: item.style.copyWith(color: nextColor),
       ),
-      ShapeDrawable item => item.copyWith(paint: _shapePaint(nextColor)),
+      ShapeDrawable item => item.copyWith(
+        paint: _shapePaint(nextColor, item.paint.strokeWidth),
+      ),
       _ => null,
     };
     if (next == null) {
@@ -585,6 +637,43 @@ class AnnotationController extends GetxController {
     painterController.replaceDrawable(drawable, next);
     painterController.selectObjectDrawable(next);
     selectedObject.value = next;
+  }
+
+  void _updateSelectedShapeStrokeWidth(double width) {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable is! ShapeDrawable) {
+      return;
+    }
+    final nextWidth = width.clamp(2, _maxShapeStrokeWidth).toDouble();
+    final next = drawable.copyWith(
+      paint: _shapePaint(drawable.paint.color, nextWidth),
+    );
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
+    result.value = null;
+  }
+
+  bool updateSelectedTextLayer() {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable is! TextDrawable) {
+      return false;
+    }
+    final nextText = textController.text.trim();
+    if (nextText.isEmpty) {
+      _showError('annotation.error.textRequired'.tr);
+      return false;
+    }
+    if (nextText.length > 40) {
+      _showError('annotation.error.textTooLong'.trParams({'max': '40'}));
+      return false;
+    }
+    final next = drawable.copyWith(text: nextText);
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
+    result.value = null;
+    return true;
   }
 
   Future<Uint8List> _encodeWithMosaic(
@@ -608,16 +697,7 @@ class AnnotationController extends GetxController {
     final scaleX = outputSize.width / canvasSize.width;
     final scaleY = outputSize.height / canvasSize.height;
     for (final stroke in strokes) {
-      for (final point in stroke.points) {
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: Offset(point.dx * scaleX, point.dy * scaleY),
-            width: stroke.width * 1.8 * scaleX,
-            height: stroke.width * 1.8 * scaleY,
-          ),
-          paint,
-        );
-      }
+      _drawMosaicStroke(canvas, paint, stroke, scaleX: scaleX, scaleY: scaleY);
     }
     final image = await recorder.endRecording().toImage(
       outputSize.width.round(),
@@ -695,10 +775,94 @@ class AnnotationController extends GetxController {
     return _canvasSize;
   }
 
-  Paint _shapePaint(Color paintColor) {
+  ObjectDrawable _rectangleFromDrag(Offset center, Offset delta, Paint paint) {
+    final size = Size(
+      delta.dx.abs().clamp(_minDrawableSide, double.infinity),
+      delta.dy.abs().clamp(_minDrawableSide, double.infinity),
+    );
+    return RectangleDrawable(
+      size: size,
+      position: center,
+      paint: paint,
+      borderRadius: const BorderRadius.all(Radius.circular(4)),
+    );
+  }
+
+  ObjectDrawable _circleFromDrag(Offset center, Offset delta, Paint paint) {
+    final side = math
+        .max(delta.dx.abs(), delta.dy.abs())
+        .clamp(_minDrawableSide, double.infinity);
+    return OvalDrawable(
+      size: Size.square(side),
+      position: center,
+      paint: paint,
+    );
+  }
+
+  ObjectDrawable _arrowFromDrag(Offset start, Offset end, Paint paint) {
+    final delta = end - start;
+    final length = math.max(delta.distance, _minDrawableSide);
+    final center = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+    return ArrowDrawable(
+      length: length,
+      position: center,
+      rotationAngle: math.atan2(delta.dy, delta.dx),
+      paint: paint,
+      arrowHeadSize: math.max(18, paint.strokeWidth * 4),
+    );
+  }
+
+  void _drawMosaicStroke(
+    Canvas canvas,
+    Paint paint,
+    DrawingStroke stroke, {
+    required double scaleX,
+    required double scaleY,
+  }) {
+    switch (stroke.kind) {
+      case MosaicStrokeKind.freehand:
+        for (final point in stroke.points) {
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: Offset(point.dx * scaleX, point.dy * scaleY),
+              width: stroke.width * 1.8 * scaleX,
+              height: stroke.width * 1.8 * scaleY,
+            ),
+            paint,
+          );
+        }
+      case MosaicStrokeKind.rectangle:
+      case MosaicStrokeKind.circle:
+        final rect = _rectFromMosaicPoints(stroke.points);
+        final scaledRect = Rect.fromLTRB(
+          rect.left * scaleX,
+          rect.top * scaleY,
+          rect.right * scaleX,
+          rect.bottom * scaleY,
+        );
+        if (stroke.kind == MosaicStrokeKind.rectangle) {
+          canvas.drawRect(scaledRect, paint);
+        } else {
+          canvas.drawOval(scaledRect, paint);
+        }
+    }
+  }
+
+  Rect _rectFromMosaicPoints(List<Offset> points) {
+    final start = points.first;
+    final end = points.last;
+    return Rect.fromLTRB(
+      math.min(start.dx, end.dx),
+      math.min(start.dy, end.dy),
+      math.max(start.dx, end.dx),
+      math.max(start.dy, end.dy),
+    );
+  }
+
+  Paint _shapePaint(Color paintColor, double strokeWidth) {
     return Paint()
       ..color = paintColor
-      ..strokeWidth = _defaultShapeStrokeWidth
+      ..strokeWidth = strokeWidth.clamp(2, _maxShapeStrokeWidth)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
