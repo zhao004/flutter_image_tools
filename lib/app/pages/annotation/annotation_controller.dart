@@ -57,6 +57,20 @@ enum AnnotationColor {
 
 enum EditableLayerType { text, rectangle, circle, arrow }
 
+enum AnnotationTextFont {
+  system(labelKey: 'annotation.text.font.system', family: null),
+  serif(labelKey: 'annotation.text.font.serif', family: 'serif'),
+  sansSerif(labelKey: 'annotation.text.font.sansSerif', family: 'sans-serif'),
+  monospace(labelKey: 'annotation.text.font.monospace', family: 'monospace');
+
+  const AnnotationTextFont({required this.labelKey, required this.family});
+
+  final String labelKey;
+  final String? family;
+
+  String get label => labelKey.tr;
+}
+
 enum EditableArrowStyle {
   solid(labelKey: 'annotation.arrow.solid'),
   outline(labelKey: 'annotation.arrow.outline');
@@ -251,6 +265,8 @@ class AnnotationController extends GetxController {
        _recentFilesRepository = recentFilesRepository;
 
   static const double _defaultTextSize = 32;
+  static const double minTextSize = 12;
+  static const double maxTextSize = 96;
   static const double _defaultArrowLength = 180;
   static const Size _defaultRectangleSize = Size(140, 92);
   static const Size _defaultCircleSize = Size(120, 120);
@@ -276,6 +292,8 @@ class AnnotationController extends GetxController {
   final selectedObject = Rxn<ObjectDrawable>();
   final editRevision = 0.obs;
   final textController = TextEditingController();
+  final textSize = _defaultTextSize.obs;
+  final textFont = AnnotationTextFont.system.obs;
   final painterController = PainterController();
   final filter = Rxn<ImageFilterType>();
   final rotationDegrees = 0.obs;
@@ -558,12 +576,7 @@ class AnnotationController extends GetxController {
     final drawable = TextDrawable(
       text: nextText,
       position: _canvasCenter,
-      style: TextStyle(
-        color: color.value.color,
-        fontSize: _defaultTextSize,
-        fontWeight: FontWeight.w800,
-        shadows: const [Shadow(color: Colors.black54, blurRadius: 2)],
-      ),
+      style: _textStyle(color: color.value.color),
       direction: TextDirection.ltr,
     );
     _addObjectDrawable(drawable);
@@ -641,6 +654,9 @@ class AnnotationController extends GetxController {
   void selectObject(ObjectDrawable? drawable) {
     selectedObject.value = drawable;
     mode.value = AnnotationMode.select;
+    if (drawable is TextDrawable) {
+      _syncTextControlsFromDrawable(drawable);
+    }
     if (drawable is ShapeDrawable) {
       strokeWidth.value = drawable.paint.strokeWidth
           .round()
@@ -681,6 +697,19 @@ class AnnotationController extends GetxController {
     deselectSelectedObject();
   }
 
+  bool selectTextObjectAt(Offset point) {
+    final drawable = _topTextDrawableAt(point);
+    if (drawable == null) {
+      return false;
+    }
+    painterController.selectObjectDrawable(drawable);
+    selectedObject.value = drawable;
+    mode.value = AnnotationMode.select;
+    _syncTextControlsFromDrawable(drawable);
+    editRevision.value++;
+    return true;
+  }
+
   void setMosaicDrawMode(MosaicDrawMode value) {
     mosaicDrawMode.value = value;
   }
@@ -688,6 +717,16 @@ class AnnotationController extends GetxController {
   void setArrowStyle(EditableArrowStyle value) {
     arrowStyle.value = value;
     _updateSelectedArrowStyle(value);
+  }
+
+  void updateTextSize(double value) {
+    textSize.value = value.clamp(minTextSize, maxTextSize).toDouble();
+    _updateSelectedTextStyle();
+  }
+
+  void setTextFont(AnnotationTextFont value) {
+    textFont.value = value;
+    _updateSelectedTextStyle();
   }
 
   void rotateSelectedShapeTo(Offset point) {
@@ -1163,11 +1202,18 @@ class AnnotationController extends GetxController {
       _showError('annotation.error.textTooLong'.trParams({'max': '40'}));
       return false;
     }
-    final next = drawable.copyWith(text: nextText);
+    final next = drawable.copyWith(
+      text: nextText,
+      style: _textStyle(
+        color: drawable.style.color ?? color.value.color,
+        shadows: drawable.style.shadows,
+      ),
+    );
     painterController.replaceDrawable(drawable, next);
     painterController.selectObjectDrawable(next);
     selectedObject.value = next;
     result.value = null;
+    editRevision.value++;
     return true;
   }
 
@@ -1696,6 +1742,9 @@ class AnnotationController extends GetxController {
       return _distanceToSegment(point, endpoints.start, endpoints.end) <=
           math.max(18, strokeWidth + 10);
     }
+    if (drawable is TextDrawable) {
+      return _isPointInsideTextDrawable(point, drawable);
+    }
     final size = drawable.getSize();
     final local = _rotateOffset(
       point - drawable.position,
@@ -1703,6 +1752,81 @@ class AnnotationController extends GetxController {
     );
     return local.dx.abs() <= size.width / 2 &&
         local.dy.abs() <= size.height / 2;
+  }
+
+  TextDrawable? _topTextDrawableAt(Offset point) {
+    for (final drawable in painterController.drawables.reversed) {
+      if (drawable is TextDrawable &&
+          _isPointInsideTextDrawable(point, drawable)) {
+        return drawable;
+      }
+    }
+    return null;
+  }
+
+  bool _isPointInsideTextDrawable(Offset point, TextDrawable drawable) {
+    final size = _textDrawableHitSize(drawable);
+    final local = _rotateOffset(
+      point - drawable.position,
+      -drawable.rotationAngle,
+    );
+    return local.dx.abs() <= size.width / 2 &&
+        local.dy.abs() <= size.height / 2;
+  }
+
+  Size _textDrawableHitSize(TextDrawable drawable) {
+    final fontSize = (drawable.style.fontSize ?? _defaultTextSize)
+        .clamp(minTextSize, maxTextSize)
+        .toDouble();
+    final textLength = drawable.text.runes.length.clamp(1, 40).toDouble();
+    final width = math.max(_minDrawableSide, textLength * fontSize * 0.72);
+    final height = math.max(_minDrawableSide, fontSize * 1.6);
+    return Size(width * drawable.scale, height * drawable.scale);
+  }
+
+  void _syncTextControlsFromDrawable(TextDrawable drawable) {
+    textController.text = drawable.text;
+    textSize.value = (drawable.style.fontSize ?? _defaultTextSize)
+        .clamp(minTextSize, maxTextSize)
+        .toDouble();
+    textFont.value = _textFontFromFamily(drawable.style.fontFamily);
+  }
+
+  void _updateSelectedTextStyle() {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable is! TextDrawable) {
+      return;
+    }
+    final next = drawable.copyWith(
+      style: _textStyle(
+        color: drawable.style.color ?? color.value.color,
+        shadows: drawable.style.shadows,
+      ),
+    );
+    painterController.replaceDrawable(drawable, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
+    result.value = null;
+    editRevision.value++;
+  }
+
+  TextStyle _textStyle({required Color color, List<Shadow>? shadows}) {
+    return TextStyle(
+      color: color,
+      fontSize: textSize.value.clamp(minTextSize, maxTextSize).toDouble(),
+      fontFamily: textFont.value.family,
+      fontWeight: FontWeight.w800,
+      shadows: shadows ?? const [Shadow(color: Colors.black54, blurRadius: 2)],
+    );
+  }
+
+  AnnotationTextFont _textFontFromFamily(String? family) {
+    for (final item in AnnotationTextFont.values) {
+      if (item.family == family) {
+        return item;
+      }
+    }
+    return AnnotationTextFont.system;
   }
 
   double _projectDistance(Offset vector, Offset direction) {

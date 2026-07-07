@@ -196,6 +196,11 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                 onSelectedObjectDrawableChanged: controller.selectObject,
                 builder: (context, painter) => GestureDetector(
                   behavior: HitTestBehavior.translucent,
+                  onDoubleTapDown: (details) async {
+                    if (controller.selectTextObjectAt(details.localPosition)) {
+                      await _showTextEditor(context, controller);
+                    }
+                  },
                   onTapUp: (details) => controller
                       .deselectSelectedObjectIfBlankTap(details.localPosition),
                   child: painter,
@@ -759,52 +764,64 @@ class _AnnotationToolTabs extends StatelessWidget {
       ),
     );
   }
+}
 
-  Future<void> _showTextEditor(
-    BuildContext context,
-    AnnotationController controller,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return Padding(
+Future<void> _showTextEditor(
+  BuildContext context,
+  AnnotationController controller,
+) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) {
+      return SafeArea(
+        child: Padding(
           padding: EdgeInsets.only(
             left: 16,
             right: 16,
             top: 16,
             bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: TextField(
-                  controller: controller.textController,
-                  autofocus: true,
-                  maxLength: 40,
-                  decoration: InputDecoration(
-                    counterText: '',
-                    labelText: 'annotation.text.label'.tr,
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
+              Text(
+                'annotation.text.editTitle'.tr,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller.textController,
+                autofocus: true,
+                maxLength: 40,
+                decoration: InputDecoration(
+                  counterText: '',
+                  labelText: 'annotation.text.label'.tr,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
                 ),
               ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: () {
-                  if (controller.updateSelectedTextLayer()) {
-                    Navigator.of(context).pop();
-                  }
-                },
-                child: Text('common.confirm'.tr),
+              const SizedBox(height: 12),
+              _TextStyleControls(controller: controller),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: () {
+                    if (controller.updateSelectedTextLayer()) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: Text('common.confirm'.tr),
+                ),
               ),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
 }
 
 class _AnnotationPropertyPanel extends StatelessWidget {
@@ -1162,7 +1179,68 @@ class _TextToolPanel extends StatelessWidget {
       if (controller.mode.value != AnnotationMode.text) {
         return const SizedBox.shrink();
       }
-      return const SizedBox.shrink();
+      return _PanelBlock(
+        title: 'annotation.text.editTitle'.tr,
+        child: _TextStyleControls(controller: controller),
+      );
+    });
+  }
+}
+
+class _TextStyleControls extends StatelessWidget {
+  const _TextStyleControls({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final textSize = controller.textSize.value.round();
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('annotation.text.size'.trParams({'value': '$textSize'})),
+              Expanded(
+                child: Slider(
+                  min: AnnotationController.minTextSize,
+                  max: AnnotationController.maxTextSize,
+                  divisions:
+                      (AnnotationController.maxTextSize -
+                              AnnotationController.minTextSize)
+                          .round(),
+                  value: controller.textSize.value,
+                  onChanged: controller.updateTextSize,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text('annotation.text.font'.tr),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<AnnotationTextFont>(
+              segments: AnnotationTextFont.values
+                  .map(
+                    (font) => ButtonSegment<AnnotationTextFont>(
+                      value: font,
+                      label: Text(font.label),
+                    ),
+                  )
+                  .toList(growable: false),
+              selected: {controller.textFont.value},
+              onSelectionChanged: (values) {
+                if (values.isNotEmpty) {
+                  controller.setTextFont(values.first);
+                }
+              },
+            ),
+          ),
+        ],
+      );
     });
   }
 }
