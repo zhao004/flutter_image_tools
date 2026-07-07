@@ -283,6 +283,7 @@ class AnnotationController extends GetxController {
   final selectedImage = Rxn<LocalImageFile>();
   final result = Rxn<AnnotatedImageFile>();
   final mode = AnnotationMode.select.obs;
+  final isPropertyPanelVisible = false.obs;
   final mosaicDrawMode = MosaicDrawMode.freehand.obs;
   final arrowStyle = EditableArrowStyle.solid.obs;
   final color = AnnotationColor.red.obs;
@@ -429,11 +430,16 @@ class AnnotationController extends GetxController {
 
   void setMode(AnnotationMode value) {
     mode.value = value;
+    isPropertyPanelVisible.value = value != AnnotationMode.select;
     if (_isLayerCreationMode(value) || _isImageProcessingMode(value)) {
       painterController.deselectObjectDrawable();
       selectedObject.value = null;
     }
     _applyPainterMode();
+  }
+
+  void closePropertyPanel() {
+    isPropertyPanelVisible.value = false;
   }
 
   void setFilter(ImageFilterType? value) {
@@ -654,6 +660,9 @@ class AnnotationController extends GetxController {
   void selectObject(ObjectDrawable? drawable) {
     selectedObject.value = drawable;
     mode.value = AnnotationMode.select;
+    if (drawable != null) {
+      isPropertyPanelVisible.value = true;
+    }
     if (drawable is TextDrawable) {
       _syncTextControlsFromDrawable(drawable);
     }
@@ -677,6 +686,7 @@ class AnnotationController extends GetxController {
     painterController.removeDrawable(drawable);
     painterController.deselectObjectDrawable(isRemoved: true);
     selectedObject.value = null;
+    isPropertyPanelVisible.value = false;
     result.value = null;
     editRevision.value++;
   }
@@ -687,6 +697,7 @@ class AnnotationController extends GetxController {
     }
     painterController.deselectObjectDrawable();
     selectedObject.value = null;
+    isPropertyPanelVisible.value = false;
     editRevision.value++;
   }
 
@@ -705,6 +716,7 @@ class AnnotationController extends GetxController {
     painterController.selectObjectDrawable(drawable);
     selectedObject.value = drawable;
     mode.value = AnnotationMode.select;
+    isPropertyPanelVisible.value = true;
     _syncTextControlsFromDrawable(drawable);
     editRevision.value++;
     return true;
@@ -1041,6 +1053,7 @@ class AnnotationController extends GetxController {
     painterController.selectObjectDrawable(drawable);
     selectedObject.value = drawable;
     mode.value = AnnotationMode.select;
+    isPropertyPanelVisible.value = true;
     _applyPainterMode();
     result.value = null;
   }

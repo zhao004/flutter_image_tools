@@ -669,16 +669,26 @@ void main() {
 
     expect(find.byIcon(Icons.delete_outline), findsNothing);
 
-    controller.setMode(AnnotationMode.brush);
+    await tester.tap(find.text('Brush'));
     await tester.pump();
 
+    expect(find.text('Annotation Style'), findsOneWidget);
+    expect(find.byTooltip('Close Property Panel'), findsOneWidget);
     expect(find.text('Red'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
-    controller.setMode(AnnotationMode.mosaic);
+    await tester.tap(find.byTooltip('Close Property Panel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Annotation Style'), findsNothing);
+    expect(find.text('Red'), findsNothing);
+    expect(find.text('Stroke: 12 px'), findsNothing);
+
+    await tester.tap(find.text('Mosaic'));
     await tester.pump();
 
+    expect(find.text('Annotation Style'), findsOneWidget);
     expect(find.text('Freehand'), findsOneWidget);
     expect(find.text('Rectangle Mosaic'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);

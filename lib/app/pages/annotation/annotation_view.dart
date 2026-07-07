@@ -62,6 +62,9 @@ class AnnotationView extends GetView<AnnotationController> {
   Widget? _annotationToolbar() {
     final mode = controller.mode.value;
     final hasSelectedLayer = controller.selectedObject.value != null;
+    if (!controller.isPropertyPanelVisible.value) {
+      return null;
+    }
     if (mode == AnnotationMode.select && !hasSelectedLayer) {
       return null;
     }
@@ -835,6 +838,22 @@ class _AnnotationPropertyPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'annotation.style.title'.tr,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            IconButton(
+              tooltip: 'annotation.action.closePanel'.tr,
+              onPressed: controller.closePropertyPanel,
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
         _TextToolPanel(controller: controller),
         _MosaicToolPanel(controller: controller),
         _FilterToolPanel(controller: controller),
