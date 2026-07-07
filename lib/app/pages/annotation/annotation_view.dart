@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
@@ -1346,127 +1347,38 @@ Future<void> _showAnnotationColorPicker(
   BuildContext context,
   AnnotationController controller,
 ) async {
-  var draftColor = controller.color.value;
-  await showDialog<void>(
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          final red = (draftColor.r * 255).round().clamp(0, 255);
-          final green = (draftColor.g * 255).round().clamp(0, 255);
-          final blue = (draftColor.b * 255).round().clamp(0, 255);
-
-          void updateChannel({int? red, int? green, int? blue}) {
-            final nextRed = red ?? (draftColor.r * 255).round();
-            final nextGreen = green ?? (draftColor.g * 255).round();
-            final nextBlue = blue ?? (draftColor.b * 255).round();
-            setState(() {
-              draftColor = Color.fromARGB(
-                255,
-                nextRed.clamp(0, 255).toInt(),
-                nextGreen.clamp(0, 255).toInt(),
-                nextBlue.clamp(0, 255).toInt(),
-              );
-            });
-          }
-
-          return AlertDialog(
-            title: Text('annotation.color.title'.tr),
-            content: SizedBox(
-              width: 320,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ColorPreview(color: draftColor),
-                  _ColorChannelSlider(
-                    label: 'R',
-                    value: red,
-                    onChanged: (value) => updateChannel(red: value),
-                  ),
-                  _ColorChannelSlider(
-                    label: 'G',
-                    value: green,
-                    onChanged: (value) => updateChannel(green: value),
-                  ),
-                  _ColorChannelSlider(
-                    label: 'B',
-                    value: blue,
-                    onChanged: (value) => updateChannel(blue: value),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text('common.cancel'.tr),
-              ),
-              FilledButton(
-                onPressed: () {
-                  controller.setColor(draftColor);
-                  Navigator.of(context).pop();
-                },
-                child: Text('common.confirm'.tr),
-              ),
-            ],
-          );
-        },
-      );
+  final selectedColor = await showColorPickerDialog(
+    context,
+    controller.color.value.withValues(alpha: 1),
+    title: Text('annotation.color.title'.tr),
+    pickersEnabled: const <ColorPickerType, bool>{
+      ColorPickerType.both: false,
+      ColorPickerType.primary: true,
+      ColorPickerType.accent: true,
+      ColorPickerType.bw: true,
+      ColorPickerType.custom: false,
+      ColorPickerType.wheel: true,
     },
+    enableOpacity: false,
+    showColorCode: true,
+    wheelDiameter: 190,
+    copyPasteBehavior: const ColorPickerCopyPasteBehavior(
+      copyButton: true,
+      pasteButton: true,
+      copyFormat: ColorPickerCopyFormat.numHexRRGGBB,
+      parseShortHexCode: true,
+    ),
+    actionButtons: ColorPickerActionButtons(
+      dialogOkButtonLabel: 'common.confirm'.tr,
+      dialogCancelButtonLabel: 'common.cancel'.tr,
+      dialogOkButtonType: ColorPickerActionButtonType.filled,
+    ),
   );
-}
 
-class _ColorPreview extends StatelessWidget {
-  const _ColorPreview({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final rgb = color.toARGB32() & 0x00FFFFFF;
-    final hex = '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          _ColorSwatch(color: color),
-          const SizedBox(width: 10),
-          Text(hex),
-        ],
-      ),
-    );
+  if (!context.mounted) {
+    return;
   }
-}
-
-class _ColorChannelSlider extends StatelessWidget {
-  const _ColorChannelSlider({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(width: 20, child: Text(label)),
-        Expanded(
-          child: Slider(
-            min: 0,
-            max: 255,
-            divisions: 255,
-            value: value.toDouble(),
-            onChanged: (value) => onChanged(value.round()),
-          ),
-        ),
-        SizedBox(width: 36, child: Text('$value', textAlign: TextAlign.end)),
-      ],
-    );
-  }
+  controller.setColor(selectedColor.withValues(alpha: 1));
 }
 
 class _PanelBlock extends StatelessWidget {

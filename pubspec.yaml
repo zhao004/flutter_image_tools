@@ -49,6 +49,7 @@ dependencies:
   signature: 6.3.0
   crop_your_image: ^2.0.0
   flutter_painter_v2: 2.1.0+1
+  flex_color_picker: 3.8.0
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,5 @@
 import 'package:drift/native.dart';
+import 'package:flex_color_picker/flex_color_picker.dart' as flex_color_picker;
 import 'package:flutter/material.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -762,14 +763,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Color'), findsOneWidget);
-    expect(find.text('R'), findsOneWidget);
-    expect(find.text('G'), findsOneWidget);
-    expect(find.text('B'), findsOneWidget);
+    expect(find.byType(flex_color_picker.ColorPicker), findsOneWidget);
+    Navigator.of(tester.element(find.byType(AlertDialog))).pop();
+    await tester.pumpAndSettle();
+
     controller.setColor(const Color(0xFF123456));
     await tester.pump();
     expect(controller.color.value, const Color(0xFF123456));
-    Navigator.of(tester.element(find.byType(AlertDialog))).pop();
-    await tester.pumpAndSettle();
     expect(find.text('#123456'), findsOneWidget);
 
     controller.deselectSelectedObjectIfBlankTap(const Offset(0, 0));
