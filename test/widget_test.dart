@@ -1052,10 +1052,6 @@ void main() {
 
     controller.addTextLayer(text: '比例稳定');
     final stableText = controller.selectedObject.value as TextDrawable;
-    final stableTextRatio = Offset(
-      stableText.position.dx / 300,
-      stableText.position.dy / 200,
-    );
 
     controller.addShapeLayer(EditableLayerType.circle);
     final circleGeometry = controller.selectedControlGeometry!;
@@ -1103,25 +1099,16 @@ void main() {
     );
     expect(resizedRectangleMosaic.width, greaterThan(60));
     expect(resizedRectangleMosaic.height, greaterThan(40));
-    final stableMosaicRatio = Offset(
-      controller.strokes.first.points.first.dx / 300,
-      controller.strokes.first.points.first.dy / 200,
-    );
+    final stableMosaicPoint = controller.strokes.first.points.first;
 
     controller.updateCanvasSize(const Size(300, 150));
     final compactText = controller.painterController.drawables
         .whereType<TextDrawable>()
         .singleWhere((drawable) => drawable.text == '比例稳定');
-    expect(compactText.position.dx / 300, closeTo(stableTextRatio.dx, 0.001));
-    expect(compactText.position.dy / 150, closeTo(stableTextRatio.dy, 0.001));
-    expect(
-      controller.strokes.first.points.first.dx / 300,
-      closeTo(stableMosaicRatio.dx, 0.001),
-    );
-    expect(
-      controller.strokes.first.points.first.dy / 150,
-      closeTo(stableMosaicRatio.dy, 0.001),
-    );
+    expect(compactText.position.dx, closeTo(stableText.position.dx, 0.001));
+    expect(compactText.position.dy, closeTo(stableText.position.dy, 0.001));
+    expect(controller.strokes.first.points.first.dx, stableMosaicPoint.dx);
+    expect(controller.strokes.first.points.first.dy, stableMosaicPoint.dy);
 
     controller.updateCanvasSize(const Size(300, 200));
     final restoredText = controller.painterController.drawables
@@ -1131,11 +1118,11 @@ void main() {
     expect(restoredText.position.dy, closeTo(stableText.position.dy, 0.001));
     expect(
       controller.strokes.first.points.first.dx,
-      closeTo(stableMosaicRatio.dx * 300, 0.001),
+      closeTo(stableMosaicPoint.dx, 0.001),
     );
     expect(
       controller.strokes.first.points.first.dy,
-      closeTo(stableMosaicRatio.dy * 200, 0.001),
+      closeTo(stableMosaicPoint.dy, 0.001),
     );
 
     controller.addMosaicStroke(const [

@@ -980,11 +980,8 @@ class AnnotationController extends GetxController {
         (_canvasSize.height - size.height).abs() < 0.5) {
       return;
     }
-    if (_canvasSize.width > 0 &&
-        _canvasSize.height > 0 &&
-        (painterController.drawables.isNotEmpty || strokes.isNotEmpty)) {
-      _rescaleCanvasContent(from: _canvasSize, to: size);
-    }
+    // 设计意图：布局高度变化只代表预览区域被底部面板挤压，不代表标注内容的逻辑坐标系变化。
+    // 因此这里只更新当前画布尺寸，避免打开工具属性面板时对已有元素做二次缩放而产生抖动。
     _canvasSize = size;
   }
 
@@ -1683,36 +1680,6 @@ class AnnotationController extends GetxController {
     isPropertyPanelVisible.value = true;
     _applyPainterMode();
     result.value = null;
-  }
-
-  void _rescaleCanvasContent({required Size from, required Size to}) {
-    if (from.width <= 0 ||
-        from.height <= 0 ||
-        to.width <= 0 ||
-        to.height <= 0) {
-      return;
-    }
-    final snapshot = _CanvasContentRatioSnapshot.capture(
-      drawables: painterController.drawables,
-      selected: painterController.selectedObjectDrawable,
-      strokes: strokes,
-      size: from,
-    );
-    if (strokes.isNotEmpty) {
-      strokes.assignAll(snapshot.restoreStrokes(to));
-    }
-    if (painterController.drawables.isEmpty) {
-      editRevision.value++;
-      return;
-    }
-    final updatedDrawables = snapshot.restoreDrawables(to);
-    final nextSelected = snapshot.restoreSelected(updatedDrawables);
-    painterController.setDrawables(
-      drawables: updatedDrawables,
-      selected: nextSelected,
-    );
-    selectedObject.value = nextSelected;
-    editRevision.value++;
   }
 
   Future<void> _loadBackground(LocalImageFile image) async {
@@ -2739,112 +2706,6 @@ class _ShapeResizeGeometry {
 
   final Offset center;
   final Size size;
-}
-
-class _CanvasContentRatioSnapshot {
-  const _CanvasContentRatioSnapshot({
-    required this.drawables,
-    required this.selectedIndex,
-    required this.strokes,
-  });
-
-  final List<ObjectDrawable> drawables;
-  final int selectedIndex;
-  final List<_StrokeRatioSnapshot> strokes;
-
-  static _CanvasContentRatioSnapshot capture({
-    required List<ObjectDrawable> drawables,
-    required ObjectDrawable? selected,
-    required List<DrawingStroke> strokes,
-    required Size size,
-  }) {
-    return _CanvasContentRatioSnapshot(
-      drawables: drawables
-          .map((drawable) => _normalizeDrawable(drawable, size))
-          .toList(growable: false),
-      selectedIndex: selected == null ? -1 : drawables.indexOf(selected),
-      strokes: strokes
-          .map((stroke) => _StrokeRatioSnapshot.capture(stroke, size))
-          .toList(growable: false),
-    );
-  }
-
-  List<ObjectDrawable> restoreDrawables(Size size) {
-    return drawables
-        .map((drawable) => _restoreDrawable(drawable, size))
-        .toList(growable: false);
-  }
-
-  ObjectDrawable? restoreSelected(List<ObjectDrawable> restoredDrawables) {
-    if (selectedIndex < 0 || selectedIndex >= restoredDrawables.length) {
-      return null;
-    }
-    return restoredDrawables[selectedIndex];
-  }
-
-  List<DrawingStroke> restoreStrokes(Size size) {
-    return strokes
-        .map((stroke) => stroke.restore(size))
-        .toList(growable: false);
-  }
-
-  static ObjectDrawable _normalizeDrawable(ObjectDrawable drawable, Size size) {
-    return drawable.copyWith(
-      position: _normalizeOffset(drawable.position, size),
-    );
-  }
-
-  static ObjectDrawable _restoreDrawable(ObjectDrawable drawable, Size size) {
-    return drawable.copyWith(position: _restoreOffset(drawable.position, size));
-  }
-}
-
-class _StrokeRatioSnapshot {
-  const _StrokeRatioSnapshot({
-    required this.stroke,
-    required this.widthRatio,
-    required this.points,
-  });
-
-  final DrawingStroke stroke;
-  final double widthRatio;
-  final List<Offset> points;
-
-  static _StrokeRatioSnapshot capture(DrawingStroke stroke, Size size) {
-    final averageSide = _averageSide(size);
-    return _StrokeRatioSnapshot(
-      stroke: stroke.copyWith(points: const <Offset>[]),
-      widthRatio: averageSide <= 0 ? stroke.width : stroke.width / averageSide,
-      points: stroke.points
-          .map((point) => _normalizeOffset(point, size))
-          .toList(growable: false),
-    );
-  }
-
-  DrawingStroke restore(Size size) {
-    final averageSide = _averageSide(size);
-    return stroke.copyWith(
-      width: averageSide <= 0 ? stroke.width : widthRatio * averageSide,
-      points: points
-          .map((point) => _restoreOffset(point, size))
-          .toList(growable: false),
-    );
-  }
-}
-
-Offset _normalizeOffset(Offset point, Size size) {
-  if (size.width <= 0 || size.height <= 0) {
-    return point;
-  }
-  return Offset(point.dx / size.width, point.dy / size.height);
-}
-
-Offset _restoreOffset(Offset point, Size size) {
-  return Offset(point.dx * size.width, point.dy * size.height);
-}
-
-double _averageSide(Size size) {
-  return (size.width + size.height) / 2;
 }
 
 class _ResizeDimensions {
