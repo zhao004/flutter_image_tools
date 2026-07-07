@@ -187,6 +187,11 @@ class AnnotationController extends GetxController {
         (_canvasSize.height - size.height).abs() < 0.5) {
       return;
     }
+    if (_canvasSize.width > 0 &&
+        _canvasSize.height > 0 &&
+        (painterController.drawables.isNotEmpty || strokes.isNotEmpty)) {
+      _rescaleCanvasContent(from: _canvasSize, to: size);
+    }
     _canvasSize = size;
   }
 
@@ -477,6 +482,62 @@ class AnnotationController extends GetxController {
     mode.value = AnnotationMode.select;
     _applyPainterMode();
     result.value = null;
+  }
+
+  void _rescaleCanvasContent({required Size from, required Size to}) {
+    if (from.width <= 0 ||
+        from.height <= 0 ||
+        to.width <= 0 ||
+        to.height <= 0) {
+      return;
+    }
+    final scaleX = to.width / from.width;
+    final scaleY = to.height / from.height;
+    if (strokes.isNotEmpty) {
+      final scaledStrokes = strokes
+          .map(
+            (stroke) => DrawingStroke(
+              mode: stroke.mode,
+              color: stroke.color,
+              width: stroke.width * ((scaleX + scaleY) / 2),
+              points: stroke.points
+                  .map((point) => Offset(point.dx * scaleX, point.dy * scaleY))
+                  .toList(growable: false),
+            ),
+          )
+          .toList(growable: false);
+      strokes.assignAll(scaledStrokes);
+    }
+    if (painterController.drawables.isEmpty) {
+      editRevision.value++;
+      return;
+    }
+    final updatedDrawables = painterController.drawables
+        .map((drawable) {
+          if (drawable is! ObjectDrawable) {
+            return drawable;
+          }
+          return drawable.copyWith(
+            position: Offset(
+              drawable.position.dx * scaleX,
+              drawable.position.dy * scaleY,
+            ),
+          );
+        })
+        .toList(growable: false);
+    final selected = painterController.selectedObjectDrawable;
+    final selectedIndex = selected == null
+        ? -1
+        : painterController.drawables.indexOf(selected);
+    final nextSelected = selectedIndex < 0
+        ? null
+        : updatedDrawables[selectedIndex] as ObjectDrawable;
+    painterController.value = painterController.value.copyWith(
+      drawables: updatedDrawables,
+      selectedObjectDrawable: nextSelected,
+    );
+    selectedObject.value = nextSelected;
+    editRevision.value++;
   }
 
   Future<void> _loadBackground(LocalImageFile image) async {

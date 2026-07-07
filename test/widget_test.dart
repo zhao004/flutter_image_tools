@@ -596,7 +596,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Move'), findsNothing);
-    expect(find.text('Stroke: 12 px'), findsNothing);
 
     controller.selectedImage.value = const LocalImageFile(
       path: 'annotation_preview.png',
@@ -623,7 +622,6 @@ void main() {
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
     expect(find.text('Red'), findsNothing);
-    expect(find.text('Stroke: 12 px'), findsNothing);
 
     controller.addShapeLayer(EditableLayerType.rectangle);
     await tester.pump();
@@ -634,7 +632,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Red'), findsOneWidget);
-    expect(find.text('Stroke: 12 px'), findsOneWidget);
+    expect(find.text('Stroke: 12 px'), findsNothing);
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
     await database.close();

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
@@ -11,8 +9,8 @@ import 'annotation_controller.dart';
 /// 图片编辑页，提供选图、第三方画布编辑、马赛克涂抹和保存到相册。
 ///
 /// 构建设计：页面复用统一编辑骨架，画布区只承载可编辑图片；工具模式放入
-/// 标签栏，文本、颜色、粗细和图层变换放入属性面板。导出、历史记录和
-/// 异常处理仍由控制器负责，避免改变业务逻辑。
+/// 标签栏，文本、颜色和新增图层动作放入属性面板。导出、历史记录和异常处理
+/// 仍由控制器负责，避免改变业务逻辑。
 class AnnotationView extends GetView<AnnotationController> {
   const AnnotationView({super.key});
 
@@ -317,8 +315,7 @@ class _AnnotationPropertyPanel extends StatelessWidget {
       children: [
         _TextToolPanel(controller: controller),
         _ShapeToolPanel(controller: controller),
-        _LayerControls(controller: controller),
-        _StrokeStyleControls(controller: controller),
+        _ColorControls(controller: controller),
       ],
     );
   }
@@ -349,65 +346,6 @@ class _ShapeToolPanel extends StatelessWidget {
               : () => controller.addShapeLayer(layerType),
           icon: const Icon(Icons.add),
           label: Text('annotation.action.addLayer'.tr),
-        ),
-      );
-    });
-  }
-}
-
-class _LayerControls extends StatelessWidget {
-  const _LayerControls({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final layer = controller.selectedObject.value;
-      if (layer == null) {
-        return const SizedBox.shrink();
-      }
-      final degrees = layer.rotationAngle * 180 / math.pi;
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'annotation.layer.transform'.tr,
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const Icon(Icons.zoom_out_map, size: 18),
-                Expanded(
-                  child: Slider(
-                    value: layer.scale.clamp(0.4, 3.0),
-                    min: 0.4,
-                    max: 3,
-                    divisions: 26,
-                    label: '${(layer.scale * 100).round()}%',
-                    onChanged: controller.updateSelectedObjectScale,
-                  ),
-                ),
-                const Icon(Icons.rotate_90_degrees_ccw, size: 18),
-                Expanded(
-                  child: Slider(
-                    value: degrees.clamp(-180, 180),
-                    min: -180,
-                    max: 180,
-                    divisions: 36,
-                    label: '${degrees.round()}°',
-                    onChanged: controller.updateSelectedObjectRotation,
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       );
     });
@@ -454,8 +392,8 @@ class _TextToolPanel extends StatelessWidget {
   }
 }
 
-class _StrokeStyleControls extends StatelessWidget {
-  const _StrokeStyleControls({required this.controller});
+class _ColorControls extends StatelessWidget {
+  const _ColorControls({required this.controller});
 
   final AnnotationController controller;
 
@@ -463,58 +401,35 @@ class _StrokeStyleControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final selectedColor = controller.color.value;
-      final strokeWidth = controller.strokeWidth.value;
       final showControls = switch (controller.mode.value) {
         AnnotationMode.brush ||
-        AnnotationMode.mosaic ||
         AnnotationMode.rectangle ||
         AnnotationMode.circle ||
         AnnotationMode.arrow ||
         AnnotationMode.text => true,
         AnnotationMode.select => controller.selectedObject.value != null,
+        AnnotationMode.mosaic => false,
       };
       if (!showControls) {
         return const SizedBox.shrink();
       }
-      return Row(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: AnnotationColor.values
-                    .map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          label: Text(item.label),
-                          selected: selectedColor == item,
-                          avatar: CircleAvatar(backgroundColor: item.color),
-                          onSelected: (_) => controller.setColor(item),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'annotation.strokeWidth'.trParams({
-              'value': strokeWidth.toString(),
-            }),
-          ),
-          SizedBox(
-            width: 120,
-            child: Slider(
-              value: strokeWidth.toDouble(),
-              min: 2,
-              max: 60,
-              divisions: 29,
-              onChanged: controller.updateStrokeWidth,
-            ),
-          ),
-        ],
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: AnnotationColor.values
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(item.label),
+                    selected: selectedColor == item,
+                    avatar: CircleAvatar(backgroundColor: item.color),
+                    onSelected: (_) => controller.setColor(item),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        ),
       );
     });
   }
