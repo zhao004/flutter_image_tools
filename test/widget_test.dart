@@ -681,12 +681,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Move'), findsNothing);
-    expect(find.text('Brush'), findsOneWidget);
+    expect(find.text('Annotate'), findsOneWidget);
     expect(find.text('Mosaic'), findsOneWidget);
     expect(find.text('Text'), findsOneWidget);
-    expect(find.text('Rectangle'), findsOneWidget);
-    expect(find.text('Circle'), findsOneWidget);
-    expect(find.text('Arrow'), findsOneWidget);
+    expect(find.text('Brush'), findsNothing);
+    expect(find.text('Rectangle'), findsNothing);
+    expect(find.text('Circle'), findsNothing);
+    expect(find.text('Arrow'), findsNothing);
     expect(find.text('Filter'), findsOneWidget);
     expect(find.text('Rotate'), findsOneWidget);
     expect(find.text('Flip'), findsOneWidget);
@@ -776,8 +777,17 @@ void main() {
 
     expect(find.byIcon(Icons.delete_outline), findsNothing);
 
-    await tester.tap(find.text('Brush'));
-    await tester.pump();
+    await tester.tap(find.text('Annotate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Brush'), findsOneWidget);
+    expect(find.text('Rectangle'), findsOneWidget);
+    expect(find.text('Circle'), findsOneWidget);
+    expect(find.text('Arrow'), findsOneWidget);
+
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<AnnotationMode>, 'Brush'),
+    );
+    await tester.pumpAndSettle();
 
     expect(find.text('Annotation Style'), findsOneWidget);
     expect(find.byTooltip('Close Property Panel'), findsOneWidget);
@@ -798,11 +808,17 @@ void main() {
     expect(find.text('Annotation Style'), findsOneWidget);
     expect(find.text('Freehand'), findsOneWidget);
     expect(find.text('Rectangle Mosaic'), findsOneWidget);
+    expect(find.text('#123456'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
 
     controller.setMosaicDrawMode(MosaicDrawMode.rectangle);
+    controller.addMosaicStroke(const [
+      Offset(8, 8),
+      Offset(80, 48),
+    ], kind: MosaicStrokeKind.rectangle);
     await tester.pump();
 
+    expect(controller.strokes.last.color, const Color(0xFF123456));
     expect(find.text('Stroke: 12 px'), findsNothing);
 
     controller.selectShapeTool(EditableLayerType.arrow);

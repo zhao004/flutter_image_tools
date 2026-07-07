@@ -239,6 +239,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                         draftPoints: const [],
                         draftKind: MosaicStrokeKind.freehand,
                         draftWidth: controller.strokeWidth.value.toDouble(),
+                        draftColor: controller.color.value,
                       ),
                     ),
                   );
@@ -256,6 +257,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                         controller.mosaicDrawMode.value,
                       ),
                       draftWidth: controller.strokeWidth.value.toDouble(),
+                      draftColor: controller.color.value,
                     ),
                   ),
                 );
@@ -692,12 +694,7 @@ class _AnnotationToolTabs extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _ToolButton(
-              icon: Icons.brush_outlined,
-              label: AnnotationMode.brush.label,
-              selected: controller.mode.value == AnnotationMode.brush,
-              onTap: () => controller.setMode(AnnotationMode.brush),
-            ),
+            _MarkupToolMenu(controller: controller),
             _ToolButton(
               icon: Icons.grid_on_outlined,
               label: AnnotationMode.mosaic.label,
@@ -713,25 +710,6 @@ class _AnnotationToolTabs extends StatelessWidget {
                 controller.createDefaultTextLayer();
                 await _showTextEditor(context, controller);
               },
-            ),
-            _ToolButton(
-              icon: Icons.crop_square,
-              label: AnnotationMode.rectangle.label,
-              selected: controller.mode.value == AnnotationMode.rectangle,
-              onTap: () =>
-                  controller.selectShapeTool(EditableLayerType.rectangle),
-            ),
-            _ToolButton(
-              icon: Icons.circle_outlined,
-              label: AnnotationMode.circle.label,
-              selected: controller.mode.value == AnnotationMode.circle,
-              onTap: () => controller.selectShapeTool(EditableLayerType.circle),
-            ),
-            _ToolButton(
-              icon: Icons.arrow_forward,
-              label: AnnotationMode.arrow.label,
-              selected: controller.mode.value == AnnotationMode.arrow,
-              onTap: () => controller.selectShapeTool(EditableLayerType.arrow),
             ),
             _ToolButton(
               icon: Icons.filter_vintage_outlined,
@@ -1297,9 +1275,9 @@ class _StrokeAndColorControls extends StatelessWidget {
         AnnotationMode.rectangle ||
         AnnotationMode.circle ||
         AnnotationMode.arrow ||
-        AnnotationMode.text => true,
+        AnnotationMode.text ||
+        AnnotationMode.mosaic => true,
         AnnotationMode.select => controller.selectedObject.value != null,
-        AnnotationMode.mosaic ||
         AnnotationMode.filter ||
         AnnotationMode.rotate ||
         AnnotationMode.flip ||
@@ -1614,6 +1592,151 @@ class _ToolButton extends StatelessWidget {
   }
 }
 
+class _MarkupToolMenu extends StatelessWidget {
+  const _MarkupToolMenu({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _isMarkupMode(controller.mode.value);
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: PopupMenuButton<AnnotationMode>(
+        tooltip: 'annotation.mode.markup'.tr,
+        onSelected: (mode) => _selectMarkupTool(controller, mode),
+        itemBuilder: (context) => [
+          _markupMenuItem(
+            mode: AnnotationMode.brush,
+            icon: Icons.brush_outlined,
+            selected: controller.mode.value == AnnotationMode.brush,
+          ),
+          _markupMenuItem(
+            mode: AnnotationMode.rectangle,
+            icon: Icons.crop_square,
+            selected: controller.mode.value == AnnotationMode.rectangle,
+          ),
+          _markupMenuItem(
+            mode: AnnotationMode.circle,
+            icon: Icons.circle_outlined,
+            selected: controller.mode.value == AnnotationMode.circle,
+          ),
+          _markupMenuItem(
+            mode: AnnotationMode.arrow,
+            icon: Icons.arrow_forward,
+            selected: controller.mode.value == AnnotationMode.arrow,
+          ),
+        ],
+        child: _ToolChipShell(
+          icon: Icons.edit_outlined,
+          label: 'annotation.mode.markup'.tr,
+          selected: selected,
+        ),
+      ),
+    );
+  }
+
+  bool _isMarkupMode(AnnotationMode mode) {
+    return switch (mode) {
+      AnnotationMode.brush ||
+      AnnotationMode.rectangle ||
+      AnnotationMode.circle ||
+      AnnotationMode.arrow => true,
+      AnnotationMode.select ||
+      AnnotationMode.mosaic ||
+      AnnotationMode.text ||
+      AnnotationMode.filter ||
+      AnnotationMode.rotate ||
+      AnnotationMode.flip ||
+      AnnotationMode.resize ||
+      AnnotationMode.crop => false,
+    };
+  }
+
+  PopupMenuEntry<AnnotationMode> _markupMenuItem({
+    required AnnotationMode mode,
+    required IconData icon,
+    required bool selected,
+  }) {
+    return CheckedPopupMenuItem<AnnotationMode>(
+      value: mode,
+      checked: selected,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Text(mode.label),
+        ],
+      ),
+    );
+  }
+
+  void _selectMarkupTool(AnnotationController controller, AnnotationMode mode) {
+    switch (mode) {
+      case AnnotationMode.brush:
+        controller.setMode(AnnotationMode.brush);
+      case AnnotationMode.rectangle:
+        controller.selectShapeTool(EditableLayerType.rectangle);
+      case AnnotationMode.circle:
+        controller.selectShapeTool(EditableLayerType.circle);
+      case AnnotationMode.arrow:
+        controller.selectShapeTool(EditableLayerType.arrow);
+      case AnnotationMode.select:
+      case AnnotationMode.mosaic:
+      case AnnotationMode.text:
+      case AnnotationMode.filter:
+      case AnnotationMode.rotate:
+      case AnnotationMode.flip:
+      case AnnotationMode.resize:
+      case AnnotationMode.crop:
+        break;
+    }
+  }
+}
+
+class _ToolChipShell extends StatelessWidget {
+  const _ToolChipShell({
+    required this.icon,
+    required this.label,
+    required this.selected,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: selected
+            ? colorScheme.secondaryContainer
+            : colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 6),
+            Text(label, style: theme.textTheme.labelLarge),
+            const SizedBox(width: 2),
+            const Icon(Icons.arrow_drop_up, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ObjectControlOverlay extends StatelessWidget {
   const _ObjectControlOverlay({required this.controller});
 
@@ -1873,21 +1996,23 @@ class _MosaicPainter extends CustomPainter {
     required this.draftPoints,
     required this.draftKind,
     required this.draftWidth,
+    required this.draftColor,
   });
 
   final List<DrawingStroke> strokes;
   final List<Offset> draftPoints;
   final MosaicStrokeKind draftKind;
   final double draftWidth;
+  final Color draftColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.28)
-      ..style = PaintingStyle.fill;
+    final paint = Paint()..style = PaintingStyle.fill;
     for (final stroke in strokes) {
+      paint.color = stroke.color.withValues(alpha: 1);
       _paintStroke(canvas, paint, stroke.kind, stroke.points, stroke.width);
     }
+    paint.color = draftColor.withValues(alpha: 1);
     _paintStroke(canvas, paint, draftKind, draftPoints, draftWidth);
   }
 

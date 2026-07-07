@@ -867,7 +867,7 @@ class AnnotationController extends GetxController {
       DrawingStroke(
         mode: AnnotationMode.mosaic,
         kind: kind,
-        color: Colors.black,
+        color: color.value,
         width: strokeWidth.value.toDouble(),
         points: List<Offset>.unmodifiable(points),
       ),
@@ -1256,9 +1256,7 @@ class AnnotationController extends GetxController {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawImage(renderedImage, Offset.zero, Paint());
-    final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.28)
-      ..style = PaintingStyle.fill;
+    final paint = Paint()..style = PaintingStyle.fill;
     final scaleX = outputSize.width / canvasSize.width;
     final scaleY = outputSize.height / canvasSize.height;
     for (final stroke in strokes) {
@@ -1965,6 +1963,8 @@ class AnnotationController extends GetxController {
     required double scaleX,
     required double scaleY,
   }) {
+    // 设计意图：马赛克用于遮盖敏感区域，导出时强制使用不透明色，避免半透明覆盖泄露底图细节。
+    paint.color = stroke.color.withValues(alpha: 1);
     switch (stroke.kind) {
       case MosaicStrokeKind.freehand:
         for (final point in stroke.points) {
