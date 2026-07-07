@@ -756,6 +756,7 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
         activePanel: _activePanel(),
         maxPanelHeight: 260,
         showPanelHeader: false,
+        compactPanel: true,
       );
     });
   }
@@ -1040,7 +1041,7 @@ Future<void> _showTextEditor(
                 ),
               ),
               const SizedBox(height: 12),
-              _TextStyleControls(controller: controller),
+              _TextEditorStyleControls(controller: controller),
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
@@ -1087,26 +1088,23 @@ class _FullAnnotationPropertyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'annotation.style.title'.tr,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ),
-            IconButton(
-              tooltip: 'annotation.action.closePanel'.tr,
-              onPressed: controller.closePropertyPanel,
-              icon: const Icon(Icons.close),
-            ),
-          ],
+        IconButton(
+          tooltip: 'annotation.action.closePanel'.tr,
+          visualDensity: VisualDensity.compact,
+          onPressed: controller.closePropertyPanel,
+          icon: const Icon(Icons.close),
         ),
-        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.only(right: 10),
+          child: Text(
+            'annotation.style.title'.tr,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ),
         _TextToolPanel(controller: controller),
         _FilterToolPanel(controller: controller),
         _RotateToolPanel(controller: controller),
@@ -1132,6 +1130,7 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
       final strokeValue = controller.strokeWidth.value;
       final showStrokeSlider = drawMode == MosaicDrawMode.freehand;
       return Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -1148,7 +1147,8 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
           if (showStrokeSlider) ...[
             const SizedBox(width: 10),
             Text('annotation.strokeWidth'.trParams({'value': '$strokeValue'})),
-            Expanded(
+            SizedBox(
+              width: 160,
               child: Slider(
                 min: 2,
                 max: 60,
@@ -1157,10 +1157,10 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
                 onChanged: controller.updateStrokeWidth,
               ),
             ),
-          ] else
-            const Spacer(),
+          ],
           IconButton(
             tooltip: 'annotation.action.closePanel'.tr,
+            visualDensity: VisualDensity.compact,
             onPressed: controller.closePropertyPanel,
             icon: const Icon(Icons.close),
           ),
@@ -1183,24 +1183,22 @@ class _FilterToolPanel extends StatelessWidget {
       }
       return _PanelBlock(
         title: 'annotation.filter.title'.tr,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _ChoicePill(
-                label: 'annotation.filter.none'.tr,
-                selected: controller.filter.value == null,
-                onSelected: () => controller.setFilter(null),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ChoicePill(
+              label: 'annotation.filter.none'.tr,
+              selected: controller.filter.value == null,
+              onSelected: () => controller.setFilter(null),
+            ),
+            ...ImageFilterType.values.map(
+              (filter) => _ChoicePill(
+                label: filter.label,
+                selected: controller.filter.value == filter,
+                onSelected: () => controller.setFilter(filter),
               ),
-              ...ImageFilterType.values.map(
-                (filter) => _ChoicePill(
-                  label: filter.label,
-                  selected: controller.filter.value == filter,
-                  onSelected: () => controller.setFilter(filter),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     });
@@ -1221,44 +1219,38 @@ class _RotateToolPanel extends StatelessWidget {
       final degrees = controller.rotationDegrees.value;
       return _PanelBlock(
         title: 'annotation.rotate.title'.tr,
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                _IconActionChip(
-                  icon: Icons.rotate_left,
-                  label: 'rotate.angle.left90'.tr,
-                  onTap: () => controller.rotateByQuarterTurn(-90),
-                ),
-                const SizedBox(width: 8),
-                _IconActionChip(
-                  icon: Icons.rotate_right,
-                  label: 'rotate.angle.right90'.tr,
-                  onTap: () => controller.rotateByQuarterTurn(90),
-                ),
-                const SizedBox(width: 8),
-                _IconActionChip(
-                  icon: Icons.refresh,
-                  label: 'annotation.reset'.tr,
-                  onTap: () => controller.setRotationDegrees(0),
-                ),
-              ],
+            _IconActionChip(
+              icon: Icons.rotate_left,
+              label: 'rotate.angle.left90'.tr,
+              onTap: () => controller.rotateByQuarterTurn(-90),
             ),
-            Row(
-              children: [
-                Text('rotate.angle.custom'.trParams({'degrees': '$degrees'})),
-                Expanded(
-                  child: Slider(
-                    min: -180,
-                    max: 180,
-                    divisions: 360,
-                    value: degrees.toDouble().clamp(-180, 180),
-                    onChanged: (value) =>
-                        controller.setRotationDegrees(value.round()),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 8),
+            _IconActionChip(
+              icon: Icons.rotate_right,
+              label: 'rotate.angle.right90'.tr,
+              onTap: () => controller.rotateByQuarterTurn(90),
+            ),
+            const SizedBox(width: 8),
+            _IconActionChip(
+              icon: Icons.refresh,
+              label: 'annotation.reset'.tr,
+              onTap: () => controller.setRotationDegrees(0),
+            ),
+            const SizedBox(width: 10),
+            Text('rotate.angle.custom'.trParams({'degrees': '$degrees'})),
+            SizedBox(
+              width: 170,
+              child: Slider(
+                min: -180,
+                max: 180,
+                divisions: 360,
+                value: degrees.toDouble().clamp(-180, 180),
+                onChanged: (value) =>
+                    controller.setRotationDegrees(value.round()),
+              ),
             ),
           ],
         ),
@@ -1281,6 +1273,7 @@ class _FlipToolPanel extends StatelessWidget {
       return _PanelBlock(
         title: 'flip.direction.title'.tr,
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             FilterChip(
               avatar: const Icon(Icons.swap_horiz, size: 18),
@@ -1313,63 +1306,42 @@ class _ResizeToolPanel extends StatelessWidget {
       if (controller.mode.value != AnnotationMode.resize) {
         return const SizedBox.shrink();
       }
+      final image = controller.selectedImage.value;
+      final widthText = controller.resizeWidthController.text.trim().isNotEmpty
+          ? controller.resizeWidthController.text.trim()
+          : image?.width.toString() ?? '';
+      final heightText =
+          controller.resizeHeightController.text.trim().isNotEmpty
+          ? controller.resizeHeightController.text.trim()
+          : image?.height.toString() ?? '';
+      final sizeLabel = widthText.isNotEmpty && heightText.isNotEmpty
+          ? '$widthText × $heightText px'
+          : 'resize.size.title'.tr;
       return _PanelBlock(
         title: 'resize.size.title'.tr,
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _DimensionField(
-                    label: 'resize.size.width'.tr,
-                    controller: controller.resizeWidthController,
-                    onChanged: controller.updateResizeWidth,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _DimensionField(
-                    label: 'resize.size.height'.tr,
-                    controller: controller.resizeHeightController,
-                    onChanged: controller.updateResizeHeight,
-                  ),
-                ),
-              ],
+            _PropertyGroupChip(
+              icon: Icons.aspect_ratio_outlined,
+              label: sizeLabel,
+              onTap: () => _showResizeSettingsPanel(context, controller),
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    title: Text('resize.size.keepAspectRatio'.tr),
-                    value: controller.resizeKeepAspectRatio.value,
-                    onChanged: (value) =>
-                        controller.setResizeKeepAspectRatio(value ?? true),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 10),
+            Text(
+              'resize.size.percent'.trParams({
+                'percent': controller.resizePercent.value.round().toString(),
+              }),
             ),
-            Row(
-              children: [
-                Text(
-                  'resize.size.percent'.trParams({
-                    'percent': controller.resizePercent.value
-                        .round()
-                        .toString(),
-                  }),
-                ),
-                Expanded(
-                  child: Slider(
-                    min: 10,
-                    max: 300,
-                    divisions: 290,
-                    value: controller.resizePercent.value.clamp(10, 300),
-                    onChanged: controller.updateResizePercent,
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: 170,
+              child: Slider(
+                min: 10,
+                max: 300,
+                divisions: 290,
+                value: controller.resizePercent.value.clamp(10, 300),
+                onChanged: controller.updateResizePercent,
+              ),
             ),
           ],
         ),
@@ -1391,19 +1363,17 @@ class _CropToolPanel extends StatelessWidget {
       }
       return _PanelBlock(
         title: 'annotation.crop.title'.tr,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: AnnotationCropPreset.values
-                .map(
-                  (preset) => _ChoicePill(
-                    label: preset.label,
-                    selected: controller.cropPreset.value == preset,
-                    onSelected: () => controller.setCropPreset(preset),
-                  ),
-                )
-                .toList(growable: false),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: AnnotationCropPreset.values
+              .map(
+                (preset) => _ChoicePill(
+                  label: preset.label,
+                  selected: controller.cropPreset.value == preset,
+                  onSelected: () => controller.setCropPreset(preset),
+                ),
+              )
+              .toList(growable: false),
         ),
       );
     });
@@ -1426,25 +1396,22 @@ class _ArrowStyleControls extends StatelessWidget {
         return const SizedBox.shrink();
       }
       return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SegmentedButton<EditableArrowStyle>(
-            segments: EditableArrowStyle.values
-                .map(
-                  (style) => ButtonSegment<EditableArrowStyle>(
-                    value: style,
-                    label: Text(style.label),
-                  ),
-                )
-                .toList(growable: false),
-            selected: {controller.arrowStyle.value},
-            onSelectionChanged: (values) {
-              if (values.isNotEmpty) {
-                controller.setArrowStyle(values.first);
-              }
-            },
-          ),
+        padding: const EdgeInsets.only(right: 10),
+        child: SegmentedButton<EditableArrowStyle>(
+          segments: EditableArrowStyle.values
+              .map(
+                (style) => ButtonSegment<EditableArrowStyle>(
+                  value: style,
+                  label: Text(style.label),
+                ),
+              )
+              .toList(growable: false),
+          selected: {controller.arrowStyle.value},
+          onSelectionChanged: (values) {
+            if (values.isNotEmpty) {
+              controller.setArrowStyle(values.first);
+            }
+          },
         ),
       );
     });
@@ -1476,6 +1443,46 @@ class _TextToolPanel extends StatelessWidget {
 
 class _TextStyleControls extends StatelessWidget {
   const _TextStyleControls({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final textSize = controller.textSize.value.round();
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text('annotation.text.size'.trParams({'value': '$textSize'})),
+          SizedBox(
+            width: 160,
+            child: Slider(
+              min: AnnotationController.minTextSize,
+              max: AnnotationController.maxTextSize,
+              divisions:
+                  (AnnotationController.maxTextSize -
+                          AnnotationController.minTextSize)
+                      .round(),
+              value: controller.textSize.value,
+              onChanged: controller.updateTextSize,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _PropertyGroupChip(
+            icon: Icons.font_download_outlined,
+            label:
+                '${'annotation.text.font'.tr}: ${controller.textFont.value.label}',
+            onTap: () => _showTextFontPicker(context, controller),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _TextEditorStyleControls extends StatelessWidget {
+  const _TextEditorStyleControls({required this.controller});
 
   final AnnotationController controller;
 
@@ -1577,8 +1584,9 @@ class _StrokeAndColorControls extends StatelessWidget {
       final selectedColor = controller.color.value;
       final colorHex = controller.colorHex;
       return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(right: 10),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             if (showColorControls) ...[
               OutlinedButton.icon(
@@ -1593,7 +1601,8 @@ class _StrokeAndColorControls extends StatelessWidget {
               Text(
                 'annotation.strokeWidth'.trParams({'value': '$strokeValue'}),
               ),
-              Expanded(
+              SizedBox(
+                width: 160,
                 child: Slider(
                   min: 2,
                   max: 60,
@@ -1675,18 +1684,187 @@ class _PanelBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
+      padding: const EdgeInsets.only(right: 10),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(title, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 8),
+          const SizedBox(width: 8),
           child,
         ],
       ),
     );
   }
+}
+
+class _PropertyGroupChip extends StatelessWidget {
+  const _PropertyGroupChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label, overflow: TextOverflow.ellipsis),
+      onPressed: onTap,
+    );
+  }
+}
+
+Future<void> _showTextFontPicker(
+  BuildContext context,
+  AnnotationController controller,
+) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    builder: (context) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Obx(
+            () => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'annotation.text.font'.tr,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'annotation.action.closePanel'.tr,
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<AnnotationTextFont>(
+                    segments: AnnotationTextFont.values
+                        .map(
+                          (font) => ButtonSegment<AnnotationTextFont>(
+                            value: font,
+                            label: Text(font.label),
+                          ),
+                        )
+                        .toList(growable: false),
+                    selected: {controller.textFont.value},
+                    onSelectionChanged: (values) {
+                      if (values.isNotEmpty) {
+                        controller.setTextFont(values.first);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _showResizeSettingsPanel(
+  BuildContext context,
+  AnnotationController controller,
+) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) {
+      return SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 12,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+          ),
+          child: Obx(
+            () => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'resize.size.title'.tr,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'annotation.action.closePanel'.tr,
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DimensionField(
+                        label: 'resize.size.width'.tr,
+                        controller: controller.resizeWidthController,
+                        onChanged: controller.updateResizeWidth,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _DimensionField(
+                        label: 'resize.size.height'.tr,
+                        controller: controller.resizeHeightController,
+                        onChanged: controller.updateResizeHeight,
+                      ),
+                    ),
+                  ],
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text('resize.size.keepAspectRatio'.tr),
+                  value: controller.resizeKeepAspectRatio.value,
+                  onChanged: controller.setResizeKeepAspectRatio,
+                ),
+                Row(
+                  children: [
+                    Text(
+                      'resize.size.percent'.trParams({
+                        'percent': controller.resizePercent.value
+                            .round()
+                            .toString(),
+                      }),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        min: 10,
+                        max: 300,
+                        divisions: 290,
+                        value: controller.resizePercent.value.clamp(10, 300),
+                        onChanged: controller.updateResizePercent,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _ChoicePill extends StatelessWidget {

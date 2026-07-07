@@ -62,7 +62,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.showPreviewInfo = true,
     this.showDefaultAppBarActions = true,
     this.expandPreviewToAvailableHeight = false,
-    this.overlayToolbar = false,
+    this.overlayToolbar = true,
   });
 
   final String title;
@@ -143,18 +143,8 @@ class ImageEditorScaffold extends StatelessWidget {
       body: SafeArea(
         child: Stack(
           children: [
-            Column(
-              children: [
-                Expanded(child: previewContent),
-                if (showEditingControls) ...[
-                  if (!overlayToolbar && bottomToolbarSurface != null)
-                    bottomToolbarSurface,
-                ],
-              ],
-            ),
-            if (showEditingControls &&
-                overlayToolbar &&
-                bottomToolbarSurface != null)
+            Column(children: [Expanded(child: previewContent)]),
+            if (showEditingControls && bottomToolbarSurface != null)
               Positioned(
                 left: 0,
                 right: 0,
@@ -356,18 +346,32 @@ class _EditorBottomToolbarSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-          child: child,
+    final colorScheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 920),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surface.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: colorScheme.outlineVariant),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.16),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: child,
+            ),
+          ),
         ),
       ),
     );
@@ -394,6 +398,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
     this.onConfirmPanel,
     this.maxPanelHeight = 180,
     this.showPanelHeader = true,
+    this.compactPanel = false,
   });
 
   final List<ToolCategory> categories;
@@ -407,6 +412,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
   final VoidCallback? onConfirmPanel;
   final double maxPanelHeight;
   final bool showPanelHeader;
+  final bool compactPanel;
 
   @override
   Widget build(BuildContext context) {
@@ -426,12 +432,13 @@ class EditorDynamicToolPanel extends StatelessWidget {
             onClosePanel: onClosePanel,
             onConfirmPanel: onConfirmPanel,
             showHeader: showPanelHeader,
+            compact: compactPanel,
             child: activePanel ?? const SizedBox.shrink(),
           ),
-          const Divider(height: 12),
+          const SizedBox(height: 8),
         ],
         SizedBox(
-          height: 68,
+          height: 60,
           child: ListView.builder(
             clipBehavior: Clip.none,
             scrollDirection: Axis.horizontal,
@@ -470,6 +477,7 @@ class _DynamicToolSubPanel extends StatelessWidget {
     required this.onClosePanel,
     required this.onConfirmPanel,
     required this.showHeader,
+    required this.compact,
     required this.child,
   });
 
@@ -481,74 +489,140 @@ class _DynamicToolSubPanel extends StatelessWidget {
   final VoidCallback? onClosePanel;
   final VoidCallback? onConfirmPanel;
   final bool showHeader;
+  final bool compact;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showHeader &&
-                (title != null ||
-                    onClosePanel != null ||
-                    onConfirmPanel != null))
-              Row(
-                children: [
-                  if (onClosePanel != null)
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      tooltip: MaterialLocalizations.of(
-                        context,
-                      ).closeButtonTooltip,
-                      onPressed: onClosePanel,
-                      icon: const Icon(Icons.close),
-                    ),
-                  if (title != null)
-                    Expanded(
-                      child: Text(
-                        title!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall,
+    if (!compact) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showHeader &&
+                  (title != null ||
+                      onClosePanel != null ||
+                      onConfirmPanel != null))
+                Row(
+                  children: [
+                    if (onClosePanel != null)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: MaterialLocalizations.of(
+                          context,
+                        ).closeButtonTooltip,
+                        onPressed: onClosePanel,
+                        icon: const Icon(Icons.close),
                       ),
-                    )
-                  else
-                    const Spacer(),
-                  if (onConfirmPanel != null)
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      tooltip: MaterialLocalizations.of(context).okButtonLabel,
-                      onPressed: onConfirmPanel,
-                      icon: const Icon(Icons.check),
-                    ),
-                ],
+                    if (title != null)
+                      Expanded(
+                        child: Text(
+                          title!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    if (onConfirmPanel != null)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: MaterialLocalizations.of(
+                          context,
+                        ).okButtonLabel,
+                        onPressed: onConfirmPanel,
+                        icon: const Icon(Icons.check),
+                      ),
+                  ],
+                ),
+              if (subItems.isNotEmpty) ...[
+                SizedBox(
+                  height: 58,
+                  child: ListView.builder(
+                    clipBehavior: Clip.none,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: subItems.length,
+                    itemBuilder: (context, index) {
+                      final item = subItems[index];
+                      return _SecondaryToolButton(
+                        item: item,
+                        selected: item.id == activeSubItemId,
+                        onTap: () => onSubItemSelected?.call(item),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              child,
+            ],
+          ),
+        ),
+      );
+    }
+
+    final panelHeight = maxHeight.clamp(48, 64).toDouble();
+    final subItemButtons = subItems
+        .map(
+          (item) => _SecondaryToolButton(
+            item: item,
+            selected: item.id == activeSubItemId,
+            onTap: () => onSubItemSelected?.call(item),
+          ),
+        )
+        .toList(growable: false);
+    return SizedBox(
+      height: panelHeight,
+      child: Row(
+        children: [
+          if (showHeader &&
+              (title != null ||
+                  onClosePanel != null ||
+                  onConfirmPanel != null)) ...[
+            if (onClosePanel != null)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: onClosePanel,
+                icon: const Icon(Icons.close),
               ),
-            if (subItems.isNotEmpty) ...[
-              SizedBox(
-                height: 58,
-                child: ListView.builder(
-                  clipBehavior: Clip.none,
-                  scrollDirection: Axis.horizontal,
-                  itemCount: subItems.length,
-                  itemBuilder: (context, index) {
-                    final item = subItems[index];
-                    return _SecondaryToolButton(
-                      item: item,
-                      selected: item.id == activeSubItemId,
-                      onTap: () => onSubItemSelected?.call(item),
-                    );
-                  },
+            if (title != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  title!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge,
                 ),
               ),
-              const SizedBox(height: 8),
-            ],
-            child,
+            if (onConfirmPanel != null)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: MaterialLocalizations.of(context).okButtonLabel,
+                onPressed: onConfirmPanel,
+                icon: const Icon(Icons.check),
+              ),
           ],
-        ),
+          if (subItems.isNotEmpty)
+            Flexible(
+              fit: FlexFit.loose,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: subItemButtons),
+              ),
+            ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: child,
+            ),
+          ),
+        ],
       ),
     );
   }

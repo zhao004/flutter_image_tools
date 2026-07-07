@@ -553,7 +553,7 @@ void main() {
     final canvasRect = tester.getRect(
       find.byKey(const ValueKey('overlay-editor-canvas')),
     );
-    expect(panelRect.bottom, greaterThan(canvasRect.bottom));
+    expect(panelRect.bottom, greaterThan(canvasRect.top));
     expect(panelRect.top, lessThan(canvasRect.bottom));
   });
 
@@ -889,6 +889,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('Target Size'), findsOneWidget);
+    expect(find.text('1200 × 800 px'), findsOneWidget);
+    await tester.tap(find.text('1200 × 800 px'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Width'), findsOneWidget);
     expect(find.text('Height'), findsOneWidget);
     expect(find.text('Keep Aspect Ratio'), findsOneWidget);
@@ -899,6 +903,8 @@ void main() {
       controller.previewSizeFor(controller.selectedImage.value!),
       const Size(600, 400),
     );
+    Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+    await tester.pumpAndSettle();
 
     controller.updateResizePercent(100);
     controller.setMode(AnnotationMode.crop);
