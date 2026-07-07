@@ -38,6 +38,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.showEditingControlsWhenEmpty = false,
     this.showPreviewInfo = true,
     this.showDefaultAppBarActions = true,
+    this.expandPreviewToAvailableHeight = false,
   });
 
   final String title;
@@ -66,6 +67,7 @@ class ImageEditorScaffold extends StatelessWidget {
   final bool showEditingControlsWhenEmpty;
   final bool showPreviewInfo;
   final bool showDefaultAppBarActions;
+  final bool expandPreviewToAvailableHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +119,8 @@ class ImageEditorScaffold extends StatelessWidget {
                       previewBorderRadius: previewBorderRadius,
                       lockPreviewScroll: lockPreviewScroll,
                       showPreviewInfo: showPreviewInfo,
+                      expandPreviewToAvailableHeight:
+                          expandPreviewToAvailableHeight,
                     ),
             ),
             if (showEditingControls) ...[
@@ -202,7 +206,13 @@ class _EditorPreviewStage extends StatelessWidget {
     required this.previewBorderRadius,
     required this.lockPreviewScroll,
     required this.showPreviewInfo,
+    required this.expandPreviewToAvailableHeight,
   });
+
+  static const double _stagePadding = 16;
+  static const double _previewInfoReservedHeight = 52;
+  static const double _resultSummaryReservedHeight = 48;
+  static const double _minimumExpandedPreviewHeight = 160;
 
   final LocalImageFile image;
   final Widget Function(BuildContext context, LocalImageFile image)
@@ -212,31 +222,51 @@ class _EditorPreviewStage extends StatelessWidget {
   final double previewBorderRadius;
   final bool lockPreviewScroll;
   final bool showPreviewInfo;
+  final bool expandPreviewToAvailableHeight;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight - _stagePadding * 2
+            : null;
+        final previewFrame = _PreviewFrame(
+          borderRadius: previewBorderRadius,
+          child: previewBuilder(context, image),
+        );
+        final reservedHeight =
+            (showPreviewInfo ? _previewInfoReservedHeight : 0) +
+            (resultSummary == null ? 0 : _resultSummaryReservedHeight);
+        final expandedPreviewHeight = availableHeight == null
+            ? null
+            : (availableHeight - reservedHeight).clamp(
+                _minimumExpandedPreviewHeight,
+                availableHeight,
+              );
+
         return Center(
           child: SingleChildScrollView(
             physics: lockPreviewScroll
                 ? const NeverScrollableScrollPhysics()
                 : null,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(_stagePadding),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: 920,
-                minHeight: constraints.maxHeight > 0
-                    ? constraints.maxHeight - 32
-                    : 0,
+                minHeight: availableHeight ?? 0,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _PreviewFrame(
-                    borderRadius: previewBorderRadius,
-                    child: previewBuilder(context, image),
-                  ),
+                  if (expandPreviewToAvailableHeight &&
+                      expandedPreviewHeight != null)
+                    SizedBox(
+                      height: expandedPreviewHeight,
+                      child: Center(child: previewFrame),
+                    )
+                  else
+                    previewFrame,
                   if (showPreviewInfo) ...[
                     const SizedBox(height: 12),
                     Text(

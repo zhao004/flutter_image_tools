@@ -36,6 +36,7 @@ class AnnotationView extends GetView<AnnotationController> {
         onExport: controller.exportEditedImage,
         showPreviewInfo: false,
         showDefaultAppBarActions: false,
+        expandPreviewToAvailableHeight: true,
         previewBorderRadius: 0,
         lockPreviewScroll: true,
         previewBuilder: (context, previewImage) =>
@@ -121,6 +122,9 @@ class _AnnotationTopActions extends StatelessWidget {
 class _AnnotationCanvasFrame extends StatelessWidget {
   const _AnnotationCanvasFrame({required this.controller, required this.image});
 
+  static const double _maxPreviewWidth = 900;
+  static const double _fallbackPreviewHeight = 560;
+
   final AnnotationController controller;
   final LocalImageFile image;
 
@@ -129,12 +133,22 @@ class _AnnotationCanvasFrame extends StatelessWidget {
     final aspectRatio = image.hasValidDimensions
         ? image.width / image.height
         : 1.0;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900, maxHeight: 560),
-      child: AspectRatio(
-        aspectRatio: aspectRatio.clamp(0.35, 2.4),
-        child: _EditableCanvas(controller: controller),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : _fallbackPreviewHeight;
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: _maxPreviewWidth,
+            maxHeight: maxHeight,
+          ),
+          child: AspectRatio(
+            aspectRatio: aspectRatio.clamp(0.35, 2.4),
+            child: _EditableCanvas(controller: controller),
+          ),
+        );
+      },
     );
   }
 }
