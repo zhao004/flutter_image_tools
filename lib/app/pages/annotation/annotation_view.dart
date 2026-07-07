@@ -224,15 +224,22 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                     onPanStart: _startShapeDrag,
                     onPanUpdate: _updateShapeDrag,
                     onPanEnd: (_) => _finishShapeDrag(shapeType),
-                    child: CustomPaint(
-                      painter: _ShapeDraftPainter(
-                        mode: mode,
-                        start: _shapeDragStart,
-                        end: _shapeDragEnd,
-                        color: controller.color.value,
-                        strokeWidth: controller.strokeWidth.value.toDouble(),
-                        arrowStyle: controller.arrowStyle.value,
-                      ),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _mosaicPaintLayer(),
+                        CustomPaint(
+                          painter: _ShapeDraftPainter(
+                            mode: mode,
+                            start: _shapeDragStart,
+                            end: _shapeDragEnd,
+                            color: controller.color.value,
+                            strokeWidth: controller.strokeWidth.value
+                                .toDouble(),
+                            arrowStyle: controller.arrowStyle.value,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
@@ -247,29 +254,11 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                     onPanUpdate: _moveSelectedMosaic,
                     onPanEnd: (_) => _finishSelectedMosaicMove(),
                     onPanCancel: _finishSelectedMosaicMove,
-                    child: CustomPaint(
-                      painter: _MosaicPainter(
-                        strokes: controller.strokes,
-                        draftPoints: const [],
-                        draftKind: MosaicStrokeKind.freehand,
-                        draftWidth: controller.strokeWidth.value.toDouble(),
-                        draftColor: controller.color.value,
-                      ),
-                    ),
+                    child: _mosaicPaintLayer(),
                   );
                 }
                 if (mode != AnnotationMode.mosaic) {
-                  return IgnorePointer(
-                    child: CustomPaint(
-                      painter: _MosaicPainter(
-                        strokes: controller.strokes,
-                        draftPoints: const [],
-                        draftKind: MosaicStrokeKind.freehand,
-                        draftWidth: controller.strokeWidth.value.toDouble(),
-                        draftColor: controller.color.value,
-                      ),
-                    ),
-                  );
+                  return IgnorePointer(child: _mosaicPaintLayer());
                 }
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -299,6 +288,19 @@ class _EditableCanvasState extends State<_EditableCanvas> {
           child: canvas,
         );
       },
+    );
+  }
+
+  Widget _mosaicPaintLayer({List<Offset> draftPoints = const []}) {
+    return CustomPaint(
+      key: const ValueKey('annotation-mosaic-layer'),
+      painter: _MosaicPainter(
+        strokes: controller.strokes,
+        draftPoints: draftPoints,
+        draftKind: _mosaicKindForMode(controller.mosaicDrawMode.value),
+        draftWidth: controller.strokeWidth.value.toDouble(),
+        draftColor: controller.color.value,
+      ),
     );
   }
 

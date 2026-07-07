@@ -846,6 +846,7 @@ void main() {
     controller.selectShapeTool(EditableLayerType.arrow);
     await tester.pump();
 
+    expect(find.byKey(const ValueKey('annotation-mosaic-layer')), findsWidgets);
     expect(find.text('Solid Arrow'), findsOneWidget);
     expect(find.text('Outline Arrow'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
