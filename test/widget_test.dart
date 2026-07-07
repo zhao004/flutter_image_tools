@@ -678,6 +678,10 @@ void main() {
     await tester.pump();
 
     expect(controller.hasEdits, isTrue);
+    expect(
+      find.byKey(const ValueKey('annotation-adjustment-preview')),
+      findsOneWidget,
+    );
 
     controller.setMode(AnnotationMode.rotate);
     await tester.pump();
@@ -687,6 +691,10 @@ void main() {
     expect(find.text('Rotate Right 90°'), findsOneWidget);
     controller.rotateByQuarterTurn(90);
     expect(controller.rotationDegrees.value, 90);
+    expect(
+      controller.previewAspectRatioFor(controller.selectedImage.value!),
+      closeTo(800 / 1200, 0.001),
+    );
 
     controller.setMode(AnnotationMode.flip);
     await tester.pump();
@@ -707,7 +715,12 @@ void main() {
     controller.updateResizePercent(50);
     expect(controller.resizeWidthController.text, '600');
     expect(controller.resizeHeightController.text, '400');
+    expect(
+      controller.previewSizeFor(controller.selectedImage.value!),
+      const Size(600, 400),
+    );
 
+    controller.updateResizePercent(100);
     controller.setMode(AnnotationMode.crop);
     await tester.pump();
 
@@ -716,6 +729,10 @@ void main() {
     expect(find.text('Square'), findsOneWidget);
     controller.setCropPreset(AnnotationCropPreset.square);
     expect(controller.cropPreset.value, AnnotationCropPreset.square);
+    expect(
+      controller.previewAspectRatioFor(controller.selectedImage.value!),
+      closeTo(1, 0.001),
+    );
 
     await database.close();
     Get.reset();

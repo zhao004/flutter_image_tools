@@ -294,6 +294,51 @@ class AnnotationController extends GetxController {
         _hasResizeAdjustment(image);
   }
 
+  double previewAspectRatioFor(LocalImageFile image) {
+    editRevision.value;
+    final size = previewSizeFor(image);
+    return _safeAspectRatio(size.width, size.height);
+  }
+
+  Size previewSizeFor(LocalImageFile image) {
+    editRevision.value;
+    if (!image.hasValidDimensions) {
+      return const Size(1, 1);
+    }
+
+    var width = image.width.toDouble();
+    var height = image.height.toDouble();
+    final cropAspectRatio = cropPreset.value.aspectRatio;
+    if (cropAspectRatio != null && cropAspectRatio.isFinite) {
+      final sourceAspectRatio = _safeAspectRatio(width, height);
+      if (sourceAspectRatio > cropAspectRatio) {
+        width = height * cropAspectRatio;
+      } else {
+        height = width / cropAspectRatio;
+      }
+    }
+
+    final normalizedRotation = rotationDegrees.value.abs() % 180;
+    if (normalizedRotation == 90) {
+      final nextWidth = height;
+      height = width;
+      width = nextWidth;
+    }
+
+    final resizeDimensions = _hasResizeAdjustment(image)
+        ? _readResizeDimensions(showError: false)
+        : null;
+    if (resizeDimensions != null) {
+      width = resizeDimensions.width.toDouble();
+      height = resizeDimensions.height.toDouble();
+    }
+
+    return Size(
+      width.clamp(1, _maxResizeDimension).toDouble(),
+      height.clamp(1, _maxResizeDimension).toDouble(),
+    );
+  }
+
   bool get canUndo {
     editRevision.value;
     return painterController.canUndo || strokes.isNotEmpty;
@@ -1266,6 +1311,13 @@ class AnnotationController extends GetxController {
       _minResizeDimension,
       _maxResizeDimension,
     );
+  }
+
+  double _safeAspectRatio(double width, double height) {
+    if (!width.isFinite || !height.isFinite || width <= 0 || height <= 0) {
+      return 1;
+    }
+    return width / height;
   }
 
   bool _isLayerCreationMode(AnnotationMode value) {

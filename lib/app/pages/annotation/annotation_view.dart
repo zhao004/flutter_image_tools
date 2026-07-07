@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
@@ -130,33 +132,34 @@ class _AnnotationCanvasFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aspectRatio = image.hasValidDimensions
-        ? image.width / image.height
-        : 1.0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxHeight = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : _fallbackPreviewHeight;
-        return ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: _maxPreviewWidth,
-            maxHeight: maxHeight,
-          ),
-          child: AspectRatio(
-            aspectRatio: aspectRatio.clamp(0.35, 2.4),
-            child: _EditableCanvas(controller: controller),
-          ),
-        );
-      },
-    );
+    return Obx(() {
+      final aspectRatio = controller.previewAspectRatioFor(image);
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final maxHeight = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : _fallbackPreviewHeight;
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: _maxPreviewWidth,
+              maxHeight: maxHeight,
+            ),
+            child: AspectRatio(
+              aspectRatio: aspectRatio.clamp(0.35, 2.4),
+              child: _EditableCanvas(controller: controller, image: image),
+            ),
+          );
+        },
+      );
+    });
   }
 }
 
 class _EditableCanvas extends StatefulWidget {
-  const _EditableCanvas({required this.controller});
+  const _EditableCanvas({required this.controller, required this.image});
 
   final AnnotationController controller;
+  final LocalImageFile image;
 
   @override
   State<_EditableCanvas> createState() => _EditableCanvasState();
@@ -181,7 +184,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
           }
         });
 
-        return DecoratedBox(
+        final canvas = DecoratedBox(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
@@ -251,6 +254,11 @@ class _EditableCanvasState extends State<_EditableCanvas> {
               _ObjectControlOverlay(controller: controller),
             ],
           ),
+        );
+        return _ImageAdjustmentPreview(
+          controller: controller,
+          image: widget.image,
+          child: canvas,
         );
       },
     );
@@ -322,6 +330,346 @@ class _EditableCanvasState extends State<_EditableCanvas> {
       MosaicDrawMode.rectangle => MosaicStrokeKind.rectangle,
       MosaicDrawMode.circle => MosaicStrokeKind.circle,
     };
+  }
+}
+
+class _ImageAdjustmentPreview extends StatelessWidget {
+  const _ImageAdjustmentPreview({
+    required this.controller,
+    required this.image,
+    required this.child,
+  });
+
+  final AnnotationController controller;
+  final LocalImageFile image;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      controller.editRevision.value;
+      final mode = controller.mode.value;
+      final colorFilter = _colorFilterFor(controller.filter.value);
+      if (!_isImageProcessingMode(mode)) {
+        return ClipRect(
+          key: const ValueKey('annotation-adjustment-preview'),
+          child: colorFilter == null
+              ? child
+              : ColorFiltered(colorFilter: colorFilter, child: child),
+        );
+      }
+
+      final sourceAspectRatio = image.hasValidDimensions
+          ? image.width / image.height
+          : 1.0;
+      final cropAspectRatio =
+          controller.cropPreset.value.aspectRatio ?? sourceAspectRatio;
+      Widget preview = SizedBox(
+        width: 1000,
+        height: 1000 / cropAspectRatio.clamp(0.1, 10),
+        child: ClipRect(
+          child: FittedBox(
+            fit: BoxFit.cover,
+            clipBehavior: Clip.hardEdge,
+            child: SizedBox(
+              width: 1000,
+              height: 1000 / sourceAspectRatio.clamp(0.1, 10),
+              child: child,
+            ),
+          ),
+        ),
+      );
+
+      final normalizedDegrees = controller.rotationDegrees.value % 360;
+      if (normalizedDegrees != 0 && normalizedDegrees % 90 == 0) {
+        preview = RotatedBox(
+          quarterTurns: normalizedDegrees ~/ 90,
+          child: preview,
+        );
+      } else if (normalizedDegrees != 0) {
+        preview = Transform.rotate(
+          angle: normalizedDegrees / 180 * math.pi,
+          child: preview,
+        );
+      }
+      if (controller.flipHorizontal.value || controller.flipVertical.value) {
+        preview = Transform.scale(
+          scaleX: controller.flipHorizontal.value ? -1 : 1,
+          scaleY: controller.flipVertical.value ? -1 : 1,
+          child: preview,
+        );
+      }
+      if (colorFilter != null) {
+        preview = ColorFiltered(colorFilter: colorFilter, child: preview);
+      }
+
+      return ClipRect(
+        key: const ValueKey('annotation-adjustment-preview'),
+        child: IgnorePointer(
+          // 图片处理标签只负责预览全图变换；禁用画布命中避免缩放/旋转后的坐标反向映射影响标注交互。
+          child: FittedBox(
+            fit: BoxFit.fill,
+            clipBehavior: Clip.hardEdge,
+            child: preview,
+          ),
+        ),
+      );
+    });
+  }
+
+  bool _isImageProcessingMode(AnnotationMode mode) {
+    return switch (mode) {
+      AnnotationMode.filter ||
+      AnnotationMode.rotate ||
+      AnnotationMode.flip ||
+      AnnotationMode.resize ||
+      AnnotationMode.crop => true,
+      AnnotationMode.select ||
+      AnnotationMode.brush ||
+      AnnotationMode.mosaic ||
+      AnnotationMode.text ||
+      AnnotationMode.rectangle ||
+      AnnotationMode.circle ||
+      AnnotationMode.arrow => false,
+    };
+  }
+
+  ColorFilter? _colorFilterFor(ImageFilterType? filter) {
+    if (filter == null) {
+      return null;
+    }
+    switch (filter) {
+      case ImageFilterType.grayscale:
+        return const ColorFilter.matrix([
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.monochrome:
+        return const ColorFilter.matrix([
+          1.5,
+          1.5,
+          1.5,
+          0,
+          -180,
+          1.5,
+          1.5,
+          1.5,
+          0,
+          -180,
+          1.5,
+          1.5,
+          1.5,
+          0,
+          -180,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.sepia:
+        return const ColorFilter.matrix([
+          0.393,
+          0.769,
+          0.189,
+          0,
+          0,
+          0.349,
+          0.686,
+          0.168,
+          0,
+          0,
+          0.272,
+          0.534,
+          0.131,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.invert:
+        return const ColorFilter.matrix([
+          -1,
+          0,
+          0,
+          0,
+          255,
+          0,
+          -1,
+          0,
+          0,
+          255,
+          0,
+          0,
+          -1,
+          0,
+          255,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.warm:
+        return const ColorFilter.matrix([
+          1.12,
+          0,
+          0,
+          0,
+          10,
+          0,
+          1.02,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0.90,
+          0,
+          -8,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.cool:
+        return const ColorFilter.matrix([
+          0.90,
+          0,
+          0,
+          0,
+          -8,
+          0,
+          1.02,
+          0,
+          0,
+          2,
+          0,
+          0,
+          1.14,
+          0,
+          10,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.hdr:
+        return const ColorFilter.matrix([
+          1.25,
+          0,
+          0,
+          0,
+          -16,
+          0,
+          1.25,
+          0,
+          0,
+          -16,
+          0,
+          0,
+          1.25,
+          0,
+          -16,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.film:
+        return const ColorFilter.matrix([
+          1.05,
+          0.05,
+          0,
+          0,
+          8,
+          0.04,
+          0.98,
+          0.02,
+          0,
+          4,
+          0,
+          0.06,
+          0.92,
+          0,
+          10,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.sharpen:
+        return const ColorFilter.matrix([
+          1.12,
+          0,
+          0,
+          0,
+          -6,
+          0,
+          1.12,
+          0,
+          0,
+          -6,
+          0,
+          0,
+          1.12,
+          0,
+          -6,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+      case ImageFilterType.soften:
+        return const ColorFilter.matrix([
+          0.94,
+          0.03,
+          0.03,
+          0,
+          4,
+          0.03,
+          0.94,
+          0.03,
+          0,
+          4,
+          0.03,
+          0.03,
+          0.94,
+          0,
+          4,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]);
+    }
   }
 }
 
