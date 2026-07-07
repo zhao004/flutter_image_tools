@@ -64,10 +64,13 @@ class AnnotationView extends GetView<AnnotationController> {
   Widget? _annotationToolbar() {
     final mode = controller.mode.value;
     final hasSelectedLayer = controller.selectedObject.value != null;
+    final hasSelectedMosaic = controller.selectedMosaicIndex.value != null;
     if (!controller.isPropertyPanelVisible.value) {
       return null;
     }
-    if (mode == AnnotationMode.select && !hasSelectedLayer) {
+    if (mode == AnnotationMode.select &&
+        !hasSelectedLayer &&
+        !hasSelectedMosaic) {
       return null;
     }
     return _AnnotationPropertyPanel(controller: controller);
@@ -85,6 +88,7 @@ class _AnnotationTopActions extends StatelessWidget {
       final image = controller.selectedImage.value;
       final isBusy = controller.isBusy.value;
       final selectedLayer = controller.selectedObject.value;
+      final selectedMosaic = controller.selectedMosaicIndex.value;
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -102,7 +106,7 @@ class _AnnotationTopActions extends StatelessWidget {
                 : controller.redo,
             icon: const Icon(Icons.redo),
           ),
-          if (selectedLayer != null)
+          if (selectedLayer != null || selectedMosaic != null)
             IconButton(
               tooltip: 'annotation.action.deleteLayer'.tr,
               onPressed: isBusy ? null : controller.deleteSelectedObject,
@@ -174,6 +178,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
   final List<Offset> _draftPoints = <Offset>[];
   Offset? _shapeDragStart;
   Offset? _shapeDragEnd;
+  bool _isMovingSelectedMosaic = false;
 
   AnnotationController get controller => widget.controller;
 
@@ -228,6 +233,28 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                         color: controller.color.value,
                         strokeWidth: controller.strokeWidth.value.toDouble(),
                         arrowStyle: controller.arrowStyle.value,
+                      ),
+                    ),
+                  );
+                }
+                if (controller.selectedMosaicIndex.value != null) {
+                  return GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTapUp: (details) =>
+                        controller.deselectSelectedObjectIfBlankTap(
+                          details.localPosition,
+                        ),
+                    onPanStart: _startSelectedMosaicMove,
+                    onPanUpdate: _moveSelectedMosaic,
+                    onPanEnd: (_) => _finishSelectedMosaicMove(),
+                    onPanCancel: _finishSelectedMosaicMove,
+                    child: CustomPaint(
+                      painter: _MosaicPainter(
+                        strokes: controller.strokes,
+                        draftPoints: const [],
+                        draftKind: MosaicStrokeKind.freehand,
+                        draftWidth: controller.strokeWidth.value.toDouble(),
+                        draftColor: controller.color.value,
                       ),
                     ),
                   );
@@ -306,6 +333,21 @@ class _EditableCanvasState extends State<_EditableCanvas> {
       _shapeDragStart = null;
       _shapeDragEnd = null;
     });
+  }
+
+  void _startSelectedMosaicMove(DragStartDetails details) {
+    _isMovingSelectedMosaic = controller.selectMosaicAt(details.localPosition);
+  }
+
+  void _moveSelectedMosaic(DragUpdateDetails details) {
+    if (!_isMovingSelectedMosaic) {
+      return;
+    }
+    controller.moveSelectedMosaicBy(details.delta);
+  }
+
+  void _finishSelectedMosaicMove() {
+    _isMovingSelectedMosaic = false;
   }
 
   void _startMosaic(DragStartDetails details) {
@@ -696,12 +738,7 @@ class _AnnotationToolTabs extends StatelessWidget {
         child: Row(
           children: [
             _MarkupToolMenu(controller: controller),
-            _ToolButton(
-              icon: Icons.grid_on_outlined,
-              label: AnnotationMode.mosaic.label,
-              selected: controller.mode.value == AnnotationMode.mosaic,
-              onTap: () => controller.setMode(AnnotationMode.mosaic),
-            ),
+            _MosaicModeMenu(controller: controller),
             _ToolButton(
               icon: Icons.text_fields,
               label: AnnotationMode.text.label,
@@ -814,6 +851,25 @@ class _AnnotationPropertyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Obx(() {
+      final showMosaicPanel =
+          controller.mode.value == AnnotationMode.mosaic ||
+          controller.selectedMosaicIndex.value != null;
+      if (showMosaicPanel) {
+        return _MosaicSingleLinePropertyPanel(controller: controller);
+      }
+      return _FullAnnotationPropertyPanel(controller: controller);
+    });
+  }
+}
+
+class _FullAnnotationPropertyPanel extends StatelessWidget {
+  const _FullAnnotationPropertyPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -835,7 +891,6 @@ class _AnnotationPropertyPanel extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         _TextToolPanel(controller: controller),
-        _MosaicToolPanel(controller: controller),
         _FilterToolPanel(controller: controller),
         _RotateToolPanel(controller: controller),
         _FlipToolPanel(controller: controller),
@@ -845,6 +900,56 @@ class _AnnotationPropertyPanel extends StatelessWidget {
         _StrokeAndColorControls(controller: controller),
       ],
     );
+  }
+}
+
+class _MosaicSingleLinePropertyPanel extends StatelessWidget {
+  const _MosaicSingleLinePropertyPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final drawMode = controller.mosaicDrawMode.value;
+      final strokeValue = controller.strokeWidth.value;
+      final showStrokeSlider = drawMode == MosaicDrawMode.freehand;
+      return Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              drawMode.label,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => _showAnnotationColorPicker(context, controller),
+            icon: _ColorSwatch(color: controller.color.value),
+            label: Text(controller.colorHex),
+          ),
+          if (showStrokeSlider) ...[
+            const SizedBox(width: 10),
+            Text('annotation.strokeWidth'.trParams({'value': '$strokeValue'})),
+            Expanded(
+              child: Slider(
+                min: 2,
+                max: 60,
+                divisions: 58,
+                value: strokeValue.toDouble(),
+                onChanged: controller.updateStrokeWidth,
+              ),
+            ),
+          ] else
+            const Spacer(),
+          IconButton(
+            tooltip: 'annotation.action.closePanel'.tr,
+            onPressed: controller.closePropertyPanel,
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -1081,43 +1186,6 @@ class _CropToolPanel extends StatelessWidget {
                   ),
                 )
                 .toList(growable: false),
-          ),
-        ),
-      );
-    });
-  }
-}
-
-class _MosaicToolPanel extends StatelessWidget {
-  const _MosaicToolPanel({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      if (controller.mode.value != AnnotationMode.mosaic) {
-        return const SizedBox.shrink();
-      }
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SegmentedButton<MosaicDrawMode>(
-            segments: MosaicDrawMode.values
-                .map(
-                  (mode) => ButtonSegment<MosaicDrawMode>(
-                    value: mode,
-                    label: Text(mode.label),
-                  ),
-                )
-                .toList(growable: false),
-            selected: {controller.mosaicDrawMode.value},
-            onSelectionChanged: (values) {
-              if (values.isNotEmpty) {
-                controller.setMosaicDrawMode(values.first);
-              }
-            },
           ),
         ),
       );
@@ -1578,7 +1646,7 @@ class _MarkupToolMenu extends StatelessWidget {
         children: [
           Icon(icon, size: 18),
           const SizedBox(width: 8),
-          Text(mode.label),
+          Flexible(child: Text(mode.label, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
@@ -1604,6 +1672,67 @@ class _MarkupToolMenu extends StatelessWidget {
       case AnnotationMode.crop:
         break;
     }
+  }
+}
+
+class _MosaicModeMenu extends StatelessWidget {
+  const _MosaicModeMenu({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = controller.mode.value == AnnotationMode.mosaic;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: PopupMenuButton<MosaicDrawMode>(
+        tooltip: AnnotationMode.mosaic.label,
+        onSelected: controller.setMosaicDrawMode,
+        itemBuilder: (context) => [
+          _mosaicMenuItem(
+            mode: MosaicDrawMode.freehand,
+            icon: Icons.gesture,
+            selected:
+                controller.mosaicDrawMode.value == MosaicDrawMode.freehand,
+          ),
+          _mosaicMenuItem(
+            mode: MosaicDrawMode.rectangle,
+            icon: Icons.crop_square,
+            selected:
+                controller.mosaicDrawMode.value == MosaicDrawMode.rectangle,
+          ),
+          _mosaicMenuItem(
+            mode: MosaicDrawMode.circle,
+            icon: Icons.circle_outlined,
+            selected: controller.mosaicDrawMode.value == MosaicDrawMode.circle,
+          ),
+        ],
+        child: _ToolChipShell(
+          icon: Icons.grid_on_outlined,
+          label: AnnotationMode.mosaic.label,
+          selected: selected,
+        ),
+      ),
+    );
+  }
+
+  PopupMenuEntry<MosaicDrawMode> _mosaicMenuItem({
+    required MosaicDrawMode mode,
+    required IconData icon,
+    required bool selected,
+  }) {
+    return CheckedPopupMenuItem<MosaicDrawMode>(
+      value: mode,
+      checked: selected,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Flexible(child: Text(mode.label, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
   }
 }
 

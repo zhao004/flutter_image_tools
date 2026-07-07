@@ -803,11 +803,20 @@ void main() {
     expect(find.text('Stroke: 12 px'), findsNothing);
 
     await tester.tap(find.text('Mosaic'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Annotation Style'), findsOneWidget);
     expect(find.text('Freehand'), findsOneWidget);
     expect(find.text('Rectangle Mosaic'), findsOneWidget);
+    expect(find.text('Circle Mosaic'), findsOneWidget);
+
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<MosaicDrawMode>, 'Freehand'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Annotation Style'), findsNothing);
+    expect(find.text('Freehand'), findsOneWidget);
+    expect(find.text('Rectangle Mosaic'), findsNothing);
     expect(find.text('#123456'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
 
@@ -819,6 +828,7 @@ void main() {
     await tester.pump();
 
     expect(controller.strokes.last.color, const Color(0xFF123456));
+    expect(find.text('Rectangle Mosaic'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsNothing);
 
     controller.selectShapeTool(EditableLayerType.arrow);
@@ -1036,6 +1046,60 @@ void main() {
     final resizedCircle = controller.selectedObject.value as OvalDrawable;
     expect(resizedCircle.size.width, greaterThan(initialCircle.size.width));
     expect(resizedCircle.size.width, resizedCircle.size.height);
+
+    controller.addMosaicStroke(const [
+      Offset(20, 20),
+      Offset(80, 60),
+    ], kind: MosaicStrokeKind.rectangle);
+    expect(controller.selectedMosaicIndex.value, 0);
+    expect(controller.mosaicDrawMode.value, MosaicDrawMode.rectangle);
+    final rectangleMosaicGeometry = controller.selectedControlGeometry!;
+    expect(rectangleMosaicGeometry.shapeScaleHandles, hasLength(4));
+    final initialRectangleMosaicPoints = List<Offset>.of(
+      controller.strokes.first.points,
+    );
+
+    controller.moveSelectedMosaicBy(const Offset(10, 12));
+    expect(
+      controller.strokes.first.points.first,
+      initialRectangleMosaicPoints.first + const Offset(10, 12),
+    );
+    final mosaicBottomRight = rectangleMosaicGeometry.shapeScaleHandles
+        .singleWhere(
+          (handle) => handle.corner == AnnotationShapeScaleCorner.bottomRight,
+        );
+    controller.resizeSelectedMosaicFromCorner(
+      corner: mosaicBottomRight.corner,
+      point: mosaicBottomRight.center + const Offset(40, 24),
+    );
+    final resizedRectangleMosaic = Rect.fromPoints(
+      controller.strokes.first.points.first,
+      controller.strokes.first.points.last,
+    );
+    expect(resizedRectangleMosaic.width, greaterThan(60));
+    expect(resizedRectangleMosaic.height, greaterThan(40));
+
+    controller.addMosaicStroke(const [
+      Offset(100, 40),
+      Offset(140, 90),
+    ], kind: MosaicStrokeKind.circle);
+    expect(controller.selectedMosaicIndex.value, 1);
+    expect(controller.mosaicDrawMode.value, MosaicDrawMode.circle);
+    final circleMosaicGeometry = controller.selectedControlGeometry!;
+    expect(circleMosaicGeometry.shapeScaleHandles, hasLength(4));
+    final circleMosaicBottomRight = circleMosaicGeometry.shapeScaleHandles
+        .singleWhere(
+          (handle) => handle.corner == AnnotationShapeScaleCorner.bottomRight,
+        );
+    controller.resizeSelectedMosaicFromCorner(
+      corner: circleMosaicBottomRight.corner,
+      point: circleMosaicBottomRight.center + const Offset(30, 10),
+    );
+    final resizedCircleMosaic = Rect.fromPoints(
+      controller.strokes[1].points.first,
+      controller.strokes[1].points.last,
+    );
+    expect(resizedCircleMosaic.width, resizedCircleMosaic.height);
 
     await database.close();
     Get.reset();

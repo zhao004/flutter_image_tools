@@ -123,6 +123,16 @@ class DrawingStroke {
   final Color color;
   final double width;
   final List<Offset> points;
+
+  DrawingStroke copyWith({Color? color, double? width, List<Offset>? points}) {
+    return DrawingStroke(
+      mode: mode,
+      kind: kind,
+      color: color ?? this.color,
+      width: width ?? this.width,
+      points: List<Offset>.unmodifiable(points ?? this.points),
+    );
+  }
 }
 
 class AnnotationObjectControlGeometry {
@@ -275,6 +285,7 @@ class AnnotationController extends GetxController {
   final isBusy = false.obs;
   final strokes = <DrawingStroke>[].obs;
   final selectedObject = Rxn<ObjectDrawable>();
+  final selectedMosaicIndex = RxnInt();
   final editRevision = 0.obs;
   final textController = TextEditingController();
   final textSize = _defaultTextSize.obs;
@@ -418,6 +429,7 @@ class AnnotationController extends GetxController {
     if (_isLayerCreationMode(value) || _isImageProcessingMode(value)) {
       painterController.deselectObjectDrawable();
       selectedObject.value = null;
+      selectedMosaicIndex.value = null;
     }
     _applyPainterMode();
   }
@@ -517,6 +529,7 @@ class AnnotationController extends GetxController {
     color.value = value;
     _applyPainterMode();
     _updateSelectedObjectColor(value);
+    _updateSelectedMosaicColor(value);
     result.value = null;
     editRevision.value++;
   }
@@ -525,6 +538,7 @@ class AnnotationController extends GetxController {
     strokeWidth.value = value.round().clamp(2, 60);
     _applyPainterMode();
     _updateSelectedShapeStrokeWidth(strokeWidth.value.toDouble());
+    _updateSelectedMosaicStrokeWidth(strokeWidth.value.toDouble());
   }
 
   void updateCanvasSize(Size size) {
@@ -650,6 +664,7 @@ class AnnotationController extends GetxController {
 
   void selectObject(ObjectDrawable? drawable) {
     selectedObject.value = drawable;
+    selectedMosaicIndex.value = null;
     mode.value = AnnotationMode.select;
     if (drawable != null) {
       isPropertyPanelVisible.value = true;
@@ -672,6 +687,7 @@ class AnnotationController extends GetxController {
   void deleteSelectedObject() {
     final drawable = painterController.selectedObjectDrawable;
     if (drawable == null) {
+      deleteSelectedMosaic();
       return;
     }
     painterController.removeDrawable(drawable);
@@ -683,11 +699,12 @@ class AnnotationController extends GetxController {
   }
 
   void deselectSelectedObject() {
-    if (selectedObject.value == null) {
+    if (selectedObject.value == null && selectedMosaicIndex.value == null) {
       return;
     }
     painterController.deselectObjectDrawable();
     selectedObject.value = null;
+    selectedMosaicIndex.value = null;
     isPropertyPanelVisible.value = false;
     editRevision.value++;
   }
@@ -697,6 +714,10 @@ class AnnotationController extends GetxController {
   }
 
   void handleCanvasTap(Offset point) {
+    if (selectedMosaicIndex.value != null && _isPointOnSelectedMosaic(point)) {
+      isPropertyPanelVisible.value = true;
+      return;
+    }
     if (selectedObject.value == null || _isPointOnSelectedObject(point)) {
       if (selectedObject.value != null) {
         isPropertyPanelVisible.value = true;
@@ -707,6 +728,10 @@ class AnnotationController extends GetxController {
       if (drawable != null) {
         painterController.selectObjectDrawable(drawable);
         selectObject(drawable);
+        return;
+      }
+      if (selectedObject.value == null && selectMosaicAt(point)) {
+        return;
       }
       return;
     }
@@ -716,7 +741,33 @@ class AnnotationController extends GetxController {
       selectObject(drawable);
       return;
     }
+    if (selectMosaicAt(point)) {
+      return;
+    }
     deselectSelectedObject();
+  }
+
+  bool selectMosaicAt(Offset point) {
+    final index = _topMosaicIndexAt(point);
+    if (index == null) {
+      return false;
+    }
+    painterController.deselectObjectDrawable();
+    selectedObject.value = null;
+    selectedMosaicIndex.value = index;
+    final stroke = strokes[index];
+    mosaicDrawMode.value = switch (stroke.kind) {
+      MosaicStrokeKind.freehand => MosaicDrawMode.freehand,
+      MosaicStrokeKind.rectangle => MosaicDrawMode.rectangle,
+      MosaicStrokeKind.circle => MosaicDrawMode.circle,
+    };
+    color.value = stroke.color;
+    strokeWidth.value = stroke.width.round().clamp(2, 60);
+    mode.value = AnnotationMode.select;
+    isPropertyPanelVisible.value = true;
+    _applyPainterMode();
+    editRevision.value++;
+    return true;
   }
 
   bool selectTextObjectAt(Offset point) {
@@ -735,6 +786,7 @@ class AnnotationController extends GetxController {
 
   void setMosaicDrawMode(MosaicDrawMode value) {
     mosaicDrawMode.value = value;
+    setMode(AnnotationMode.mosaic);
   }
 
   void setArrowStyle(EditableArrowStyle value) {
@@ -784,6 +836,10 @@ class AnnotationController extends GetxController {
     required AnnotationShapeScaleCorner corner,
     required Offset point,
   }) {
+    if (selectedMosaicIndex.value != null) {
+      resizeSelectedMosaicFromCorner(corner: corner, point: point);
+      return;
+    }
     final drawable = painterController.selectedObjectDrawable;
     if (drawable is RectangleDrawable) {
       final next = _resizedRectangleFromCorner(drawable, corner, point);
@@ -863,22 +919,105 @@ class AnnotationController extends GetxController {
     if (points.length < 2) {
       return;
     }
+    final nextPoints = _normalizedMosaicPoints(points, kind);
+    mosaicDrawMode.value = switch (kind) {
+      MosaicStrokeKind.freehand => MosaicDrawMode.freehand,
+      MosaicStrokeKind.rectangle => MosaicDrawMode.rectangle,
+      MosaicStrokeKind.circle => MosaicDrawMode.circle,
+    };
     strokes.add(
       DrawingStroke(
         mode: AnnotationMode.mosaic,
         kind: kind,
         color: color.value,
         width: strokeWidth.value.toDouble(),
-        points: List<Offset>.unmodifiable(points),
+        points: nextPoints,
       ),
     );
+    if (kind == MosaicStrokeKind.rectangle || kind == MosaicStrokeKind.circle) {
+      painterController.deselectObjectDrawable();
+      selectedObject.value = null;
+      selectedMosaicIndex.value = strokes.length - 1;
+      mode.value = AnnotationMode.select;
+      isPropertyPanelVisible.value = true;
+    }
     editRevision.value++;
     result.value = null;
+  }
+
+  void deleteSelectedMosaic() {
+    final index = selectedMosaicIndex.value;
+    if (index == null || index < 0 || index >= strokes.length) {
+      return;
+    }
+    strokes.removeAt(index);
+    selectedMosaicIndex.value = null;
+    isPropertyPanelVisible.value = false;
+    result.value = null;
+    editRevision.value++;
+  }
+
+  void moveSelectedMosaicBy(Offset delta) {
+    final index = selectedMosaicIndex.value;
+    if (index == null || index < 0 || index >= strokes.length) {
+      return;
+    }
+    final stroke = strokes[index];
+    if (stroke.kind == MosaicStrokeKind.freehand) {
+      return;
+    }
+    final movedPoints = stroke.points
+        .map((point) => point + delta)
+        .toList(growable: false);
+    strokes[index] = stroke.copyWith(points: movedPoints);
+    result.value = null;
+    editRevision.value++;
+  }
+
+  void resizeSelectedMosaicFromCorner({
+    required AnnotationShapeScaleCorner corner,
+    required Offset point,
+  }) {
+    final index = selectedMosaicIndex.value;
+    if (index == null || index < 0 || index >= strokes.length) {
+      return;
+    }
+    final stroke = strokes[index];
+    if (stroke.kind == MosaicStrokeKind.freehand || stroke.points.length < 2) {
+      return;
+    }
+    final rect = _rectFromMosaicPoints(stroke.points);
+    final fixedCorner = _oppositeRectCorner(rect, corner);
+    var width = (point.dx - fixedCorner.dx)
+        .abs()
+        .clamp(_minDrawableSide, double.infinity)
+        .toDouble();
+    var height = (point.dy - fixedCorner.dy)
+        .abs()
+        .clamp(_minDrawableSide, double.infinity)
+        .toDouble();
+    if (stroke.kind == MosaicStrokeKind.circle) {
+      final side = math.max(width, height);
+      width = side;
+      height = side;
+    }
+    final sign = _cornerSign(corner);
+    final dragged = Offset(
+      fixedCorner.dx + sign.dx * width,
+      fixedCorner.dy + sign.dy * height,
+    );
+    final nextRect = Rect.fromPoints(fixedCorner, dragged);
+    strokes[index] = stroke.copyWith(
+      points: [nextRect.topLeft, nextRect.bottomRight],
+    );
+    result.value = null;
+    editRevision.value++;
   }
 
   void undo() {
     if (mode.value == AnnotationMode.mosaic && strokes.isNotEmpty) {
       strokes.removeLast();
+      selectedMosaicIndex.value = null;
       editRevision.value++;
       result.value = null;
       return;
@@ -892,6 +1031,7 @@ class AnnotationController extends GetxController {
     }
     if (strokes.isNotEmpty) {
       strokes.removeLast();
+      selectedMosaicIndex.value = null;
       editRevision.value++;
       result.value = null;
     }
@@ -912,6 +1052,7 @@ class AnnotationController extends GetxController {
     painterController.deselectObjectDrawable();
     strokes.clear();
     selectedObject.value = null;
+    selectedMosaicIndex.value = null;
     result.value = null;
     _applyPainterMode();
     editRevision.value++;
@@ -1035,6 +1176,15 @@ class AnnotationController extends GetxController {
 
   AnnotationObjectControlGeometry? get selectedControlGeometry {
     editRevision.value;
+    final mosaicIndex = selectedMosaicIndex.value;
+    if (mosaicIndex != null &&
+        mosaicIndex >= 0 &&
+        mosaicIndex < strokes.length &&
+        strokes[mosaicIndex].kind != MosaicStrokeKind.freehand) {
+      return AnnotationObjectControlGeometry(
+        shapeScaleHandles: _mosaicScaleHandles(strokes[mosaicIndex]),
+      );
+    }
     final drawable = selectedObject.value;
     if (drawable is RectangleDrawable) {
       return AnnotationObjectControlGeometry(
@@ -1063,6 +1213,7 @@ class AnnotationController extends GetxController {
     painterController.addDrawables([drawable]);
     painterController.selectObjectDrawable(drawable);
     selectedObject.value = drawable;
+    selectedMosaicIndex.value = null;
     mode.value = AnnotationMode.select;
     isPropertyPanelVisible.value = true;
     _applyPainterMode();
@@ -1175,6 +1326,14 @@ class AnnotationController extends GetxController {
     selectedObject.value = next;
   }
 
+  void _updateSelectedMosaicColor(Color nextColor) {
+    final index = selectedMosaicIndex.value;
+    if (index == null || index < 0 || index >= strokes.length) {
+      return;
+    }
+    strokes[index] = strokes[index].copyWith(color: nextColor);
+  }
+
   void _replaceSelectedObject(ObjectDrawable current, ObjectDrawable next) {
     painterController.replaceDrawable(current, next);
     painterController.selectObjectDrawable(next);
@@ -1195,6 +1354,20 @@ class AnnotationController extends GetxController {
     painterController.replaceDrawable(drawable, next);
     painterController.selectObjectDrawable(next);
     selectedObject.value = next;
+    result.value = null;
+    editRevision.value++;
+  }
+
+  void _updateSelectedMosaicStrokeWidth(double width) {
+    final index = selectedMosaicIndex.value;
+    if (index == null || index < 0 || index >= strokes.length) {
+      return;
+    }
+    final stroke = strokes[index];
+    if (stroke.kind == MosaicStrokeKind.freehand) {
+      return;
+    }
+    strokes[index] = stroke.copyWith(width: width.clamp(2, 60).toDouble());
     result.value = null;
     editRevision.value++;
   }
@@ -1588,6 +1761,27 @@ class AnnotationController extends GetxController {
         .toList(growable: false);
   }
 
+  List<AnnotationShapeScaleHandle> _mosaicScaleHandles(DrawingStroke stroke) {
+    final rect = _rectFromMosaicPoints(stroke.points);
+    if (rect.width <= 0 || rect.height <= 0) {
+      return const <AnnotationShapeScaleHandle>[];
+    }
+    final corners = <AnnotationShapeScaleCorner, Offset>{
+      AnnotationShapeScaleCorner.topLeft: rect.topLeft,
+      AnnotationShapeScaleCorner.topRight: rect.topRight,
+      AnnotationShapeScaleCorner.bottomLeft: rect.bottomLeft,
+      AnnotationShapeScaleCorner.bottomRight: rect.bottomRight,
+    };
+    return corners.entries
+        .map(
+          (entry) => AnnotationShapeScaleHandle(
+            corner: entry.key,
+            center: entry.value,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   RectangleDrawable _resizedRectangleFromCorner(
     RectangleDrawable drawable,
     AnnotationShapeScaleCorner corner,
@@ -1679,6 +1873,15 @@ class AnnotationController extends GetxController {
     };
     final sign = _cornerSign(opposite);
     return Offset(sign.dx * size.width / 2, sign.dy * size.height / 2);
+  }
+
+  Offset _oppositeRectCorner(Rect rect, AnnotationShapeScaleCorner corner) {
+    return switch (corner) {
+      AnnotationShapeScaleCorner.topLeft => rect.bottomRight,
+      AnnotationShapeScaleCorner.topRight => rect.bottomLeft,
+      AnnotationShapeScaleCorner.bottomLeft => rect.topRight,
+      AnnotationShapeScaleCorner.bottomRight => rect.topLeft,
+    };
   }
 
   Offset _cornerSign(AnnotationShapeScaleCorner corner) {
@@ -1776,6 +1979,22 @@ class AnnotationController extends GetxController {
         local.dy.abs() <= size.height / 2;
   }
 
+  bool _isPointOnSelectedMosaic(Offset point) {
+    final index = selectedMosaicIndex.value;
+    if (index == null || index < 0 || index >= strokes.length) {
+      return false;
+    }
+    final geometry = selectedControlGeometry;
+    const controlHitRadius = 30.0;
+    if (geometry?.shapeScaleHandles.any(
+          (handle) => (point - handle.center).distance <= controlHitRadius,
+        ) ??
+        false) {
+      return true;
+    }
+    return _isPointInsideMosaicStroke(point, strokes[index]);
+  }
+
   TextDrawable? _topTextDrawableAt(Offset point) {
     for (final drawable in painterController.drawables.reversed) {
       if (drawable is TextDrawable &&
@@ -1784,6 +2003,41 @@ class AnnotationController extends GetxController {
       }
     }
     return null;
+  }
+
+  int? _topMosaicIndexAt(Offset point) {
+    for (var index = strokes.length - 1; index >= 0; index--) {
+      final stroke = strokes[index];
+      if (stroke.kind == MosaicStrokeKind.freehand) {
+        continue;
+      }
+      if (_isPointInsideMosaicStroke(point, stroke)) {
+        return index;
+      }
+    }
+    return null;
+  }
+
+  bool _isPointInsideMosaicStroke(Offset point, DrawingStroke stroke) {
+    if (stroke.points.length < 2) {
+      return false;
+    }
+    final rect = _rectFromMosaicPoints(stroke.points).inflate(8);
+    if (stroke.kind == MosaicStrokeKind.rectangle) {
+      return rect.contains(point);
+    }
+    if (stroke.kind == MosaicStrokeKind.circle) {
+      final center = rect.center;
+      final radiusX = rect.width / 2;
+      final radiusY = rect.height / 2;
+      if (radiusX <= 0 || radiusY <= 0) {
+        return false;
+      }
+      final normalizedX = (point.dx - center.dx) / radiusX;
+      final normalizedY = (point.dy - center.dy) / radiusY;
+      return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
+    }
+    return false;
   }
 
   ObjectDrawable? _topObjectDrawableAt(Offset point) {
@@ -2003,6 +2257,26 @@ class AnnotationController extends GetxController {
       math.max(start.dx, end.dx),
       math.max(start.dy, end.dy),
     );
+  }
+
+  List<Offset> _normalizedMosaicPoints(
+    List<Offset> points,
+    MosaicStrokeKind kind,
+  ) {
+    if (kind == MosaicStrokeKind.freehand || points.length < 2) {
+      return List<Offset>.unmodifiable(points);
+    }
+    final rect = _rectFromMosaicPoints(points);
+    if (kind == MosaicStrokeKind.circle) {
+      final side = math.max(rect.width, rect.height);
+      final square = Rect.fromCenter(
+        center: rect.center,
+        width: side,
+        height: side,
+      );
+      return List<Offset>.unmodifiable([square.topLeft, square.bottomRight]);
+    }
+    return List<Offset>.unmodifiable([rect.topLeft, rect.bottomRight]);
   }
 
   Paint _shapePaint(Color paintColor, double strokeWidth) {
