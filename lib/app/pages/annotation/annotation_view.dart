@@ -757,6 +757,7 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
         maxPanelHeight: 260,
         showPanelHeader: false,
         compactPanel: true,
+        stackCompactPanel: _shouldStackPropertyPanel(activeCategoryId),
       );
     });
   }
@@ -865,6 +866,14 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
     return _shouldShowPanel
         ? _AnnotationPropertyPanel(controller: controller)
         : null;
+  }
+
+  bool _shouldStackPropertyPanel(String? activeCategoryId) {
+    if (!_shouldShowPanel) {
+      return false;
+    }
+    return activeCategoryId == 'markup' ||
+        activeCategoryId == AnnotationMode.mosaic.value;
   }
 
   String? get _activeCategoryId {
@@ -1101,14 +1110,30 @@ class _FullAnnotationPropertyPanel extends StatelessWidget {
           onPressed: controller.closePropertyPanel,
           icon: const Icon(Icons.close),
         ),
-        _TextToolPanel(controller: controller),
-        _FilterToolPanel(controller: controller),
-        _RotateToolPanel(controller: controller),
-        _FlipToolPanel(controller: controller),
-        _ResizeToolPanel(controller: controller),
-        _CropToolPanel(controller: controller),
-        _ArrowStyleControls(controller: controller),
-        _StrokeAndColorControls(controller: controller),
+        Obx(() {
+          final activeCategoryId = _activePropertyCategoryId(controller);
+          if (activeCategoryId == 'markup') {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ArrowStyleControls(controller: controller),
+                _StrokeAndColorControls(controller: controller),
+              ],
+            );
+          }
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _TextToolPanel(controller: controller),
+              _FilterToolPanel(controller: controller),
+              _RotateToolPanel(controller: controller),
+              _FlipToolPanel(controller: controller),
+              _ResizeToolPanel(controller: controller),
+              _CropToolPanel(controller: controller),
+              _StrokeAndColorControls(controller: controller),
+            ],
+          );
+        }),
       ],
     );
   }
@@ -1157,6 +1182,35 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
       );
     });
   }
+}
+
+String? _activePropertyCategoryId(AnnotationController controller) {
+  if (controller.selectedMosaicIndex.value != null) {
+    return AnnotationMode.mosaic.value;
+  }
+  final selectedObject = controller.selectedObject.value;
+  if (selectedObject is TextDrawable) {
+    return AnnotationMode.text.value;
+  }
+  if (selectedObject is ShapeDrawable ||
+      selectedObject is EditableArrowDrawable) {
+    return 'markup';
+  }
+  final mode = controller.mode.value;
+  return switch (mode) {
+    AnnotationMode.brush ||
+    AnnotationMode.rectangle ||
+    AnnotationMode.circle ||
+    AnnotationMode.arrow => 'markup',
+    AnnotationMode.select => null,
+    AnnotationMode.mosaic => AnnotationMode.mosaic.value,
+    AnnotationMode.text => AnnotationMode.text.value,
+    AnnotationMode.filter => AnnotationMode.filter.value,
+    AnnotationMode.rotate => AnnotationMode.rotate.value,
+    AnnotationMode.flip => AnnotationMode.flip.value,
+    AnnotationMode.resize => AnnotationMode.resize.value,
+    AnnotationMode.crop => AnnotationMode.crop.value,
+  };
 }
 
 class _FilterToolPanel extends StatelessWidget {

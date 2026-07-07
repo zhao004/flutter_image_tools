@@ -704,7 +704,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Annotation Style'), findsNothing);
-    expect(find.text('Edit Text'), findsOneWidget);
+    expect(find.text('Edit Text'), findsNothing);
     expect(find.text('Text Content'), findsOneWidget);
     expect(find.text('Text Size: 32 px'), findsOneWidget);
     expect(find.text('System'), findsOneWidget);
@@ -736,8 +736,8 @@ void main() {
     await tester.pump();
 
     expect(controller.selectedObject.value, isA<TextDrawable>());
-    expect(find.text('Annotation Style'), findsOneWidget);
-    expect(find.text('Edit Text'), findsOneWidget);
+    expect(find.text('Annotation Style'), findsNothing);
+    expect(find.text('Edit Text'), findsNothing);
     expect(find.text('Text Size: 48 px'), findsOneWidget);
     expect(find.text('#E53935'), findsOneWidget);
 
@@ -751,7 +751,7 @@ void main() {
     expect(find.byType(EditableText), findsNothing);
     expect(find.byType(BottomSheet), findsNothing);
     expect(controller.selectedObject.value, isA<TextDrawable>());
-    expect(find.text('Annotation Style'), findsOneWidget);
+    expect(find.text('Annotation Style'), findsNothing);
 
     controller.addShapeLayer(EditableLayerType.rectangle);
     await tester.pump();
@@ -766,7 +766,7 @@ void main() {
     controller.handleCanvasTap(rectangle.position);
     await tester.pump();
 
-    expect(find.text('Annotation Style'), findsOneWidget);
+    expect(find.text('Annotation Style'), findsNothing);
     expect(find.text('#E53935'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
 
@@ -798,7 +798,7 @@ void main() {
     await tester.tap(find.text('Brush'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Annotation Style'), findsOneWidget);
+    expect(find.text('Annotation Style'), findsNothing);
     expect(find.byTooltip('Close Property Panel'), findsOneWidget);
     expect(find.text('#123456'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
@@ -849,7 +849,7 @@ void main() {
     controller.setMode(AnnotationMode.filter);
     await tester.pump();
 
-    expect(find.text('Filter Settings'), findsOneWidget);
+    expect(find.text('Filter Settings'), findsNothing);
     expect(find.text('None'), findsOneWidget);
     expect(find.text('Sepia'), findsOneWidget);
     expect(controller.hasEdits, isFalse);
@@ -866,7 +866,7 @@ void main() {
     controller.setMode(AnnotationMode.rotate);
     await tester.pump();
 
-    expect(find.text('Rotate Settings'), findsOneWidget);
+    expect(find.text('Rotate Settings'), findsNothing);
     expect(find.text('Rotate Left 90°'), findsOneWidget);
     expect(find.text('Rotate Right 90°'), findsOneWidget);
     controller.rotateByQuarterTurn(90);
@@ -879,7 +879,7 @@ void main() {
     controller.setMode(AnnotationMode.flip);
     await tester.pump();
 
-    expect(find.text('Flip Direction'), findsOneWidget);
+    expect(find.text('Flip Direction'), findsNothing);
     expect(find.text('Horizontal Flip'), findsOneWidget);
     expect(find.text('Vertical Flip'), findsOneWidget);
     controller.setFlipHorizontal(true);
@@ -888,7 +888,7 @@ void main() {
     controller.setMode(AnnotationMode.resize);
     await tester.pump();
 
-    expect(find.text('Target Size'), findsOneWidget);
+    expect(find.text('Target Size'), findsNothing);
     expect(find.text('1200 × 800 px'), findsOneWidget);
     await tester.tap(find.text('1200 × 800 px'));
     await tester.pumpAndSettle();
@@ -910,7 +910,7 @@ void main() {
     controller.setMode(AnnotationMode.crop);
     await tester.pump();
 
-    expect(find.text('Crop Ratio'), findsOneWidget);
+    expect(find.text('Crop Ratio'), findsNothing);
     expect(find.text('Original'), findsOneWidget);
     expect(find.text('Square'), findsOneWidget);
     controller.setCropPreset(AnnotationCropPreset.square);

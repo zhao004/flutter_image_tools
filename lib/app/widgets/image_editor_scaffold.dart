@@ -399,6 +399,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
     this.maxPanelHeight = 180,
     this.showPanelHeader = true,
     this.compactPanel = false,
+    this.stackCompactPanel = false,
   });
 
   final List<ToolCategory> categories;
@@ -413,6 +414,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
   final double maxPanelHeight;
   final bool showPanelHeader;
   final bool compactPanel;
+  final bool stackCompactPanel;
 
   @override
   Widget build(BuildContext context) {
@@ -433,6 +435,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
             onConfirmPanel: onConfirmPanel,
             showHeader: showPanelHeader,
             compact: compactPanel,
+            stackCompactPanel: stackCompactPanel,
             child: activePanel ?? const SizedBox.shrink(),
           ),
           const SizedBox(height: 8),
@@ -478,6 +481,7 @@ class _DynamicToolSubPanel extends StatelessWidget {
     required this.onConfirmPanel,
     required this.showHeader,
     required this.compact,
+    required this.stackCompactPanel,
     required this.child,
   });
 
@@ -490,6 +494,7 @@ class _DynamicToolSubPanel extends StatelessWidget {
   final VoidCallback? onConfirmPanel;
   final bool showHeader;
   final bool compact;
+  final bool stackCompactPanel;
   final Widget child;
 
   @override
@@ -575,6 +580,32 @@ class _DynamicToolSubPanel extends StatelessWidget {
           ),
         )
         .toList(growable: false);
+    if (stackCompactPanel) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (child is! SizedBox) ...[
+            SizedBox(
+              height: panelHeight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: child,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (subItems.isNotEmpty)
+            SizedBox(
+              height: panelHeight,
+              child: ListView(
+                clipBehavior: Clip.none,
+                scrollDirection: Axis.horizontal,
+                children: subItemButtons,
+              ),
+            ),
+        ],
+      );
+    }
     return SizedBox(
       height: panelHeight,
       child: Row(
