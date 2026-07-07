@@ -34,13 +34,13 @@ class AnnotationView extends GetView<AnnotationController> {
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.exportEditedImage,
-        imageMeta: image == null
-            ? null
-            : '${controller.formatDimensions(image)} · ${controller.mode.value.label}',
+        showPreviewInfo: false,
+        showDefaultAppBarActions: false,
         previewBorderRadius: 10,
         lockPreviewScroll: true,
         previewBuilder: (context, previewImage) =>
             _AnnotationCanvasFrame(controller: controller, image: previewImage),
+        appBarActions: [_AnnotationTopActions(controller: controller)],
         tabBar: _AnnotationToolTabs(controller: controller),
         toolbar: _annotationToolbar(),
         resultSummary: result == null
@@ -63,6 +63,46 @@ class AnnotationView extends GetView<AnnotationController> {
       return null;
     }
     return _AnnotationPropertyPanel(controller: controller);
+  }
+}
+
+class _AnnotationTopActions extends StatelessWidget {
+  const _AnnotationTopActions({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final image = controller.selectedImage.value;
+      final isBusy = controller.isBusy.value;
+      final selectedLayer = controller.selectedObject.value;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'annotation.action.undo'.tr,
+            onPressed: image == null || isBusy || !controller.canUndo
+                ? null
+                : controller.undo,
+            icon: const Icon(Icons.undo),
+          ),
+          IconButton(
+            tooltip: 'annotation.action.redo'.tr,
+            onPressed: image == null || isBusy || !controller.canRedo
+                ? null
+                : controller.redo,
+            icon: const Icon(Icons.redo),
+          ),
+          if (selectedLayer != null)
+            IconButton(
+              tooltip: 'annotation.action.deleteLayer'.tr,
+              onPressed: isBusy ? null : controller.deleteSelectedObject,
+              icon: const Icon(Icons.delete_outline),
+            ),
+        ],
+      );
+    });
   }
 }
 
@@ -316,12 +356,6 @@ class _LayerControls extends StatelessWidget {
                 Text(
                   'annotation.layer.transform'.tr,
                   style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'annotation.action.deleteLayer'.tr,
-                  onPressed: controller.deleteSelectedObject,
-                  icon: const Icon(Icons.delete_outline),
                 ),
               ],
             ),

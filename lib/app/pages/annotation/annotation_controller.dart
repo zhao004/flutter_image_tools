@@ -109,6 +109,16 @@ class AnnotationController extends GetxController {
     return painterController.drawables.isNotEmpty || strokes.isNotEmpty;
   }
 
+  bool get canUndo {
+    editRevision.value;
+    return painterController.canUndo || strokes.isNotEmpty;
+  }
+
+  bool get canRedo {
+    editRevision.value;
+    return painterController.canRedo;
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -288,6 +298,7 @@ class AnnotationController extends GetxController {
     painterController.deselectObjectDrawable(isRemoved: true);
     selectedObject.value = null;
     result.value = null;
+    editRevision.value++;
   }
 
   void addMosaicStroke(List<Offset> points) {
@@ -310,17 +321,31 @@ class AnnotationController extends GetxController {
     if (mode.value == AnnotationMode.mosaic && strokes.isNotEmpty) {
       strokes.removeLast();
       editRevision.value++;
+      result.value = null;
       return;
     }
     if (painterController.canUndo) {
       painterController.undo();
       selectedObject.value = painterController.selectedObjectDrawable;
+      editRevision.value++;
+      result.value = null;
       return;
     }
     if (strokes.isNotEmpty) {
       strokes.removeLast();
       editRevision.value++;
+      result.value = null;
     }
+  }
+
+  void redo() {
+    if (!painterController.canRedo) {
+      return;
+    }
+    painterController.redo();
+    selectedObject.value = painterController.selectedObjectDrawable;
+    editRevision.value++;
+    result.value = null;
   }
 
   void clearEdits({bool showMessage = true}) {

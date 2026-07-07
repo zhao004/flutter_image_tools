@@ -615,15 +615,27 @@ void main() {
     expect(find.text('Rectangle'), findsOneWidget);
     expect(find.text('Circle'), findsOneWidget);
     expect(find.text('Arrow'), findsOneWidget);
+    expect(find.text('annotation_preview.png'), findsNothing);
+    expect(find.textContaining('1200 × 800'), findsNothing);
+    expect(find.byIcon(Icons.undo), findsOneWidget);
+    expect(find.byIcon(Icons.redo), findsOneWidget);
+    expect(find.byIcon(Icons.add_photo_alternate_outlined), findsNothing);
+    expect(find.byIcon(Icons.save_outlined), findsNothing);
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
     expect(find.text('Red'), findsNothing);
     expect(find.text('Stroke: 12 px'), findsNothing);
+
+    controller.addShapeLayer(EditableLayerType.rectangle);
+    await tester.pump();
+
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
 
     controller.setMode(AnnotationMode.brush);
     await tester.pump();
 
     expect(find.text('Red'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
-    expect(find.byIcon(Icons.save_outlined), findsWidgets);
+    expect(find.byIcon(Icons.save_outlined), findsNothing);
 
     await database.close();
     Get.reset();

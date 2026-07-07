@@ -36,6 +36,8 @@ class ImageEditorScaffold extends StatelessWidget {
     this.bottomToolbar,
     this.toolbarMaxHeight,
     this.showEditingControlsWhenEmpty = false,
+    this.showPreviewInfo = true,
+    this.showDefaultAppBarActions = true,
   });
 
   final String title;
@@ -62,6 +64,8 @@ class ImageEditorScaffold extends StatelessWidget {
   final Widget? bottomToolbar;
   final double? toolbarMaxHeight;
   final bool showEditingControlsWhenEmpty;
+  final bool showPreviewInfo;
+  final bool showDefaultAppBarActions;
 
   @override
   Widget build(BuildContext context) {
@@ -71,22 +75,24 @@ class ImageEditorScaffold extends StatelessWidget {
       appBar: AppBar(
         title: Text(title),
         actions: [
-          if (image != null)
+          if (showDefaultAppBarActions) ...[
+            if (image != null)
+              IconButton(
+                tooltip: repickLabel,
+                onPressed: isBusy ? null : onPickImage,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+              ),
             IconButton(
-              tooltip: repickLabel,
-              onPressed: isBusy ? null : onPickImage,
-              icon: const Icon(Icons.add_photo_alternate_outlined),
+              tooltip: exportLabel,
+              onPressed: image == null || isBusy ? null : onExport,
+              icon: isBusy
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(exportIcon),
             ),
-          IconButton(
-            tooltip: exportLabel,
-            onPressed: image == null || isBusy ? null : onExport,
-            icon: isBusy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(exportIcon),
-          ),
+          ],
           ...appBarActions,
         ],
       ),
@@ -110,6 +116,7 @@ class ImageEditorScaffold extends StatelessWidget {
                       resultSummary: resultSummary,
                       previewBorderRadius: previewBorderRadius,
                       lockPreviewScroll: lockPreviewScroll,
+                      showPreviewInfo: showPreviewInfo,
                     ),
             ),
             if (showEditingControls) ...[
@@ -194,6 +201,7 @@ class _EditorPreviewStage extends StatelessWidget {
     required this.resultSummary,
     required this.previewBorderRadius,
     required this.lockPreviewScroll,
+    required this.showPreviewInfo,
   });
 
   final LocalImageFile image;
@@ -203,6 +211,7 @@ class _EditorPreviewStage extends StatelessWidget {
   final Widget? resultSummary;
   final double previewBorderRadius;
   final bool lockPreviewScroll;
+  final bool showPreviewInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -228,21 +237,23 @@ class _EditorPreviewStage extends StatelessWidget {
                     borderRadius: previewBorderRadius,
                     child: previewBuilder(context, image),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    image.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  if (meta != null) ...[
-                    const SizedBox(height: 4),
+                  if (showPreviewInfo) ...[
+                    const SizedBox(height: 12),
                     Text(
-                      meta!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                      image.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
+                    if (meta != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        meta!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ],
                   if (resultSummary != null) ...[
                     const SizedBox(height: 10),
