@@ -56,39 +56,11 @@ class HomeController extends GetxController {
       route: Routes.compress,
     ),
     const HomeToolItem(
-      titleKey: 'home.tool.crop.title',
-      descriptionKey: 'home.tool.crop.description',
-      icon: 'crop',
-      availability: ToolAvailability.available,
-      route: Routes.crop,
-    ),
-    const HomeToolItem(
       titleKey: 'home.tool.merge.title',
       descriptionKey: 'home.tool.merge.description',
       icon: 'merge',
       availability: ToolAvailability.available,
       route: Routes.merge,
-    ),
-    const HomeToolItem(
-      titleKey: 'home.tool.resize.title',
-      descriptionKey: 'home.tool.resize.description',
-      icon: 'resize',
-      availability: ToolAvailability.available,
-      route: Routes.resize,
-    ),
-    const HomeToolItem(
-      titleKey: 'home.tool.flip.title',
-      descriptionKey: 'home.tool.flip.description',
-      icon: 'flip',
-      availability: ToolAvailability.available,
-      route: Routes.flip,
-    ),
-    const HomeToolItem(
-      titleKey: 'home.tool.rotate.title',
-      descriptionKey: 'home.tool.rotate.description',
-      icon: 'rotate',
-      availability: ToolAvailability.available,
-      route: Routes.rotate,
     ),
     const HomeToolItem(
       titleKey: 'home.tool.watermark.title',
@@ -103,13 +75,6 @@ class HomeController extends GetxController {
       icon: 'imageWatermark',
       availability: ToolAvailability.available,
       route: Routes.imageWatermark,
-    ),
-    const HomeToolItem(
-      titleKey: 'home.tool.filter.title',
-      descriptionKey: 'home.tool.filter.description',
-      icon: 'filter',
-      availability: ToolAvailability.available,
-      route: Routes.filter,
     ),
     const HomeToolItem(
       titleKey: 'home.tool.annotation.title',
