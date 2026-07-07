@@ -346,6 +346,7 @@ class _EditorBottomToolbarSurface extends StatelessWidget {
     return SafeArea(
       top: false,
       child: DecoratedBox(
+        key: const ValueKey('editor-bottom-toolbar-surface'),
         decoration: BoxDecoration(
           color: colorScheme.surface.withValues(alpha: 0.98),
           border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
@@ -433,6 +434,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
               : 60.0 + 8.0 + compactSubPanelHeight
         : 60.0;
     final primaryTools = SizedBox(
+      key: const ValueKey('editor-primary-tool-tabs'),
       height: 60,
       child: ListView.builder(
         clipBehavior: Clip.none,
@@ -453,7 +455,9 @@ class EditorDynamicToolPanel extends StatelessWidget {
         height: compactToolbarHeight,
         child: Stack(
           clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
+          alignment: reserveCompactPanelSpace && !shouldShowSubPanel
+              ? Alignment.topCenter
+              : Alignment.bottomCenter,
           children: [
             primaryTools,
             if (shouldShowSubPanel)

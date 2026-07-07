@@ -697,6 +697,13 @@ void main() {
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
     expect(find.text('#E53935'), findsNothing);
+    final toolbarRect = tester.getRect(
+      find.byKey(const ValueKey('editor-bottom-toolbar-surface')),
+    );
+    final primaryTabsRect = tester.getRect(
+      find.byKey(const ValueKey('editor-primary-tool-tabs')),
+    );
+    expect(primaryTabsRect.top - toolbarRect.top, lessThanOrEqualTo(12));
     final initialPainterSize =
         controller.painterController.painterKey.currentContext!.size!;
 
