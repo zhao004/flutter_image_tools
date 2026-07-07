@@ -348,16 +348,7 @@ class _ImageAdjustmentPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       controller.editRevision.value;
-      final mode = controller.mode.value;
       final colorFilter = _colorFilterFor(controller.filter.value);
-      if (!_isImageProcessingMode(mode)) {
-        return ClipRect(
-          key: const ValueKey('annotation-adjustment-preview'),
-          child: colorFilter == null
-              ? child
-              : ColorFiltered(colorFilter: colorFilter, child: child),
-        );
-      }
 
       final sourceAspectRatio = image.hasValidDimensions
           ? image.width / image.height
@@ -405,14 +396,21 @@ class _ImageAdjustmentPreview extends StatelessWidget {
 
       return ClipRect(
         key: const ValueKey('annotation-adjustment-preview'),
-        child: IgnorePointer(
-          // 图片处理标签只负责预览全图变换；禁用画布命中避免缩放/旋转后的坐标反向映射影响标注交互。
-          child: FittedBox(
-            fit: BoxFit.fill,
-            clipBehavior: Clip.hardEdge,
-            child: preview,
-          ),
-        ),
+        child: _isImageProcessingMode(controller.mode.value)
+            ? IgnorePointer(
+                // 设计意图：处理标签只预览整图变换；切回画笔等工具时仍保留同一套预览，
+                // 但恢复画布命中，避免工具切换后旋转、翻转、裁剪等视觉状态丢失。
+                child: FittedBox(
+                  fit: BoxFit.fill,
+                  clipBehavior: Clip.hardEdge,
+                  child: preview,
+                ),
+              )
+            : FittedBox(
+                fit: BoxFit.fill,
+                clipBehavior: Clip.hardEdge,
+                child: preview,
+              ),
       );
     });
   }

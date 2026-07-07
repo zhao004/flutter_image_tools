@@ -735,6 +735,18 @@ void main() {
       closeTo(1, 0.001),
     );
 
+    controller.setMode(AnnotationMode.brush);
+    await tester.pump();
+
+    expect(controller.hasImageAdjustments, isTrue);
+    expect(
+      find.byKey(const ValueKey('annotation-adjustment-preview')),
+      findsOneWidget,
+    );
+    expect(find.byType(ColorFiltered), findsWidgets);
+    expect(find.byType(RotatedBox), findsWidgets);
+    expect(find.byType(Transform), findsWidgets);
+
     await database.close();
     Get.reset();
   });
