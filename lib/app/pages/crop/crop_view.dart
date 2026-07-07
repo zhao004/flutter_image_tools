@@ -33,7 +33,7 @@ class CropView extends GetView<CropController> {
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.cropCurrentImage,
-        previewBorderRadius: 12,
+        previewBorderRadius: 0,
         lockPreviewScroll: true,
         imageMeta: image == null
             ? null
@@ -130,8 +130,7 @@ class _CropEditorState extends State<_CropEditor> {
         return Stack(
           children: [
             Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+              child: ClipRect(
                 child: cropper.Crop(
                   image: imageBytes,
                   controller: widget.controller.cropEditorController,

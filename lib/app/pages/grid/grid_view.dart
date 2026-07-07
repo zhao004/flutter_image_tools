@@ -36,7 +36,7 @@ class GridView extends GetView<GridController> {
         imageMeta: image == null
             ? null
             : '${controller.formatDimensions(image)} · ${controller.formatBytes(image.sizeBytes)}',
-        previewBorderRadius: 24,
+        previewBorderRadius: 0,
         lockPreviewScroll: true,
         previewBuilder: (context, previewImage) =>
             _GridEditorCanvas(controller: controller, image: previewImage),
@@ -123,7 +123,6 @@ class _GridPreviewCanvas extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
@@ -133,8 +132,7 @@ class _GridPreviewCanvas extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+      child: ClipRect(
         child: Stack(
           fit: StackFit.expand,
           children: [

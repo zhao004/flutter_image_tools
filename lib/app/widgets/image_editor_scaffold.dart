@@ -30,7 +30,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.imageMeta,
     this.resultSummary,
     this.appBarActions = const [],
-    this.previewBorderRadius = 24,
+    this.previewBorderRadius = 0,
     this.lockPreviewScroll = false,
     this.tabBar,
     this.bottomToolbar,
