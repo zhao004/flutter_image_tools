@@ -537,7 +537,11 @@ void main() {
 
     await tester.pumpWidget(
       buildEditor(
-        toolbar: const SizedBox(height: 180, child: Text('Property Panel')),
+        toolbar: const SizedBox(
+          key: ValueKey('overlay-property-panel'),
+          height: 180,
+          child: Text('Property Panel'),
+        ),
       ),
     );
     await tester.pump();
@@ -547,6 +551,12 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('overlay-editor-canvas'))),
       initialSize,
     );
+    final panelRect = tester.getRect(
+      find.byKey(const ValueKey('overlay-property-panel')),
+    );
+    final tabRect = tester.getRect(find.text('Range'));
+    expect(panelRect.top, lessThan(tabRect.top));
+    expect(panelRect.bottom, greaterThan(tabRect.bottom));
   });
 
   testWidgets('显示英文图片滤镜页面', (WidgetTester tester) async {

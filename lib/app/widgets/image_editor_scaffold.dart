@@ -126,30 +126,21 @@ class ImageEditorScaffold extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(child: previewContent),
-                  if (showEditingControls &&
-                      overlayToolbar &&
-                      toolbarSurface != null)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: toolbarSurface,
-                    ),
+            Column(
+              children: [
+                Expanded(child: previewContent),
+                if (showEditingControls) ...[
+                  if (tabBar != null) _EditorTabBarSurface(child: tabBar!),
+                  if (!overlayToolbar && toolbarSurface != null) toolbarSurface,
+                  if (bottomToolbar != null)
+                    _EditorBottomToolbarSurface(child: bottomToolbar!),
                 ],
-              ),
+              ],
             ),
-            if (showEditingControls) ...[
-              if (tabBar != null) _EditorTabBarSurface(child: tabBar!),
-              if (!overlayToolbar && toolbarSurface != null) toolbarSurface,
-              if (bottomToolbar != null)
-                _EditorBottomToolbarSurface(child: bottomToolbar!),
-            ],
+            if (showEditingControls && overlayToolbar && toolbarSurface != null)
+              Positioned(left: 0, right: 0, bottom: 0, child: toolbarSurface),
           ],
         ),
       ),
