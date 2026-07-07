@@ -82,6 +82,18 @@ enum MosaicDrawMode {
 
 enum MosaicStrokeKind { freehand, rectangle, circle }
 
+enum AnnotationShapeScaleCorner { topLeft, topRight, bottomLeft, bottomRight }
+
+class AnnotationShapeScaleHandle {
+  const AnnotationShapeScaleHandle({
+    required this.corner,
+    required this.center,
+  });
+
+  final AnnotationShapeScaleCorner corner;
+  final Offset center;
+}
+
 enum AnnotationCropPreset {
   original(labelKey: 'annotation.crop.original', aspectRatio: null),
   square(labelKey: 'crop.preset.square', aspectRatio: 1),
@@ -119,12 +131,14 @@ class DrawingStroke {
 class AnnotationObjectControlGeometry {
   const AnnotationObjectControlGeometry({
     this.rotateHandle,
+    this.shapeScaleHandles = const <AnnotationShapeScaleHandle>[],
     this.arrowStart,
     this.arrowEnd,
     this.arrowDirectionHandle,
   });
 
   final Offset? rotateHandle;
+  final List<AnnotationShapeScaleHandle> shapeScaleHandles;
   final Offset? arrowStart;
   final Offset? arrowEnd;
   final Offset? arrowDirectionHandle;
@@ -704,6 +718,22 @@ class AnnotationController extends GetxController {
     }
   }
 
+  void resizeSelectedShapeFromCorner({
+    required AnnotationShapeScaleCorner corner,
+    required Offset point,
+  }) {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable is RectangleDrawable) {
+      final next = _resizedRectangleFromCorner(drawable, corner, point);
+      _replaceSelectedObject(drawable, next);
+      return;
+    }
+    if (drawable is OvalDrawable) {
+      final next = _resizedOvalFromCorner(drawable, corner, point);
+      _replaceSelectedObject(drawable, next);
+    }
+  }
+
   void updateSelectedArrowScaleHandle({
     required bool isHead,
     required Offset point,
@@ -947,11 +977,13 @@ class AnnotationController extends GetxController {
     if (drawable is RectangleDrawable) {
       return AnnotationObjectControlGeometry(
         rotateHandle: _shapeBottomCenter(drawable),
+        shapeScaleHandles: _shapeScaleHandles(drawable),
       );
     }
     if (drawable is OvalDrawable) {
       return AnnotationObjectControlGeometry(
         rotateHandle: _shapeBottomCenter(drawable),
+        shapeScaleHandles: _shapeScaleHandles(drawable),
       );
     }
     final endpoints = _arrowEndpoints(drawable);
@@ -1078,6 +1110,14 @@ class AnnotationController extends GetxController {
     painterController.replaceDrawable(drawable, next);
     painterController.selectObjectDrawable(next);
     selectedObject.value = next;
+  }
+
+  void _replaceSelectedObject(ObjectDrawable current, ObjectDrawable next) {
+    painterController.replaceDrawable(current, next);
+    painterController.selectObjectDrawable(next);
+    selectedObject.value = next;
+    result.value = null;
+    editRevision.value++;
   }
 
   void _updateSelectedShapeStrokeWidth(double width) {
@@ -1441,6 +1481,147 @@ class AnnotationController extends GetxController {
         _rotateOffset(localBottom, drawable.rotationAngle);
   }
 
+  List<AnnotationShapeScaleHandle> _shapeScaleHandles(ObjectDrawable drawable) {
+    final Size size = switch (drawable) {
+      RectangleDrawable item => item.size * item.scale,
+      OvalDrawable item => item.size * item.scale,
+      _ => Size.zero,
+    };
+    if (size.width <= 0 || size.height <= 0) {
+      return const <AnnotationShapeScaleHandle>[];
+    }
+    final localCorners = <AnnotationShapeScaleCorner, Offset>{
+      AnnotationShapeScaleCorner.topLeft: Offset(
+        -size.width / 2,
+        -size.height / 2,
+      ),
+      AnnotationShapeScaleCorner.topRight: Offset(
+        size.width / 2,
+        -size.height / 2,
+      ),
+      AnnotationShapeScaleCorner.bottomLeft: Offset(
+        -size.width / 2,
+        size.height / 2,
+      ),
+      AnnotationShapeScaleCorner.bottomRight: Offset(
+        size.width / 2,
+        size.height / 2,
+      ),
+    };
+    return localCorners.entries
+        .map(
+          (entry) => AnnotationShapeScaleHandle(
+            corner: entry.key,
+            center:
+                drawable.position +
+                _rotateOffset(entry.value, drawable.rotationAngle),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  RectangleDrawable _resizedRectangleFromCorner(
+    RectangleDrawable drawable,
+    AnnotationShapeScaleCorner corner,
+    Offset point,
+  ) {
+    final nextGeometry = _shapeResizeGeometry(
+      position: drawable.position,
+      rotation: drawable.rotationAngle,
+      size: drawable.size * drawable.scale,
+      corner: corner,
+      point: point,
+      keepSquare: false,
+    );
+    return drawable.copyWith(
+      position: nextGeometry.center,
+      scale: 1,
+      size: nextGeometry.size,
+    );
+  }
+
+  OvalDrawable _resizedOvalFromCorner(
+    OvalDrawable drawable,
+    AnnotationShapeScaleCorner corner,
+    Offset point,
+  ) {
+    final nextGeometry = _shapeResizeGeometry(
+      position: drawable.position,
+      rotation: drawable.rotationAngle,
+      size: drawable.size * drawable.scale,
+      corner: corner,
+      point: point,
+      keepSquare: true,
+    );
+    return drawable.copyWith(
+      position: nextGeometry.center,
+      scale: 1,
+      size: nextGeometry.size,
+    );
+  }
+
+  _ShapeResizeGeometry _shapeResizeGeometry({
+    required Offset position,
+    required double rotation,
+    required Size size,
+    required AnnotationShapeScaleCorner corner,
+    required Offset point,
+    required bool keepSquare,
+  }) {
+    final draggedLocal = _rotateOffset(point - position, -rotation);
+    final fixedLocal = _oppositeLocalCorner(size, corner);
+    var width = (draggedLocal.dx - fixedLocal.dx)
+        .abs()
+        .clamp(_minDrawableSide, double.infinity)
+        .toDouble();
+    var height = (draggedLocal.dy - fixedLocal.dy)
+        .abs()
+        .clamp(_minDrawableSide, double.infinity)
+        .toDouble();
+    if (keepSquare) {
+      final side = math.max(width, height);
+      width = side;
+      height = side;
+    }
+    final draggedSign = _cornerSign(corner);
+    final draggedLocalClamped = Offset(
+      fixedLocal.dx + draggedSign.dx * width,
+      fixedLocal.dy + draggedSign.dy * height,
+    );
+    final localCenter = Offset(
+      (fixedLocal.dx + draggedLocalClamped.dx) / 2,
+      (fixedLocal.dy + draggedLocalClamped.dy) / 2,
+    );
+    return _ShapeResizeGeometry(
+      center: position + _rotateOffset(localCenter, rotation),
+      size: Size(width, height),
+    );
+  }
+
+  Offset _oppositeLocalCorner(Size size, AnnotationShapeScaleCorner corner) {
+    final opposite = switch (corner) {
+      AnnotationShapeScaleCorner.topLeft =>
+        AnnotationShapeScaleCorner.bottomRight,
+      AnnotationShapeScaleCorner.topRight =>
+        AnnotationShapeScaleCorner.bottomLeft,
+      AnnotationShapeScaleCorner.bottomLeft =>
+        AnnotationShapeScaleCorner.topRight,
+      AnnotationShapeScaleCorner.bottomRight =>
+        AnnotationShapeScaleCorner.topLeft,
+    };
+    final sign = _cornerSign(opposite);
+    return Offset(sign.dx * size.width / 2, sign.dy * size.height / 2);
+  }
+
+  Offset _cornerSign(AnnotationShapeScaleCorner corner) {
+    return switch (corner) {
+      AnnotationShapeScaleCorner.topLeft => const Offset(-1, -1),
+      AnnotationShapeScaleCorner.topRight => const Offset(1, -1),
+      AnnotationShapeScaleCorner.bottomLeft => const Offset(-1, 1),
+      AnnotationShapeScaleCorner.bottomRight => const Offset(1, 1),
+    };
+  }
+
   _ArrowEndpoints? _arrowEndpoints(ObjectDrawable? drawable) {
     if (drawable is EditableArrowDrawable) {
       final half = drawable.length * drawable.scale / 2;
@@ -1490,6 +1671,7 @@ class AnnotationController extends GetxController {
     const controlHitRadius = 30.0;
     final controlPoints = <Offset?>[
       geometry?.rotateHandle,
+      ...?geometry?.shapeScaleHandles.map((handle) => handle.center),
       geometry?.arrowStart,
       geometry?.arrowEnd,
       geometry?.arrowDirectionHandle,
@@ -1657,6 +1839,13 @@ class _ArrowEndpoints {
 
   final Offset start;
   final Offset end;
+}
+
+class _ShapeResizeGeometry {
+  const _ShapeResizeGeometry({required this.center, required this.size});
+
+  final Offset center;
+  final Size size;
 }
 
 class _ResizeDimensions {

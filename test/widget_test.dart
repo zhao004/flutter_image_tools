@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
@@ -801,6 +802,66 @@ void main() {
 
     expect(rotated.length, scaled.length);
     expect(rotated.rotationAngle, closeTo(1.5707963267948966, 0.001));
+
+    await database.close();
+    Get.reset();
+  });
+
+  test('矩形和圆形支持四角拖动缩放', () async {
+    // 四角控制点使用对角固定策略，矩形自由缩放，圆形保持正圆比例。
+    final database = AppDatabase(NativeDatabase.memory());
+    final controller = AnnotationController(
+      imageChannel: LocalImageChannel(),
+      historyRepository: OperationHistoryRepository(database: database),
+      recentFilesRepository: RecentFilesRepository(database: database),
+    );
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'annotation_preview.png',
+      name: 'annotation_preview.png',
+      sizeBytes: 1200,
+      mimeType: 'image/png',
+      width: 1200,
+      height: 800,
+    );
+    controller.updateCanvasSize(const Size(300, 200));
+
+    controller.addShapeLayer(EditableLayerType.rectangle);
+    final rectangleGeometry = controller.selectedControlGeometry!;
+    expect(rectangleGeometry.shapeScaleHandles, hasLength(4));
+    final initialRectangle =
+        controller.selectedObject.value as RectangleDrawable;
+    final rectBottomRight = rectangleGeometry.shapeScaleHandles.singleWhere(
+      (handle) => handle.corner == AnnotationShapeScaleCorner.bottomRight,
+    );
+    controller.resizeSelectedShapeFromCorner(
+      corner: rectBottomRight.corner,
+      point: rectBottomRight.center + const Offset(50, 30),
+    );
+    final resizedRectangle =
+        controller.selectedObject.value as RectangleDrawable;
+    expect(
+      resizedRectangle.size.width,
+      greaterThan(initialRectangle.size.width),
+    );
+    expect(
+      resizedRectangle.size.height,
+      greaterThan(initialRectangle.size.height),
+    );
+
+    controller.addShapeLayer(EditableLayerType.circle);
+    final circleGeometry = controller.selectedControlGeometry!;
+    expect(circleGeometry.shapeScaleHandles, hasLength(4));
+    final initialCircle = controller.selectedObject.value as OvalDrawable;
+    final circleBottomRight = circleGeometry.shapeScaleHandles.singleWhere(
+      (handle) => handle.corner == AnnotationShapeScaleCorner.bottomRight,
+    );
+    controller.resizeSelectedShapeFromCorner(
+      corner: circleBottomRight.corner,
+      point: circleBottomRight.center + const Offset(44, 20),
+    );
+    final resizedCircle = controller.selectedObject.value as OvalDrawable;
+    expect(resizedCircle.size.width, greaterThan(initialCircle.size.width));
+    expect(resizedCircle.size.width, resizedCircle.size.height);
 
     await database.close();
     Get.reset();

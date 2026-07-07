@@ -1406,6 +1406,22 @@ class _ObjectControlOverlay extends StatelessWidget {
       }
       return Stack(
         children: [
+          for (final handle in geometry.shapeScaleHandles)
+            _PositionedControl(
+              center: handle.center,
+              size: _dragDotSize,
+              child: _ShapeScaleHandle(
+                onPanUpdate: (details) =>
+                    controller.resizeSelectedShapeFromCorner(
+                      corner: handle.corner,
+                      point: _canvasPointFromHandle(
+                        center: handle.center,
+                        size: _dragDotSize,
+                        localPosition: details.localPosition,
+                      ),
+                    ),
+              ),
+            ),
           if (geometry.rotateHandle != null)
             _PositionedControl(
               center: geometry.rotateHandle!,
@@ -1536,6 +1552,35 @@ class _RotationHandle extends StatelessWidget {
 
 class _ArrowEndpointHandle extends StatelessWidget {
   const _ArrowEndpointHandle({required this.onPanUpdate});
+
+  final GestureDragUpdateCallback onPanUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanUpdate: onPanUpdate,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.primary, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShapeScaleHandle extends StatelessWidget {
+  const _ShapeScaleHandle({required this.onPanUpdate});
 
   final GestureDragUpdateCallback onPanUpdate;
 
