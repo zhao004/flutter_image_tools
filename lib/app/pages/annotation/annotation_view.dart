@@ -39,6 +39,7 @@ class AnnotationView extends GetView<AnnotationController> {
         showPreviewInfo: false,
         showDefaultAppBarActions: false,
         expandPreviewToAvailableHeight: true,
+        overlayToolbar: true,
         previewBorderRadius: 0,
         lockPreviewScroll: true,
         previewBuilder: (context, previewImage) =>

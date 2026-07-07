@@ -39,6 +39,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.showPreviewInfo = true,
     this.showDefaultAppBarActions = true,
     this.expandPreviewToAvailableHeight = false,
+    this.overlayToolbar = false,
   });
 
   final String title;
@@ -68,11 +69,37 @@ class ImageEditorScaffold extends StatelessWidget {
   final bool showPreviewInfo;
   final bool showDefaultAppBarActions;
   final bool expandPreviewToAvailableHeight;
+  final bool overlayToolbar;
 
   @override
   Widget build(BuildContext context) {
     final image = selectedImage;
     final showEditingControls = image != null || showEditingControlsWhenEmpty;
+    final previewContent = image == null
+        ? _EditorEmptyState(
+            icon: emptyIcon,
+            title: emptyTitle,
+            message: emptyMessage,
+            buttonLabel: pickLabel,
+            isBusy: isBusy,
+            onPickImage: onPickImage,
+          )
+        : _EditorPreviewStage(
+            image: image,
+            meta: imageMeta,
+            previewBuilder: previewBuilder,
+            resultSummary: resultSummary,
+            previewBorderRadius: previewBorderRadius,
+            lockPreviewScroll: lockPreviewScroll,
+            showPreviewInfo: showPreviewInfo,
+            expandPreviewToAvailableHeight: expandPreviewToAvailableHeight,
+          );
+    final toolbarSurface = toolbar == null
+        ? null
+        : _EditorPropertyPanelSurface(
+            maxHeight: toolbarMaxHeight,
+            child: toolbar!,
+          );
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -102,34 +129,24 @@ class ImageEditorScaffold extends StatelessWidget {
         child: Column(
           children: [
             Expanded(
-              child: image == null
-                  ? _EditorEmptyState(
-                      icon: emptyIcon,
-                      title: emptyTitle,
-                      message: emptyMessage,
-                      buttonLabel: pickLabel,
-                      isBusy: isBusy,
-                      onPickImage: onPickImage,
-                    )
-                  : _EditorPreviewStage(
-                      image: image,
-                      meta: imageMeta,
-                      previewBuilder: previewBuilder,
-                      resultSummary: resultSummary,
-                      previewBorderRadius: previewBorderRadius,
-                      lockPreviewScroll: lockPreviewScroll,
-                      showPreviewInfo: showPreviewInfo,
-                      expandPreviewToAvailableHeight:
-                          expandPreviewToAvailableHeight,
+              child: Stack(
+                children: [
+                  Positioned.fill(child: previewContent),
+                  if (showEditingControls &&
+                      overlayToolbar &&
+                      toolbarSurface != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: toolbarSurface,
                     ),
+                ],
+              ),
             ),
             if (showEditingControls) ...[
               if (tabBar != null) _EditorTabBarSurface(child: tabBar!),
-              if (toolbar != null)
-                _EditorPropertyPanelSurface(
-                  maxHeight: toolbarMaxHeight,
-                  child: toolbar!,
-                ),
+              if (!overlayToolbar && toolbarSurface != null) toolbarSurface,
               if (bottomToolbar != null)
                 _EditorBottomToolbarSurface(child: bottomToolbar!),
             ],

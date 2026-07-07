@@ -488,6 +488,67 @@ void main() {
     expect(find.text('Result Summary'), findsOneWidget);
   });
 
+  testWidgets('统一编辑器覆盖属性面板不压缩预览区', (WidgetTester tester) async {
+    // 覆盖式属性面板叠在预览区底部，避免面板打开时改变画布约束导致标注元素抖动。
+    Widget buildEditor({required Widget? toolbar}) {
+      return GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: ImageEditorScaffold(
+          title: 'Grid Split',
+          selectedImage: const LocalImageFile(
+            path: 'preview.png',
+            name: 'preview.png',
+            sizeBytes: 1024,
+            mimeType: 'image/png',
+            width: 800,
+            height: 600,
+          ),
+          isBusy: false,
+          emptyIcon: Icons.grid_on_outlined,
+          emptyTitle: 'Select Image',
+          emptyMessage: 'Select an image first.',
+          pickLabel: 'Select One',
+          repickLabel: 'Select Again',
+          exportLabel: 'Save to Gallery',
+          exportIcon: Icons.ios_share_outlined,
+          onPickImage: () {},
+          onExport: () {},
+          showPreviewInfo: false,
+          expandPreviewToAvailableHeight: true,
+          previewBuilder: (context, image) => const SizedBox.expand(
+            key: ValueKey('overlay-editor-canvas'),
+            child: ColoredBox(color: Colors.black12),
+          ),
+          tabBar: const Text('Range'),
+          toolbar: toolbar,
+          overlayToolbar: true,
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildEditor(toolbar: null));
+    await tester.pump();
+    final initialSize = tester.getSize(
+      find.byKey(const ValueKey('overlay-editor-canvas')),
+    );
+
+    await tester.pumpWidget(
+      buildEditor(
+        toolbar: const SizedBox(height: 180, child: Text('Property Panel')),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Property Panel'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('overlay-editor-canvas'))),
+      initialSize,
+    );
+  });
+
   testWidgets('显示英文图片滤镜页面', (WidgetTester tester) async {
     // 直接注入控制器依赖，仅验证统一编辑器选图空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
