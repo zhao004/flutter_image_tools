@@ -720,10 +720,31 @@ void main() {
     controller.deselectSelectedObject();
     await tester.pump();
 
+    expect(find.text('Annotation Style'), findsNothing);
+    controller.handleCanvasTap(updatedText.position);
+    await tester.pump();
+
+    expect(controller.selectedObject.value, isA<TextDrawable>());
+    expect(find.text('Annotation Style'), findsOneWidget);
+    expect(find.text('Edit Text'), findsOneWidget);
+    expect(find.text('Text Size: 48 px'), findsOneWidget);
+
     controller.addShapeLayer(EditableLayerType.rectangle);
     await tester.pump();
 
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+
+    controller.closePropertyPanel();
+    await tester.pump();
+
+    expect(find.text('Annotation Style'), findsNothing);
+    final rectangle = controller.selectedObject.value!;
+    controller.handleCanvasTap(rectangle.position);
+    await tester.pump();
+
+    expect(find.text('Annotation Style'), findsOneWidget);
+    expect(find.text('Red'), findsOneWidget);
+    expect(find.text('Stroke: 12 px'), findsOneWidget);
 
     controller.deselectSelectedObjectIfBlankTap(const Offset(0, 0));
     await tester.pump();

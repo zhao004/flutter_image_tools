@@ -1196,7 +1196,11 @@ class _TextToolPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      if (controller.mode.value != AnnotationMode.text) {
+      final selectedObject = controller.selectedObject.value;
+      final showControls =
+          controller.mode.value == AnnotationMode.text ||
+          selectedObject is TextDrawable;
+      if (!showControls) {
         return const SizedBox.shrink();
       }
       return _PanelBlock(

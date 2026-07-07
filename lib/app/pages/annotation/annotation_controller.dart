@@ -702,7 +702,27 @@ class AnnotationController extends GetxController {
   }
 
   void deselectSelectedObjectIfBlankTap(Offset point) {
+    handleCanvasTap(point);
+  }
+
+  void handleCanvasTap(Offset point) {
     if (selectedObject.value == null || _isPointOnSelectedObject(point)) {
+      if (selectedObject.value != null) {
+        isPropertyPanelVisible.value = true;
+      }
+      final drawable = selectedObject.value == null
+          ? _topObjectDrawableAt(point)
+          : null;
+      if (drawable != null) {
+        painterController.selectObjectDrawable(drawable);
+        selectObject(drawable);
+      }
+      return;
+    }
+    final drawable = _topObjectDrawableAt(point);
+    if (drawable != null) {
+      painterController.selectObjectDrawable(drawable);
+      selectObject(drawable);
       return;
     }
     deselectSelectedObject();
@@ -1775,6 +1795,43 @@ class AnnotationController extends GetxController {
       }
     }
     return null;
+  }
+
+  ObjectDrawable? _topObjectDrawableAt(Offset point) {
+    for (final drawable in painterController.drawables.reversed) {
+      if (drawable is ObjectDrawable &&
+          !drawable.hidden &&
+          _isPointInsideObjectDrawable(point, drawable)) {
+        return drawable;
+      }
+    }
+    return null;
+  }
+
+  bool _isPointInsideObjectDrawable(Offset point, ObjectDrawable drawable) {
+    if (drawable is EditableArrowDrawable || drawable is ArrowDrawable) {
+      final endpoints = _arrowEndpoints(drawable);
+      if (endpoints == null) {
+        return false;
+      }
+      final strokeWidth = switch (drawable) {
+        EditableArrowDrawable item => item.paint.strokeWidth,
+        ArrowDrawable item => item.paint.strokeWidth,
+        _ => 0.0,
+      };
+      return _distanceToSegment(point, endpoints.start, endpoints.end) <=
+          math.max(18, strokeWidth + 10);
+    }
+    if (drawable is TextDrawable) {
+      return _isPointInsideTextDrawable(point, drawable);
+    }
+    final size = drawable.getSize();
+    final local = _rotateOffset(
+      point - drawable.position,
+      -drawable.rotationAngle,
+    );
+    return local.dx.abs() <= size.width / 2 &&
+        local.dy.abs() <= size.height / 2;
   }
 
   bool _isPointInsideTextDrawable(Offset point, TextDrawable drawable) {
