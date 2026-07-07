@@ -703,18 +703,20 @@ void main() {
     await tester.tap(find.text('Text'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit Text'), findsWidgets);
+    expect(find.text('Annotation Style'), findsNothing);
+    expect(find.text('Edit Text'), findsOneWidget);
     expect(find.text('Text Content'), findsOneWidget);
-    expect(find.text('Text Size: 32 px'), findsWidgets);
-    expect(find.text('System'), findsWidgets);
-    expect(find.text('Monospace'), findsWidgets);
+    expect(find.text('Text Size: 32 px'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
+    expect(find.text('Monospace'), findsOneWidget);
 
     controller.textController.text = 'Updated text';
     controller.updateTextSize(48);
     controller.setTextFont(AnnotationTextFont.monospace);
     await tester.pump();
 
-    expect(find.text('Text Size: 48 px'), findsWidgets);
+    expect(find.text('Annotation Style'), findsNothing);
+    expect(find.text('Text Size: 48 px'), findsOneWidget);
     expect(controller.updateSelectedTextLayer(), isTrue);
     final updatedText = controller.selectedObject.value as TextDrawable;
     expect(updatedText.text, 'Updated text');

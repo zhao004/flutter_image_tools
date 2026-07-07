@@ -162,6 +162,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
   Offset? _shapeDragStart;
   Offset? _shapeDragEnd;
   bool _isMovingSelectedMosaic = false;
+  bool _isTextEditorDialogVisible = false;
 
   AnnotationController get controller => widget.controller;
 
@@ -191,11 +192,17 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                   behavior: HitTestBehavior.translucent,
                   onDoubleTapDown: (details) async {
                     if (controller.selectTextObjectAt(details.localPosition)) {
-                      await _showTextEditor(context, controller);
+                      await _openTextEditor(context);
                     }
                   },
-                  onTapUp: (details) => controller
-                      .deselectSelectedObjectIfBlankTap(details.localPosition),
+                  onTapUp: (details) {
+                    if (_isTextEditorDialogVisible) {
+                      return;
+                    }
+                    controller.deselectSelectedObjectIfBlankTap(
+                      details.localPosition,
+                    );
+                  },
                   child: painter,
                 ),
               ),
@@ -293,6 +300,18 @@ class _EditableCanvasState extends State<_EditableCanvas> {
       AnnotationMode.arrow => EditableLayerType.arrow,
       _ => null,
     };
+  }
+
+  Future<void> _openTextEditor(BuildContext context) async {
+    if (_isTextEditorDialogVisible) {
+      return;
+    }
+    _isTextEditorDialogVisible = true;
+    try {
+      await _showTextEditor(context, controller);
+    } finally {
+      _isTextEditorDialogVisible = false;
+    }
   }
 
   void _startShapeDrag(DragStartDetails details) {
@@ -977,6 +996,8 @@ Future<void> _showTextEditor(
   BuildContext context,
   AnnotationController controller,
 ) async {
+  // 文本弹窗已经承载文本属性编辑，打开前收起常驻面板，避免同一文本出现两套设置入口。
+  controller.closePropertyPanel();
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
