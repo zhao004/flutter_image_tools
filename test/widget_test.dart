@@ -794,6 +794,10 @@ void main() {
 
     await tester.tap(find.text('Annotate'));
     await tester.pumpAndSettle();
+    expect(
+      controller.painterController.painterKey.currentContext!.size!,
+      initialPainterSize,
+    );
     expect(find.text('Brush'), findsOneWidget);
     expect(find.text('Rectangle'), findsOneWidget);
     expect(find.text('Circle'), findsOneWidget);
@@ -817,6 +821,10 @@ void main() {
 
     await tester.tap(find.text('Mosaic'));
     await tester.pumpAndSettle();
+    expect(
+      controller.painterController.painterKey.currentContext!.size!,
+      initialPainterSize,
+    );
 
     expect(find.text('Freehand'), findsWidgets);
     expect(find.text('Rectangle Mosaic'), findsWidgets);

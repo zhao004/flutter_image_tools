@@ -424,15 +424,13 @@ class EditorDynamicToolPanel extends StatelessWidget {
     final double stackedCompactHeight =
         (compactLayerCount * compactSubPanelHeight).toDouble() +
         (compactLayerCount > 1 ? 8.0 : 0.0);
-    final double reservedCompactHeight = stackCompactPanel
-        ? 2.0 * compactSubPanelHeight + 8.0
-        : 60.0 + 8.0 + compactSubPanelHeight;
-    final double compactToolbarHeight = shouldShowSubPanel
+    final double reservedCompactHeight = 2.0 * compactSubPanelHeight + 8.0;
+    final double compactToolbarHeight = reserveCompactPanelSpace
+        ? reservedCompactHeight
+        : shouldShowSubPanel
         ? stackCompactPanel
               ? (stackedCompactHeight < 60.0 ? 60.0 : stackedCompactHeight)
               : 60.0 + 8.0 + compactSubPanelHeight
-        : reserveCompactPanelSpace
-        ? reservedCompactHeight
         : 60.0;
     final primaryTools = SizedBox(
       height: 60,
