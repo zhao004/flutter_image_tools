@@ -100,6 +100,18 @@ class _AnnotationTopActions extends StatelessWidget {
               onPressed: isBusy ? null : controller.deleteSelectedObject,
               icon: const Icon(Icons.delete_outline),
             ),
+          IconButton(
+            tooltip: 'common.saveToGallery'.tr,
+            onPressed: image == null || isBusy
+                ? null
+                : controller.exportEditedImage,
+            icon: isBusy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+          ),
         ],
       );
     });

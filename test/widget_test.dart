@@ -620,7 +620,7 @@ void main() {
     expect(find.byIcon(Icons.undo), findsOneWidget);
     expect(find.byIcon(Icons.redo), findsOneWidget);
     expect(find.byIcon(Icons.add_photo_alternate_outlined), findsNothing);
-    expect(find.byIcon(Icons.save_outlined), findsNothing);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
     expect(find.text('Red'), findsNothing);
     expect(find.text('Stroke: 12 px'), findsNothing);
@@ -635,7 +635,7 @@ void main() {
 
     expect(find.text('Red'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
-    expect(find.byIcon(Icons.save_outlined), findsNothing);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
     await database.close();
     Get.reset();
