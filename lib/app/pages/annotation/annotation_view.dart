@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
 import 'package:flutter/services.dart';
 
@@ -11,7 +10,7 @@ import '../../widgets/image_editor_scaffold.dart';
 import '../filter/filter_controller.dart';
 import 'annotation_controller.dart';
 
-/// 图片编辑页，提供选图、第三方画布编辑、马赛克涂抹和保存到相册。
+/// 图片编辑页，提供选图、本地画布编辑、马赛克涂抹和保存到相册。
 ///
 /// 构建设计：页面复用统一编辑骨架，画布区只承载可编辑图片；工具模式放入
 /// 标签栏，文本、颜色和新增图层动作放入属性面板。导出、历史记录和异常处理
@@ -162,6 +161,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
   Offset? _shapeDragStart;
   Offset? _shapeDragEnd;
   bool _isMovingSelectedMosaic = false;
+  bool _isMovingSelectedObject = false;
   bool _isTextEditorDialogVisible = false;
 
   AnnotationController get controller => widget.controller;
@@ -185,36 +185,63 @@ class _EditableCanvasState extends State<_EditableCanvas> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              FlutterPainter.builder(
-                controller: controller.painterController,
-                onSelectedObjectDrawableChanged: controller.selectObject,
-                builder: (context, painter) => Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (event) =>
-                      controller.suppressLegacyTextEditorOnPointerDown(
-                        event.localPosition,
-                      ),
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onDoubleTapDown: (details) async {
-                      if (controller.selectTextObjectAt(
-                        details.localPosition,
-                      )) {
-                        await _openTextEditor(context);
-                      }
-                    },
-                    onTapUp: (details) {
-                      if (_isTextEditorDialogVisible) {
-                        return;
-                      }
-                      controller.deselectSelectedObjectIfBlankTap(
-                        details.localPosition,
-                      );
-                    },
-                    child: painter,
-                  ),
-                ),
+              AnimatedBuilder(
+                animation: controller.painterController,
+                builder: (context, _) {
+                  return CustomPaint(
+                    key: controller.painterController.painterKey,
+                    painter: _AnnotationObjectPainter(
+                      drawables: controller.painterController.drawables,
+                    ),
+                  );
+                },
               ),
+              Obx(() {
+                final canMoveObject =
+                    controller.mode.value == AnnotationMode.select &&
+                    controller.selectedObject.value != null &&
+                    controller.selectedMosaicIndex.value == null;
+                return GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onDoubleTapDown: (details) async {
+                    if (controller.selectTextObjectAt(details.localPosition)) {
+                      await _openTextEditor(context);
+                    }
+                  },
+                  onTapUp: (details) {
+                    if (_isTextEditorDialogVisible) {
+                      return;
+                    }
+                    controller.deselectSelectedObjectIfBlankTap(
+                      details.localPosition,
+                    );
+                  },
+                  onPanStart: canMoveObject ? _startSelectedObjectMove : null,
+                  onPanUpdate: canMoveObject ? _moveSelectedObject : null,
+                  onPanEnd: canMoveObject
+                      ? (_) => _finishSelectedObjectMove()
+                      : null,
+                  onPanCancel: canMoveObject ? _finishSelectedObjectMove : null,
+                );
+              }),
+              Obx(() {
+                if (controller.mode.value != AnnotationMode.brush) {
+                  return const SizedBox.shrink();
+                }
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: _startBrush,
+                  onPanUpdate: _appendBrush,
+                  onPanEnd: _finishBrush,
+                  child: CustomPaint(
+                    painter: _BrushDraftPainter(
+                      points: _draftPoints,
+                      color: controller.color.value,
+                      width: controller.strokeWidth.value.toDouble(),
+                    ),
+                  ),
+                );
+              }),
               Obx(() {
                 final mode = controller.mode.value;
                 final shapeType = _shapeTypeForMode(mode);
@@ -361,6 +388,40 @@ class _EditableCanvasState extends State<_EditableCanvas> {
 
   void _finishSelectedMosaicMove() {
     _isMovingSelectedMosaic = false;
+  }
+
+  void _startSelectedObjectMove(DragStartDetails details) {
+    _isMovingSelectedObject = controller.handleObjectPanStart(
+      details.localPosition,
+    );
+  }
+
+  void _moveSelectedObject(DragUpdateDetails details) {
+    if (!_isMovingSelectedObject) {
+      return;
+    }
+    controller.moveSelectedObjectBy(details.delta);
+  }
+
+  void _finishSelectedObjectMove() {
+    _isMovingSelectedObject = false;
+  }
+
+  void _startBrush(DragStartDetails details) {
+    setState(() {
+      _draftPoints
+        ..clear()
+        ..add(details.localPosition);
+    });
+  }
+
+  void _appendBrush(DragUpdateDetails details) {
+    setState(() => _draftPoints.add(details.localPosition));
+  }
+
+  void _finishBrush(DragEndDetails details) {
+    controller.addBrushStroke(_draftPoints);
+    setState(_draftPoints.clear);
   }
 
   void _startMosaic(DragStartDetails details) {
@@ -2223,6 +2284,10 @@ class _MosaicPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
     for (final stroke in strokes) {
+      if (stroke.mode == AnnotationMode.brush) {
+        _paintBrushStroke(canvas, stroke);
+        continue;
+      }
       paint.color = stroke.color.withValues(alpha: 1);
       _paintStroke(canvas, paint, stroke.kind, stroke.points, stroke.width);
     }
@@ -2259,6 +2324,23 @@ class _MosaicPainter extends CustomPainter {
     }
   }
 
+  void _paintBrushStroke(Canvas canvas, DrawingStroke stroke) {
+    if (stroke.points.length < 2) {
+      return;
+    }
+    final paint = Paint()
+      ..color = stroke.color
+      ..strokeWidth = stroke.width.clamp(2, 60).toDouble()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path()..moveTo(stroke.points.first.dx, stroke.points.first.dy);
+    for (final point in stroke.points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(path, paint);
+  }
+
   Rect _rectFromPoints(Offset start, Offset end) {
     return Rect.fromLTRB(
       start.dx < end.dx ? start.dx : end.dx,
@@ -2271,6 +2353,59 @@ class _MosaicPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MosaicPainter oldDelegate) {
     return true;
+  }
+}
+
+class _AnnotationObjectPainter extends CustomPainter {
+  const _AnnotationObjectPainter({required this.drawables});
+
+  final List<ObjectDrawable> drawables;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    drawAnnotationObjects(canvas, size, drawables);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AnnotationObjectPainter oldDelegate) {
+    return drawables != oldDelegate.drawables;
+  }
+}
+
+class _BrushDraftPainter extends CustomPainter {
+  const _BrushDraftPainter({
+    required this.points,
+    required this.color,
+    required this.width,
+  });
+
+  final List<Offset> points;
+  final Color color;
+  final double width;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) {
+      return;
+    }
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = width.clamp(2, 60).toDouble()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BrushDraftPainter oldDelegate) {
+    return points != oldDelegate.points ||
+        color != oldDelegate.color ||
+        width != oldDelegate.width;
   }
 }
 

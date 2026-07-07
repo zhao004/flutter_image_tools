@@ -1,7 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flex_color_picker/flex_color_picker.dart' as flex_color_picker;
 import 'package:flutter/material.dart';
-import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 

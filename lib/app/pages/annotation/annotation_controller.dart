@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
 
 import '../../exceptions/app_exception.dart';
@@ -151,10 +150,238 @@ class AnnotationObjectControlGeometry {
   final Offset? arrowDirectionHandle;
 }
 
+/// 可编辑对象基类，统一使用画布坐标记录位置、旋转和缩放。
+///
+/// 设计意图：标注图层不再依赖第三方画布库，所有对象都由控制器维护并由
+/// `CustomPainter` 绘制，避免底部面板改变布局时外部库重新换算坐标导致抖动。
+abstract class ObjectDrawable {
+  const ObjectDrawable({
+    required this.position,
+    this.rotationAngle = 0,
+    this.scale = 1,
+    this.hidden = false,
+    this.locked = false,
+  });
+
+  final Offset position;
+  final double rotationAngle;
+  final double scale;
+  final bool hidden;
+  final bool locked;
+
+  Size getSize({double minWidth = 0.0, double maxWidth = double.infinity});
+
+  void drawObject(Canvas canvas, Size size);
+
+  ObjectDrawable copyWith({
+    Offset? position,
+    double? rotation,
+    double? scale,
+    bool? hidden,
+    bool? locked,
+  });
+}
+
+/// 形状图层接口，提供统一颜色和线宽修改入口。
+abstract interface class ShapeDrawable implements ObjectDrawable {
+  Paint get paint;
+
+  @override
+  ShapeDrawable copyWith({
+    Offset? position,
+    double? rotation,
+    double? scale,
+    bool? hidden,
+    bool? locked,
+    Paint? paint,
+  });
+}
+
+/// 文本图层，使用系统文本绘制能力渲染，支持字体、字号和颜色。
+class TextDrawable extends ObjectDrawable {
+  const TextDrawable({
+    required this.text,
+    required super.position,
+    required this.style,
+    this.direction = TextDirection.ltr,
+    super.rotationAngle,
+    super.scale,
+    super.hidden,
+    super.locked,
+  });
+
+  final String text;
+  final TextStyle style;
+  final TextDirection direction;
+
+  @override
+  Size getSize({double minWidth = 0.0, double maxWidth = double.infinity}) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: direction,
+      maxLines: 1,
+    )..layout(maxWidth: maxWidth.isFinite ? maxWidth : double.infinity);
+    return Size(
+      math.max(minWidth, painter.width) * scale,
+      math.max(minWidth, painter.height) * scale,
+    );
+  }
+
+  @override
+  void drawObject(Canvas canvas, Size size) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: direction,
+      maxLines: 1,
+    )..layout();
+    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
+  }
+
+  @override
+  TextDrawable copyWith({
+    String? text,
+    TextStyle? style,
+    TextDirection? direction,
+    Offset? position,
+    double? rotation,
+    double? scale,
+    bool? hidden,
+    bool? locked,
+  }) {
+    return TextDrawable(
+      text: text ?? this.text,
+      position: position ?? this.position,
+      style: style ?? this.style,
+      direction: direction ?? this.direction,
+      rotationAngle: rotation ?? rotationAngle,
+      scale: scale ?? this.scale,
+      hidden: hidden ?? this.hidden,
+      locked: locked ?? this.locked,
+    );
+  }
+}
+
+/// 矩形图层，中心点定位，旋转和缩放都由本地画布统一处理。
+class RectangleDrawable extends ObjectDrawable implements ShapeDrawable {
+  const RectangleDrawable({
+    required this.size,
+    required super.position,
+    required this.paint,
+    this.borderRadius = BorderRadius.zero,
+    super.rotationAngle,
+    super.scale,
+    super.hidden,
+    super.locked,
+  });
+
+  final Size size;
+  final BorderRadius borderRadius;
+
+  @override
+  final Paint paint;
+
+  @override
+  Size getSize({double minWidth = 0.0, double maxWidth = double.infinity}) {
+    return Size(
+      math.max(minWidth, size.width * scale).clamp(0, maxWidth).toDouble(),
+      math.max(minWidth, size.height * scale),
+    );
+  }
+
+  @override
+  void drawObject(Canvas canvas, Size size) {
+    final rect =
+        Offset(-this.size.width / 2, -this.size.height / 2) & this.size;
+    if (borderRadius == BorderRadius.zero) {
+      canvas.drawRect(rect, paint);
+      return;
+    }
+    canvas.drawRRect(borderRadius.toRRect(rect), paint);
+  }
+
+  @override
+  RectangleDrawable copyWith({
+    Size? size,
+    BorderRadius? borderRadius,
+    Offset? position,
+    double? rotation,
+    double? scale,
+    bool? hidden,
+    bool? locked,
+    Paint? paint,
+  }) {
+    return RectangleDrawable(
+      size: size ?? this.size,
+      position: position ?? this.position,
+      paint: paint ?? this.paint,
+      borderRadius: borderRadius ?? this.borderRadius,
+      rotationAngle: rotation ?? rotationAngle,
+      scale: scale ?? this.scale,
+      hidden: hidden ?? this.hidden,
+      locked: locked ?? this.locked,
+    );
+  }
+}
+
+/// 圆形/椭圆图层，命中测试和拖拽缩放由控制器统一处理。
+class OvalDrawable extends ObjectDrawable implements ShapeDrawable {
+  const OvalDrawable({
+    required this.size,
+    required super.position,
+    required this.paint,
+    super.rotationAngle,
+    super.scale,
+    super.hidden,
+    super.locked,
+  });
+
+  final Size size;
+
+  @override
+  final Paint paint;
+
+  @override
+  Size getSize({double minWidth = 0.0, double maxWidth = double.infinity}) {
+    return Size(
+      math.max(minWidth, size.width * scale).clamp(0, maxWidth).toDouble(),
+      math.max(minWidth, size.height * scale),
+    );
+  }
+
+  @override
+  void drawObject(Canvas canvas, Size size) {
+    canvas.drawOval(
+      Offset(-this.size.width / 2, -this.size.height / 2) & this.size,
+      paint,
+    );
+  }
+
+  @override
+  OvalDrawable copyWith({
+    Size? size,
+    Offset? position,
+    double? rotation,
+    double? scale,
+    bool? hidden,
+    bool? locked,
+    Paint? paint,
+  }) {
+    return OvalDrawable(
+      size: size ?? this.size,
+      position: position ?? this.position,
+      paint: paint ?? this.paint,
+      rotationAngle: rotation ?? rotationAngle,
+      scale: scale ?? this.scale,
+      hidden: hidden ?? this.hidden,
+      locked: locked ?? this.locked,
+    );
+  }
+}
+
 /// 可编辑箭头图层，支持实心/空心箭头并暴露稳定的首尾端点。
 ///
-/// 设计意图：第三方默认箭头只支持实心箭头且端点控制有限，因此在本地实现
-/// 一个兼容 `ObjectDrawable` 的箭头，避免修改依赖源码。
+/// 设计意图：箭头使用中心点、长度和角度表达，首尾控制点只改变这些基础参数，
+/// 避免拖动后出现方向和长度重复换算的问题。
 class EditableArrowDrawable extends ObjectDrawable implements ShapeDrawable {
   EditableArrowDrawable({
     required this.length,
@@ -164,8 +391,6 @@ class EditableArrowDrawable extends ObjectDrawable implements ShapeDrawable {
     this.arrowHeadSize,
     super.rotationAngle = 0,
     super.scale = 1,
-    super.assists = const <ObjectDrawableAssist>{},
-    super.assistPaints = const <ObjectDrawableAssist, Paint>{},
     super.locked = false,
     super.hidden = false,
   });
@@ -182,19 +407,19 @@ class EditableArrowDrawable extends ObjectDrawable implements ShapeDrawable {
   @override
   void drawObject(Canvas canvas, Size size) {
     final headSize = _headSize;
-    final halfLength = length * scale / 2;
-    final start = position.translate(-halfLength, 0);
-    final headBaseX = position.dx + halfLength - headSize;
-    final tip = position.translate(halfLength, 0);
-    final shaftEnd = Offset(headBaseX, position.dy);
+    final halfLength = length / 2;
+    final start = Offset(-halfLength, 0);
+    final headBaseX = halfLength - headSize;
+    final tip = Offset(halfLength, 0);
+    final shaftEnd = Offset(headBaseX, 0);
     if ((shaftEnd - start).distance > 0) {
       canvas.drawLine(start, shaftEnd, paint);
     }
 
     final headPath = Path()
       ..moveTo(tip.dx, tip.dy)
-      ..lineTo(headBaseX, position.dy - headSize / 2)
-      ..lineTo(headBaseX, position.dy + headSize / 2)
+      ..lineTo(headBaseX, -headSize / 2)
+      ..lineTo(headBaseX, headSize / 2)
       ..close();
     final headPaint = Paint()
       ..color = paint.color
@@ -217,7 +442,6 @@ class EditableArrowDrawable extends ObjectDrawable implements ShapeDrawable {
   @override
   EditableArrowDrawable copyWith({
     bool? hidden,
-    Set<ObjectDrawableAssist>? assists,
     Offset? position,
     double? rotation,
     double? scale,
@@ -226,12 +450,9 @@ class EditableArrowDrawable extends ObjectDrawable implements ShapeDrawable {
     bool? locked,
     double? arrowHeadSize,
     EditableArrowStyle? style,
-    Map<ObjectDrawableAssist, Paint>? assistPaints,
   }) {
     return EditableArrowDrawable(
       hidden: hidden ?? this.hidden,
-      assists: assists ?? this.assists,
-      assistPaints: assistPaints ?? this.assistPaints,
       position: position ?? this.position,
       rotationAngle: rotation ?? rotationAngle,
       scale: scale ?? this.scale,
@@ -244,10 +465,223 @@ class EditableArrowDrawable extends ObjectDrawable implements ShapeDrawable {
   }
 }
 
-/// 图片编辑控制器，使用第三方画布库处理文字、形状、箭头、画笔和对象变换。
+/// 本地标注画布控制器，提供图层、选中态和撤销恢复能力。
+class AnnotationPainterController extends ChangeNotifier {
+  final GlobalKey painterKey = GlobalKey();
+  final List<ObjectDrawable> _drawables = <ObjectDrawable>[];
+  final List<_PainterSnapshot> _undoStack = <_PainterSnapshot>[];
+  final List<_PainterSnapshot> _redoStack = <_PainterSnapshot>[];
+
+  ObjectDrawable? _selectedObjectDrawable;
+
+  List<ObjectDrawable> get drawables =>
+      List<ObjectDrawable>.unmodifiable(_drawables);
+
+  ObjectDrawable? get selectedObjectDrawable => _selectedObjectDrawable;
+
+  bool get canUndo => _undoStack.isNotEmpty;
+
+  bool get canRedo => _redoStack.isNotEmpty;
+
+  void addDrawables(List<ObjectDrawable> drawables) {
+    if (drawables.isEmpty) {
+      return;
+    }
+    _saveUndoState();
+    _drawables.addAll(drawables);
+    _selectedObjectDrawable = drawables.last;
+    _redoStack.clear();
+    notifyListeners();
+  }
+
+  void replaceDrawable(ObjectDrawable current, ObjectDrawable next) {
+    final index = _drawables.indexOf(current);
+    if (index < 0) {
+      return;
+    }
+    _saveUndoState();
+    _drawables[index] = next;
+    if (identical(_selectedObjectDrawable, current)) {
+      _selectedObjectDrawable = next;
+    }
+    _redoStack.clear();
+    notifyListeners();
+  }
+
+  void removeDrawable(ObjectDrawable drawable) {
+    final removed = _drawables.remove(drawable);
+    if (!removed) {
+      return;
+    }
+    _saveUndoStateFrom(
+      drawables: List<ObjectDrawable>.of(_drawables)..add(drawable),
+    );
+    if (identical(_selectedObjectDrawable, drawable)) {
+      _selectedObjectDrawable = null;
+    }
+    _redoStack.clear();
+    notifyListeners();
+  }
+
+  void clearDrawables() {
+    if (_drawables.isEmpty && _selectedObjectDrawable == null) {
+      return;
+    }
+    _saveUndoState();
+    _drawables.clear();
+    _selectedObjectDrawable = null;
+    _redoStack.clear();
+    notifyListeners();
+  }
+
+  void selectObjectDrawable(ObjectDrawable? drawable) {
+    if (drawable != null && !_drawables.contains(drawable)) {
+      return;
+    }
+    if (identical(_selectedObjectDrawable, drawable)) {
+      return;
+    }
+    _selectedObjectDrawable = drawable;
+    notifyListeners();
+  }
+
+  void deselectObjectDrawable({bool isRemoved = false}) {
+    if (_selectedObjectDrawable == null) {
+      return;
+    }
+    _selectedObjectDrawable = null;
+    notifyListeners();
+  }
+
+  void setDrawables({
+    required List<ObjectDrawable> drawables,
+    ObjectDrawable? selected,
+    bool recordUndo = false,
+  }) {
+    if (recordUndo) {
+      _saveUndoState();
+      _redoStack.clear();
+    }
+    _drawables
+      ..clear()
+      ..addAll(drawables);
+    _selectedObjectDrawable = selected != null && _drawables.contains(selected)
+        ? selected
+        : null;
+    notifyListeners();
+  }
+
+  void undo() {
+    if (_undoStack.isEmpty) {
+      return;
+    }
+    _redoStack.add(
+      _PainterSnapshot.capture(_drawables, _selectedObjectDrawable),
+    );
+    _restoreSnapshot(_undoStack.removeLast());
+  }
+
+  void redo() {
+    if (_redoStack.isEmpty) {
+      return;
+    }
+    _undoStack.add(
+      _PainterSnapshot.capture(_drawables, _selectedObjectDrawable),
+    );
+    _restoreSnapshot(_redoStack.removeLast());
+  }
+
+  Future<ui.Image> renderImage(Size outputSize, Size canvasSize) async {
+    if (outputSize.width <= 0 || outputSize.height <= 0) {
+      throw AppException('annotation.error.exportEmpty'.tr);
+    }
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final scaleX = outputSize.width / canvasSize.width;
+    final scaleY = outputSize.height / canvasSize.height;
+    canvas.scale(scaleX, scaleY);
+    drawAnnotationObjects(canvas, canvasSize, _drawables);
+    return recorder.endRecording().toImage(
+      outputSize.width.round(),
+      outputSize.height.round(),
+    );
+  }
+
+  void _saveUndoState() {
+    _saveUndoStateFrom(drawables: _drawables);
+  }
+
+  void _saveUndoStateFrom({required List<ObjectDrawable> drawables}) {
+    _undoStack.add(
+      _PainterSnapshot.capture(drawables, _selectedObjectDrawable),
+    );
+    if (_undoStack.length > 50) {
+      _undoStack.removeAt(0);
+    }
+  }
+
+  void _restoreSnapshot(_PainterSnapshot snapshot) {
+    _drawables
+      ..clear()
+      ..addAll(snapshot.drawables);
+    _selectedObjectDrawable = snapshot.restoreSelected(_drawables);
+    notifyListeners();
+  }
+}
+
+class _PainterSnapshot {
+  const _PainterSnapshot({
+    required this.drawables,
+    required this.selectedIndex,
+  });
+
+  final List<ObjectDrawable> drawables;
+  final int selectedIndex;
+
+  static _PainterSnapshot capture(
+    List<ObjectDrawable> drawables,
+    ObjectDrawable? selected,
+  ) {
+    return _PainterSnapshot(
+      drawables: drawables.map(_cloneDrawable).toList(growable: false),
+      selectedIndex: selected == null ? -1 : drawables.indexOf(selected),
+    );
+  }
+
+  ObjectDrawable? restoreSelected(List<ObjectDrawable> restored) {
+    if (selectedIndex < 0 || selectedIndex >= restored.length) {
+      return null;
+    }
+    return restored[selectedIndex];
+  }
+}
+
+ObjectDrawable _cloneDrawable(ObjectDrawable drawable) {
+  return drawable.copyWith();
+}
+
+void drawAnnotationObjects(
+  Canvas canvas,
+  Size size,
+  List<ObjectDrawable> drawables,
+) {
+  for (final drawable in drawables) {
+    if (drawable.hidden) {
+      continue;
+    }
+    canvas.save();
+    canvas.translate(drawable.position.dx, drawable.position.dy);
+    canvas.rotate(drawable.rotationAngle);
+    canvas.scale(drawable.scale);
+    drawable.drawObject(canvas, size);
+    canvas.restore();
+  }
+}
+
+/// 图片编辑控制器，使用本地画布处理文字、形状、箭头、画笔和对象变换。
 ///
-/// 设计意图：`flutter_painter_v2` 负责可移动、可旋转、可缩放对象与画笔；
-/// 马赛克保留为独立涂抹层，导出时叠加到库渲染结果，兼顾稳定性和现有需求。
+/// 设计意图：所有标注对象只存储在控制器中，预览布局变化只触发统一比例换算，
+/// 不再依赖第三方内部状态，避免属性面板开合时对象抖动或消失。
 class AnnotationController extends GetxController {
   AnnotationController({
     required LocalImageChannel imageChannel,
@@ -290,7 +724,7 @@ class AnnotationController extends GetxController {
   final textController = TextEditingController();
   final textSize = _defaultTextSize.obs;
   final textFont = AnnotationTextFont.system.obs;
-  final painterController = PainterController();
+  final painterController = AnnotationPainterController();
   final filter = Rxn<ImageFilterType>();
   final rotationDegrees = 0.obs;
   final flipHorizontal = false.obs;
@@ -381,12 +815,6 @@ class AnnotationController extends GetxController {
   void onInit() {
     super.onInit();
     painterController.addListener(_notifyPainterChanged);
-    painterController.objectSettings = painterController.objectSettings
-        .copyWith(
-          // 设计意图：移动端默认会放大对象控制点；这里固定为较小尺寸，避免矩形/圆形四个拖动点遮挡图层。
-          enlargeControlsResolver: () => false,
-          showScaleRotationControlsResolver: () => false,
-        );
     _applyPainterMode();
   }
 
@@ -784,20 +1212,43 @@ class AnnotationController extends GetxController {
     return true;
   }
 
-  /// 设计意图：`flutter_painter_v2` 会在“已选中文字再次点击”时弹出旧版居中文本编辑框。
-  /// 本页面统一使用底部文本弹窗，所以在指针按下阶段只清空库内部选中态，
-  /// 让后续点击走普通选中通知，保留拖动、删除和属性面板的业务选中态。
-  void suppressLegacyTextEditorOnPointerDown(Offset point) {
+  bool handleObjectPanStart(Offset point) {
+    final drawable = selectedObject.value;
+    if (drawable == null || drawable.locked) {
+      return false;
+    }
+    if (!_isPointInsideObjectDrawable(point, drawable)) {
+      return false;
+    }
+    painterController.selectObjectDrawable(drawable);
+    isPropertyPanelVisible.value = true;
+    return true;
+  }
+
+  void moveSelectedObjectBy(Offset delta) {
     final drawable = painterController.selectedObjectDrawable;
-    if (drawable is! TextDrawable ||
-        !_isPointInsideTextDrawable(point, drawable)) {
+    if (drawable == null || drawable.locked) {
       return;
     }
-    painterController.deselectObjectDrawable();
-    selectedObject.value = drawable;
-    mode.value = AnnotationMode.select;
-    isPropertyPanelVisible.value = true;
-    _syncTextControlsFromDrawable(drawable);
+    final next = drawable.copyWith(position: drawable.position + delta);
+    _replaceSelectedObject(drawable, next);
+  }
+
+  void addBrushStroke(List<Offset> points) {
+    if (points.length < 2) {
+      return;
+    }
+    strokes.add(
+      DrawingStroke(
+        mode: AnnotationMode.brush,
+        kind: MosaicStrokeKind.freehand,
+        color: color.value,
+        width: strokeWidth.value.toDouble(),
+        points: List<Offset>.unmodifiable(points),
+      ),
+    );
+    result.value = null;
+    editRevision.value++;
   }
 
   void setMosaicDrawMode(MosaicDrawMode value) {
@@ -1109,9 +1560,7 @@ class AnnotationController extends GetxController {
         source.width.toDouble(),
         source.height.toDouble(),
       );
-      final renderedImage = await painterController.renderImage(outputSize);
-      final pngBytes = await _encodeWithMosaic(
-        renderedImage,
+      final pngBytes = await _encodeEditedPreview(
         outputSize: outputSize,
         canvasSize: canvasSize,
       );
@@ -1258,9 +1707,9 @@ class AnnotationController extends GetxController {
     }
     final updatedDrawables = snapshot.restoreDrawables(to);
     final nextSelected = snapshot.restoreSelected(updatedDrawables);
-    painterController.value = painterController.value.copyWith(
+    painterController.setDrawables(
       drawables: updatedDrawables,
-      selectedObjectDrawable: nextSelected,
+      selected: nextSelected,
     );
     selectedObject.value = nextSelected;
     editRevision.value++;
@@ -1274,23 +1723,17 @@ class AnnotationController extends GetxController {
     if (!file.existsSync()) {
       throw AppException('annotation.error.pickImageFirst'.tr);
     }
-    final background = await FileImage(file).image;
+    final bytes = await file.readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final background = frame.image;
     _backgroundImage?.dispose();
     _backgroundImage = background;
-    painterController.background = background.backgroundDrawable;
   }
 
   void _applyPainterMode() {
-    final activeMode = mode.value;
-    final nextFreeStyleMode = activeMode == AnnotationMode.brush
-        ? FreeStyleMode.draw
-        : FreeStyleMode.none;
-    painterController.freeStyleSettings = FreeStyleSettings(
-      mode: nextFreeStyleMode,
-      color: color.value,
-      strokeWidth: strokeWidth.value.toDouble(),
-    );
-    painterController.shapeSettings = const ShapeSettings(factory: null);
+    // 设计意图：本地画布不需要切换第三方模式；保留方法作为属性更新后的统一刷新入口。
+    editRevision.value++;
   }
 
   void _updateSelectedObjectColor(Color nextColor) {
@@ -1403,24 +1846,34 @@ class AnnotationController extends GetxController {
     return true;
   }
 
-  Future<Uint8List> _encodeWithMosaic(
-    ui.Image renderedImage, {
+  Future<Uint8List> _encodeEditedPreview({
     required Size outputSize,
     required Size canvasSize,
   }) async {
-    if (strokes.isEmpty) {
-      final byteData = await renderedImage.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
-      return byteData?.buffer.asUint8List() ?? Uint8List(0);
-    }
-
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    canvas.drawImage(renderedImage, Offset.zero, Paint());
+    final background = _backgroundImage;
+    if (background == null) {
+      throw AppException('annotation.error.canvasUnavailable'.tr);
+    }
+    canvas.drawImageRect(
+      background,
+      Rect.fromLTWH(
+        0,
+        0,
+        background.width.toDouble(),
+        background.height.toDouble(),
+      ),
+      Offset.zero & outputSize,
+      Paint(),
+    );
     final paint = Paint()..style = PaintingStyle.fill;
     final scaleX = outputSize.width / canvasSize.width;
     final scaleY = outputSize.height / canvasSize.height;
+    canvas.save();
+    canvas.scale(scaleX, scaleY);
+    drawAnnotationObjects(canvas, canvasSize, painterController.drawables);
+    canvas.restore();
     for (final stroke in strokes) {
       _drawMosaicStroke(canvas, paint, stroke, scaleX: scaleX, scaleY: scaleY);
     }
@@ -1893,16 +2346,6 @@ class AnnotationController extends GetxController {
           Offset.fromDirection(drawable.rotationAngle, half);
       return _ArrowEndpoints(start: start, end: end);
     }
-    if (drawable is ArrowDrawable) {
-      final half = drawable.length * drawable.scale / 2;
-      final start =
-          drawable.position +
-          Offset.fromDirection(drawable.rotationAngle, -half);
-      final end =
-          drawable.position +
-          Offset.fromDirection(drawable.rotationAngle, half);
-      return _ArrowEndpoints(start: start, end: end);
-    }
     return null;
   }
 
@@ -1916,7 +2359,6 @@ class AnnotationController extends GetxController {
     };
     final double spacing = switch (drawable) {
       EditableArrowDrawable item => math.max(28, item.paint.strokeWidth * 3),
-      ArrowDrawable item => math.max(28, item.paint.strokeWidth * 3),
       _ => 28.0,
     };
     return endpoints.end + direction * spacing;
@@ -1943,16 +2385,12 @@ class AnnotationController extends GetxController {
     )) {
       return true;
     }
-    if (drawable is EditableArrowDrawable || drawable is ArrowDrawable) {
+    if (drawable is EditableArrowDrawable) {
       final endpoints = _arrowEndpoints(drawable);
       if (endpoints == null) {
         return false;
       }
-      final strokeWidth = switch (drawable) {
-        EditableArrowDrawable item => item.paint.strokeWidth,
-        ArrowDrawable item => item.paint.strokeWidth,
-        _ => 0.0,
-      };
+      final strokeWidth = drawable.paint.strokeWidth;
       return _distanceToSegment(point, endpoints.start, endpoints.end) <=
           math.max(18, strokeWidth + 10);
     }
@@ -2031,9 +2469,7 @@ class AnnotationController extends GetxController {
 
   ObjectDrawable? _topObjectDrawableAt(Offset point) {
     for (final drawable in painterController.drawables.reversed) {
-      if (drawable is ObjectDrawable &&
-          !drawable.hidden &&
-          _isPointInsideObjectDrawable(point, drawable)) {
+      if (!drawable.hidden && _isPointInsideObjectDrawable(point, drawable)) {
         return drawable;
       }
     }
@@ -2041,16 +2477,12 @@ class AnnotationController extends GetxController {
   }
 
   bool _isPointInsideObjectDrawable(Offset point, ObjectDrawable drawable) {
-    if (drawable is EditableArrowDrawable || drawable is ArrowDrawable) {
+    if (drawable is EditableArrowDrawable) {
       final endpoints = _arrowEndpoints(drawable);
       if (endpoints == null) {
         return false;
       }
-      final strokeWidth = switch (drawable) {
-        EditableArrowDrawable item => item.paint.strokeWidth,
-        ArrowDrawable item => item.paint.strokeWidth,
-        _ => 0.0,
-      };
+      final strokeWidth = drawable.paint.strokeWidth;
       return _distanceToSegment(point, endpoints.start, endpoints.end) <=
           math.max(18, strokeWidth + 10);
     }
@@ -2172,21 +2604,6 @@ class AnnotationController extends GetxController {
         style: style,
       );
     }
-    if (drawable is ArrowDrawable) {
-      return EditableArrowDrawable(
-        position: position ?? drawable.position,
-        length: length ?? drawable.length,
-        rotationAngle: rotation ?? drawable.rotationAngle,
-        scale: scale ?? drawable.scale,
-        paint: paint ?? drawable.paint,
-        style: style ?? arrowStyle.value,
-        arrowHeadSize: drawable.arrowHeadSize,
-        assists: drawable.assists,
-        assistPaints: drawable.assistPaints,
-        locked: drawable.locked,
-        hidden: drawable.hidden,
-      );
-    }
     return null;
   }
 
@@ -2206,6 +2623,10 @@ class AnnotationController extends GetxController {
     required double scaleX,
     required double scaleY,
   }) {
+    if (stroke.mode == AnnotationMode.brush) {
+      _drawBrushStroke(canvas, stroke, scaleX: scaleX, scaleY: scaleY);
+      return;
+    }
     // 设计意图：马赛克用于遮盖敏感区域，导出时强制使用不透明色，避免半透明覆盖泄露底图细节。
     paint.color = stroke.color.withValues(alpha: 1);
     switch (stroke.kind) {
@@ -2235,6 +2656,30 @@ class AnnotationController extends GetxController {
           canvas.drawOval(scaledRect, paint);
         }
     }
+  }
+
+  void _drawBrushStroke(
+    Canvas canvas,
+    DrawingStroke stroke, {
+    required double scaleX,
+    required double scaleY,
+  }) {
+    if (stroke.points.length < 2) {
+      return;
+    }
+    final scale = (scaleX + scaleY) / 2;
+    final paint = Paint()
+      ..color = stroke.color
+      ..strokeWidth = (stroke.width * scale).clamp(1, 120).toDouble()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final first = stroke.points.first;
+    final path = Path()..moveTo(first.dx * scaleX, first.dy * scaleY);
+    for (final point in stroke.points.skip(1)) {
+      path.lineTo(point.dx * scaleX, point.dy * scaleY);
+    }
+    canvas.drawPath(path, paint);
   }
 
   Rect _rectFromMosaicPoints(List<Offset> points) {
@@ -2303,12 +2748,12 @@ class _CanvasContentRatioSnapshot {
     required this.strokes,
   });
 
-  final List<Drawable> drawables;
+  final List<ObjectDrawable> drawables;
   final int selectedIndex;
   final List<_StrokeRatioSnapshot> strokes;
 
   static _CanvasContentRatioSnapshot capture({
-    required List<Drawable> drawables,
+    required List<ObjectDrawable> drawables,
     required ObjectDrawable? selected,
     required List<DrawingStroke> strokes,
     required Size size,
@@ -2324,18 +2769,17 @@ class _CanvasContentRatioSnapshot {
     );
   }
 
-  List<Drawable> restoreDrawables(Size size) {
+  List<ObjectDrawable> restoreDrawables(Size size) {
     return drawables
         .map((drawable) => _restoreDrawable(drawable, size))
         .toList(growable: false);
   }
 
-  ObjectDrawable? restoreSelected(List<Drawable> restoredDrawables) {
+  ObjectDrawable? restoreSelected(List<ObjectDrawable> restoredDrawables) {
     if (selectedIndex < 0 || selectedIndex >= restoredDrawables.length) {
       return null;
     }
-    final selected = restoredDrawables[selectedIndex];
-    return selected is ObjectDrawable ? selected : null;
+    return restoredDrawables[selectedIndex];
   }
 
   List<DrawingStroke> restoreStrokes(Size size) {
@@ -2344,19 +2788,13 @@ class _CanvasContentRatioSnapshot {
         .toList(growable: false);
   }
 
-  static Drawable _normalizeDrawable(Drawable drawable, Size size) {
-    if (drawable is! ObjectDrawable) {
-      return drawable;
-    }
+  static ObjectDrawable _normalizeDrawable(ObjectDrawable drawable, Size size) {
     return drawable.copyWith(
       position: _normalizeOffset(drawable.position, size),
     );
   }
 
-  static Drawable _restoreDrawable(Drawable drawable, Size size) {
-    if (drawable is! ObjectDrawable) {
-      return drawable;
-    }
+  static ObjectDrawable _restoreDrawable(ObjectDrawable drawable, Size size) {
     return drawable.copyWith(position: _restoreOffset(drawable.position, size));
   }
 }
