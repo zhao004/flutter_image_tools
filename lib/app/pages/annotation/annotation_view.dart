@@ -231,6 +231,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                       ? (_) => _finishSelectedObjectMove()
                       : null,
                   onPanCancel: canMoveObject ? _finishSelectedObjectMove : null,
+                  child: const SizedBox.expand(),
                 );
               }),
               Obx(() {
@@ -248,6 +249,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                       color: controller.color.value,
                       width: controller.strokeWidth.value.toDouble(),
                     ),
+                    child: const SizedBox.expand(),
                   ),
                 );
               }),
@@ -311,6 +313,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                       draftWidth: controller.strokeWidth.value.toDouble(),
                       draftColor: controller.color.value,
                     ),
+                    child: const SizedBox.expand(),
                   ),
                 );
               }),
@@ -337,6 +340,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
         draftWidth: controller.strokeWidth.value.toDouble(),
         draftColor: controller.color.value,
       ),
+      child: const SizedBox.expand(),
     );
   }
 

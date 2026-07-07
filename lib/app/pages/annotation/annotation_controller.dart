@@ -1143,27 +1143,6 @@ class AnnotationController extends GetxController {
   }
 
   void handleCanvasTap(Offset point) {
-    if (selectedMosaicIndex.value != null && _isPointOnSelectedMosaic(point)) {
-      isPropertyPanelVisible.value = true;
-      return;
-    }
-    if (selectedObject.value == null || _isPointOnSelectedObject(point)) {
-      if (selectedObject.value != null) {
-        isPropertyPanelVisible.value = true;
-      }
-      final drawable = selectedObject.value == null
-          ? _topObjectDrawableAt(point)
-          : null;
-      if (drawable != null) {
-        painterController.selectObjectDrawable(drawable);
-        selectObject(drawable);
-        return;
-      }
-      if (selectedObject.value == null && selectMosaicAt(point)) {
-        return;
-      }
-      return;
-    }
     final drawable = _topObjectDrawableAt(point);
     if (drawable != null) {
       painterController.selectObjectDrawable(drawable);
@@ -1171,6 +1150,14 @@ class AnnotationController extends GetxController {
       return;
     }
     if (selectMosaicAt(point)) {
+      return;
+    }
+    if (selectedMosaicIndex.value != null && _isPointOnSelectedMosaic(point)) {
+      isPropertyPanelVisible.value = true;
+      return;
+    }
+    if (selectedObject.value != null && _isPointOnSelectedObject(point)) {
+      isPropertyPanelVisible.value = true;
       return;
     }
     deselectSelectedObject();

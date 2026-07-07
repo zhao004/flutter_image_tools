@@ -756,6 +756,16 @@ void main() {
     expect(controller.selectedObject.value, isA<TextDrawable>());
     expect(find.text('Annotation Style'), findsNothing);
 
+    await tester.tapAt(painterBox.localToGlobal(const Offset(4, 4)));
+    await tester.pumpAndSettle();
+
+    expect(controller.selectedObject.value, isNull);
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+
+    controller.handleCanvasTap(updatedText.position);
+    await tester.pump();
+    expect(controller.selectedObject.value, isA<TextDrawable>());
+
     controller.addShapeLayer(EditableLayerType.rectangle);
     await tester.pump();
 
@@ -842,6 +852,13 @@ void main() {
     expect(controller.strokes.last.color, const Color(0xFF123456));
     expect(find.text('Rectangle Mosaic'), findsWidgets);
     expect(find.text('Stroke: 12 px'), findsNothing);
+
+    controller.deselectSelectedObjectIfBlankTap(const Offset(1000, 1000));
+    await tester.pump();
+
+    expect(controller.selectedObject.value, isNull);
+    expect(controller.selectedMosaicIndex.value, isNull);
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
 
     controller.selectShapeTool(EditableLayerType.arrow);
     await tester.pump();
