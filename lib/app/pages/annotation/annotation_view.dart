@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flex_color_picker/flex_color_picker.dart';
@@ -185,6 +186,14 @@ class _EditableCanvasState extends State<_EditableCanvas> {
           child: Stack(
             fit: StackFit.expand,
             children: [
+              Image.file(
+                File(widget.image.path),
+                fit: BoxFit.fill,
+                errorBuilder: (context, error, stackTrace) {
+                  // 异常策略：预览图片路径失效时保持画布可用，避免图片解码失败阻断标注层交互。
+                  return const SizedBox.shrink();
+                },
+              ),
               AnimatedBuilder(
                 animation: controller.painterController,
                 builder: (context, _) {
