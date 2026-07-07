@@ -1433,15 +1433,14 @@ void main() {
   });
 
   testWidgets('显示英文文字水印页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证统一编辑器选图空状态文案国际化。
+    // 直接注入控制器依赖，验证空状态和选图后的紧凑覆盖式配置栏。
     final database = AppDatabase(NativeDatabase.memory());
-    Get.put(
-      WatermarkController(
-        imageChannel: LocalImageChannel(),
-        historyRepository: OperationHistoryRepository(database: database),
-        recentFilesRepository: RecentFilesRepository(database: database),
-      ),
+    final controller = WatermarkController(
+      imageChannel: LocalImageChannel(),
+      historyRepository: OperationHistoryRepository(database: database),
+      recentFilesRepository: RecentFilesRepository(database: database),
     );
+    Get.put(controller);
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -1466,20 +1465,37 @@ void main() {
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
 
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'watermark_preview.png',
+      name: 'watermark_preview.png',
+      sizeBytes: 1200,
+      mimeType: 'image/png',
+      width: 1200,
+      height: 800,
+    );
+    controller.selectedImages.assignAll([controller.selectedImage.value!]);
+    await tester.pump();
+
+    expect(find.text('Watermark Text'), findsOneWidget);
+    expect(find.text('Bottom Right'), findsOneWidget);
+    expect(find.text('White'), findsOneWidget);
+    expect(find.text('Font Size: 36px'), findsOneWidget);
+    expect(find.text('Opacity: 70%'), findsOneWidget);
+    expect(find.text('Watermark Settings'), findsNothing);
+
     await database.close();
     Get.reset();
   });
 
   testWidgets('显示英文图片水印页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证统一编辑器底图选图空状态文案国际化。
+    // 直接注入控制器依赖，验证空状态和选图后的紧凑覆盖式配置栏。
     final database = AppDatabase(NativeDatabase.memory());
-    Get.put(
-      ImageWatermarkController(
-        imageChannel: LocalImageChannel(),
-        historyRepository: OperationHistoryRepository(database: database),
-        recentFilesRepository: RecentFilesRepository(database: database),
-      ),
+    final controller = ImageWatermarkController(
+      imageChannel: LocalImageChannel(),
+      historyRepository: OperationHistoryRepository(database: database),
+      recentFilesRepository: RecentFilesRepository(database: database),
     );
+    Get.put(controller);
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -1500,6 +1516,24 @@ void main() {
     );
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
     expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
+
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'image_watermark_preview.png',
+      name: 'image_watermark_preview.png',
+      sizeBytes: 1200,
+      mimeType: 'image/png',
+      width: 1200,
+      height: 800,
+    );
+    controller.selectedImages.assignAll([controller.selectedImage.value!]);
+    await tester.pump();
+
+    expect(find.text('Select Watermark'), findsOneWidget);
+    expect(find.text('Bottom Right'), findsOneWidget);
+    expect(find.text('Opacity: 70%'), findsOneWidget);
+    expect(find.text('Scale: 25%'), findsOneWidget);
+    expect(find.text('Rotation: 0°'), findsOneWidget);
+    expect(find.text('Watermark Settings'), findsNothing);
 
     await database.close();
     Get.reset();

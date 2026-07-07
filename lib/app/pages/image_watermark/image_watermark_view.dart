@@ -40,10 +40,10 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
           image: previewImage,
           child: _ImageWatermarkOverlay(controller: controller),
         ),
-        tabBar: EditorSingleToolTab(
-          icon: Icons.layers_outlined,
-          label: 'imageWatermark.config.title'.tr,
-        ),
+        showPreviewInfo: false,
+        expandPreviewToAvailableHeight: true,
+        overlayToolbar: true,
+        toolbarMaxHeight: 96,
         toolbar: _ImageWatermarkPropertyPanel(controller: controller),
         resultSummary: result == null
             ? null
@@ -126,103 +126,152 @@ class _ImageWatermarkPropertyPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final watermark = controller.selectedWatermark.value;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'imageWatermark.config.title'.tr,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: controller.isBusy.value
+                ? null
+                : controller.pickWatermarkImage,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: Text(
+              watermark == null
+                  ? 'imageWatermark.action.pickWatermark'.tr
+                  : 'imageWatermark.action.repickWatermark'.tr,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            TextButton.icon(
-              onPressed: controller.isBusy.value
-                  ? null
-                  : controller.pickWatermarkImage,
-              icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: Text(
-                watermark == null
-                    ? 'imageWatermark.action.pickWatermark'.tr
-                    : 'imageWatermark.action.repickWatermark'.tr,
+          ),
+          if (watermark != null) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 120,
+              child: Text(
+                watermark.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
           ],
-        ),
-        if (watermark != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            watermark.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
+          const SizedBox(width: 10),
+          EditorOptionWrap<ImageWatermarkPosition>(
+            values: ImageWatermarkPosition.values,
+            selected: controller.position.value,
+            labelFor: (value) => value.labelKey.tr,
+            enabled: !controller.isBusy.value,
+            onSelected: controller.setPosition,
           ),
-        ],
-        const SizedBox(height: 10),
-        EditorOptionWrap<ImageWatermarkPosition>(
-          values: ImageWatermarkPosition.values,
-          selected: controller.position.value,
-          labelFor: (value) => value.labelKey.tr,
-          enabled: !controller.isBusy.value,
-          onSelected: controller.setPosition,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'imageWatermark.config.opacity'.trParams({
-            'opacity': controller.opacity.value.toString(),
-          }),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        Slider(
-          value: controller.opacity.value.toDouble(),
-          min: 10,
-          max: 100,
-          divisions: 18,
-          label: '${controller.opacity.value}%',
-          onChanged: controller.isBusy.value ? null : controller.updateOpacity,
-        ),
-        Text(
-          'imageWatermark.config.scale'.trParams({
-            'scale': controller.scalePercent.value.toString(),
-          }),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        Slider(
-          value: controller.scalePercent.value.toDouble(),
-          min: 5,
-          max: 100,
-          divisions: 19,
-          label: '${controller.scalePercent.value}%',
-          onChanged: controller.isBusy.value ? null : controller.updateScale,
-        ),
-        Text(
-          'imageWatermark.config.rotation'.trParams({
-            'rotation': controller.rotationDegrees.value.toString(),
-          }),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        Slider(
-          value: controller.rotationDegrees.value.toDouble(),
-          min: -180,
-          max: 180,
-          divisions: 72,
-          label: '${controller.rotationDegrees.value}°',
-          onChanged: controller.isBusy.value ? null : controller.updateRotation,
-        ),
-        if (controller.tasks.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          LinearProgressIndicator(value: controller.progress),
-          const SizedBox(height: 6),
-          Text(
-            'imageWatermark.progress.processed'.trParams({
-              'processed': controller.processedCount.value.toString(),
-              'total': controller.selectedImages.length.toString(),
+          const SizedBox(width: 10),
+          _CompactSlider(
+            label: 'imageWatermark.config.opacity'.trParams({
+              'opacity': '${controller.opacity.value}',
             }),
-            style: Theme.of(context).textTheme.bodySmall,
+            value: controller.opacity.value.toDouble(),
+            min: 10,
+            max: 100,
+            divisions: 18,
+            enabled: !controller.isBusy.value,
+            onChanged: controller.updateOpacity,
+          ),
+          const SizedBox(width: 10),
+          _CompactSlider(
+            label: 'imageWatermark.config.scale'.trParams({
+              'scale': '${controller.scalePercent.value}',
+            }),
+            value: controller.scalePercent.value.toDouble(),
+            min: 5,
+            max: 100,
+            divisions: 19,
+            enabled: !controller.isBusy.value,
+            onChanged: controller.updateScale,
+          ),
+          const SizedBox(width: 10),
+          _CompactSlider(
+            label: 'imageWatermark.config.rotation'.trParams({
+              'rotation': '${controller.rotationDegrees.value}',
+            }),
+            value: controller.rotationDegrees.value.toDouble(),
+            min: -180,
+            max: 180,
+            divisions: 72,
+            enabled: !controller.isBusy.value,
+            onChanged: controller.updateRotation,
+          ),
+          if (controller.tasks.isNotEmpty) ...[
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 160,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LinearProgressIndicator(value: controller.progress),
+                  const SizedBox(height: 4),
+                  Text(
+                    'imageWatermark.progress.processed'.trParams({
+                      'processed': '${controller.processedCount.value}',
+                      'total': '${controller.selectedImages.length}',
+                    }),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactSlider extends StatelessWidget {
+  const _CompactSlider({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final bool enabled;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 180,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          Expanded(
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: enabled ? onChanged : null,
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 }

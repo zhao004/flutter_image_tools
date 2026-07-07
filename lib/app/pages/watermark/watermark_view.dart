@@ -36,10 +36,10 @@ class WatermarkView extends GetView<WatermarkController> {
           image: previewImage,
           child: _TextWatermarkOverlay(controller: controller),
         ),
-        tabBar: EditorSingleToolTab(
-          icon: Icons.text_fields_outlined,
-          label: 'watermark.config.title'.tr,
-        ),
+        showPreviewInfo: false,
+        expandPreviewToAvailableHeight: true,
+        overlayToolbar: true,
+        toolbarMaxHeight: 96,
         toolbar: _WatermarkPropertyPanel(controller: controller),
         resultSummary: result == null
             ? null
@@ -136,81 +136,138 @@ class _WatermarkPropertyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'watermark.config.title'.tr,
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller.textController,
-          enabled: !controller.isBusy.value,
-          decoration: InputDecoration(
-            labelText: 'watermark.config.text'.tr,
-            border: const OutlineInputBorder(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 180,
+            child: TextField(
+              controller: controller.textController,
+              enabled: !controller.isBusy.value,
+              minLines: 1,
+              maxLines: 1,
+              decoration: InputDecoration(
+                labelText: 'watermark.config.text'.tr,
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => controller.fontSize.refresh(),
+            ),
           ),
-          onChanged: (_) => controller.fontSize.refresh(),
-        ),
-        const SizedBox(height: 10),
-        EditorOptionWrap<WatermarkPosition>(
-          values: WatermarkPosition.values,
-          selected: controller.position.value,
-          labelFor: (value) => value.labelKey.tr,
-          enabled: !controller.isBusy.value,
-          onSelected: controller.setPosition,
-        ),
-        const SizedBox(height: 10),
-        EditorOptionWrap<WatermarkColor>(
-          values: WatermarkColor.values,
-          selected: controller.color.value,
-          labelFor: (value) => value.labelKey.tr,
-          enabled: !controller.isBusy.value,
-          onSelected: controller.setColor,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'watermark.config.fontSize'.trParams({
-            'size': controller.fontSize.value.toString(),
-          }),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        Slider(
-          value: controller.fontSize.value.toDouble(),
-          min: 12,
-          max: 160,
-          divisions: 37,
-          label: '${controller.fontSize.value}px',
-          onChanged: controller.isBusy.value ? null : controller.updateFontSize,
-        ),
-        Text(
-          'watermark.config.opacity'.trParams({
-            'opacity': controller.opacity.value.toString(),
-          }),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        Slider(
-          value: controller.opacity.value.toDouble(),
-          min: 10,
-          max: 100,
-          divisions: 18,
-          label: '${controller.opacity.value}%',
-          onChanged: controller.isBusy.value ? null : controller.updateOpacity,
-        ),
-        if (controller.tasks.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          LinearProgressIndicator(value: controller.progress),
-          const SizedBox(height: 6),
-          Text(
-            'watermark.progress.processed'.trParams({
-              'processed': controller.processedCount.value.toString(),
-              'total': controller.selectedImages.length.toString(),
+          const SizedBox(width: 10),
+          EditorOptionWrap<WatermarkPosition>(
+            values: WatermarkPosition.values,
+            selected: controller.position.value,
+            labelFor: (value) => value.labelKey.tr,
+            enabled: !controller.isBusy.value,
+            onSelected: controller.setPosition,
+          ),
+          const SizedBox(width: 10),
+          EditorOptionWrap<WatermarkColor>(
+            values: WatermarkColor.values,
+            selected: controller.color.value,
+            labelFor: (value) => value.labelKey.tr,
+            enabled: !controller.isBusy.value,
+            onSelected: controller.setColor,
+          ),
+          const SizedBox(width: 10),
+          _CompactSlider(
+            label: 'watermark.config.fontSize'.trParams({
+              'size': '${controller.fontSize.value}',
             }),
-            style: Theme.of(context).textTheme.bodySmall,
+            value: controller.fontSize.value.toDouble(),
+            min: 12,
+            max: 160,
+            divisions: 37,
+            enabled: !controller.isBusy.value,
+            onChanged: controller.updateFontSize,
+          ),
+          const SizedBox(width: 10),
+          _CompactSlider(
+            label: 'watermark.config.opacity'.trParams({
+              'opacity': '${controller.opacity.value}',
+            }),
+            value: controller.opacity.value.toDouble(),
+            min: 10,
+            max: 100,
+            divisions: 18,
+            enabled: !controller.isBusy.value,
+            onChanged: controller.updateOpacity,
+          ),
+          if (controller.tasks.isNotEmpty) ...[
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 160,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LinearProgressIndicator(value: controller.progress),
+                  const SizedBox(height: 4),
+                  Text(
+                    'watermark.progress.processed'.trParams({
+                      'processed': '${controller.processedCount.value}',
+                      'total': '${controller.selectedImages.length}',
+                    }),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactSlider extends StatelessWidget {
+  const _CompactSlider({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final bool enabled;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 180,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          Expanded(
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: enabled ? onChanged : null,
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
