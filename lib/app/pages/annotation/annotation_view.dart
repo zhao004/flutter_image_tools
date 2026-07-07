@@ -1024,11 +1024,14 @@ Future<void> _showTextEditor(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'annotation.text.editTitle'.tr,
-                style: Theme.of(context).textTheme.titleMedium,
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  tooltip: 'annotation.action.closePanel'.tr,
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
               ),
-              const SizedBox(height: 12),
               TextField(
                 controller: controller.textController,
                 autofocus: true,
@@ -1098,13 +1101,6 @@ class _FullAnnotationPropertyPanel extends StatelessWidget {
           onPressed: controller.closePropertyPanel,
           icon: const Icon(Icons.close),
         ),
-        Padding(
-          padding: const EdgeInsets.only(right: 10),
-          child: Text(
-            'annotation.style.title'.tr,
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-        ),
         _TextToolPanel(controller: controller),
         _FilterToolPanel(controller: controller),
         _RotateToolPanel(controller: controller),
@@ -1132,13 +1128,6 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Text(
-              drawMode.label,
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-          ),
           OutlinedButton.icon(
             onPressed: () => _showAnnotationColorPicker(context, controller),
             icon: _ColorSwatch(color: controller.color.value),
@@ -1182,7 +1171,6 @@ class _FilterToolPanel extends StatelessWidget {
         return const SizedBox.shrink();
       }
       return _PanelBlock(
-        title: 'annotation.filter.title'.tr,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1218,7 +1206,6 @@ class _RotateToolPanel extends StatelessWidget {
       }
       final degrees = controller.rotationDegrees.value;
       return _PanelBlock(
-        title: 'annotation.rotate.title'.tr,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1271,7 +1258,6 @@ class _FlipToolPanel extends StatelessWidget {
         return const SizedBox.shrink();
       }
       return _PanelBlock(
-        title: 'flip.direction.title'.tr,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1318,7 +1304,6 @@ class _ResizeToolPanel extends StatelessWidget {
           ? '$widthText × $heightText px'
           : 'resize.size.title'.tr;
       return _PanelBlock(
-        title: 'resize.size.title'.tr,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1362,7 +1347,6 @@ class _CropToolPanel extends StatelessWidget {
         return const SizedBox.shrink();
       }
       return _PanelBlock(
-        title: 'annotation.crop.title'.tr,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: AnnotationCropPreset.values
@@ -1433,10 +1417,7 @@ class _TextToolPanel extends StatelessWidget {
       if (!showControls) {
         return const SizedBox.shrink();
       }
-      return _PanelBlock(
-        title: 'annotation.text.editTitle'.tr,
-        child: _TextStyleControls(controller: controller),
-      );
+      return _PanelBlock(child: _TextStyleControls(controller: controller));
     });
   }
 }
@@ -1676,25 +1657,13 @@ Future<void> _showAnnotationColorPicker(
 }
 
 class _PanelBlock extends StatelessWidget {
-  const _PanelBlock({required this.title, required this.child});
+  const _PanelBlock({required this.child});
 
-  final String title;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(width: 8),
-          child,
-        ],
-      ),
-    );
+    return Padding(padding: const EdgeInsets.only(right: 10), child: child);
   }
 }
 
@@ -1734,20 +1703,13 @@ Future<void> _showTextFontPicker(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'annotation.text.font'.tr,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'annotation.action.closePanel'.tr,
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    tooltip: 'annotation.action.closePanel'.tr,
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
                 ),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -1797,20 +1759,13 @@ Future<void> _showResizeSettingsPanel(
             () => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'resize.size.title'.tr,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'annotation.action.closePanel'.tr,
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    tooltip: 'annotation.action.closePanel'.tr,
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
                 ),
                 Row(
                   children: [
