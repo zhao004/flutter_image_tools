@@ -810,6 +810,7 @@ void main() {
     await tester.tap(find.byTooltip('Close Property Panel'));
     await tester.pumpAndSettle();
 
+    expect(controller.mode.value, AnnotationMode.select);
     expect(find.text('Annotation Style'), findsNothing);
     expect(find.text('#123456'), findsNothing);
     expect(find.text('Stroke: 12 px'), findsNothing);

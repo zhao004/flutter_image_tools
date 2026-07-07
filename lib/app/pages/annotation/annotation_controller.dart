@@ -864,6 +864,10 @@ class AnnotationController extends GetxController {
 
   void closePropertyPanel() {
     isPropertyPanelVisible.value = false;
+    if (mode.value != AnnotationMode.select) {
+      mode.value = AnnotationMode.select;
+      _applyPainterMode();
+    }
   }
 
   void setFilter(ImageFilterType? value) {
