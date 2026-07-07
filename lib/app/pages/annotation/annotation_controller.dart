@@ -784,6 +784,22 @@ class AnnotationController extends GetxController {
     return true;
   }
 
+  /// 设计意图：`flutter_painter_v2` 会在“已选中文字再次点击”时弹出旧版居中文本编辑框。
+  /// 本页面统一使用底部文本弹窗，所以在指针按下阶段只清空库内部选中态，
+  /// 让后续点击走普通选中通知，保留拖动、删除和属性面板的业务选中态。
+  void suppressLegacyTextEditorOnPointerDown(Offset point) {
+    final drawable = painterController.selectedObjectDrawable;
+    if (drawable is! TextDrawable ||
+        !_isPointInsideTextDrawable(point, drawable)) {
+      return;
+    }
+    painterController.deselectObjectDrawable();
+    selectedObject.value = drawable;
+    mode.value = AnnotationMode.select;
+    isPropertyPanelVisible.value = true;
+    _syncTextControlsFromDrawable(drawable);
+  }
+
   void setMosaicDrawMode(MosaicDrawMode value) {
     mosaicDrawMode.value = value;
     setMode(AnnotationMode.mosaic);

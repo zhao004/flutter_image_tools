@@ -188,22 +188,31 @@ class _EditableCanvasState extends State<_EditableCanvas> {
               FlutterPainter.builder(
                 controller: controller.painterController,
                 onSelectedObjectDrawableChanged: controller.selectObject,
-                builder: (context, painter) => GestureDetector(
+                builder: (context, painter) => Listener(
                   behavior: HitTestBehavior.translucent,
-                  onDoubleTapDown: (details) async {
-                    if (controller.selectTextObjectAt(details.localPosition)) {
-                      await _openTextEditor(context);
-                    }
-                  },
-                  onTapUp: (details) {
-                    if (_isTextEditorDialogVisible) {
-                      return;
-                    }
-                    controller.deselectSelectedObjectIfBlankTap(
-                      details.localPosition,
-                    );
-                  },
-                  child: painter,
+                  onPointerDown: (event) =>
+                      controller.suppressLegacyTextEditorOnPointerDown(
+                        event.localPosition,
+                      ),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onDoubleTapDown: (details) async {
+                      if (controller.selectTextObjectAt(
+                        details.localPosition,
+                      )) {
+                        await _openTextEditor(context);
+                      }
+                    },
+                    onTapUp: (details) {
+                      if (_isTextEditorDialogVisible) {
+                        return;
+                      }
+                      controller.deselectSelectedObjectIfBlankTap(
+                        details.localPosition,
+                      );
+                    },
+                    child: painter,
+                  ),
                 ),
               ),
               Obx(() {

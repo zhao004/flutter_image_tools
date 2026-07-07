@@ -741,6 +741,18 @@ void main() {
     expect(find.text('Text Size: 48 px'), findsOneWidget);
     expect(find.text('#E53935'), findsOneWidget);
 
+    final painterBox =
+        controller.painterController.painterKey.currentContext!
+                .findRenderObject()
+            as RenderBox;
+    await tester.tapAt(painterBox.localToGlobal(updatedText.position));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EditableText), findsNothing);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(controller.selectedObject.value, isA<TextDrawable>());
+    expect(find.text('Annotation Style'), findsOneWidget);
+
     controller.addShapeLayer(EditableLayerType.rectangle);
     await tester.pump();
 
