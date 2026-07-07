@@ -36,7 +36,7 @@ class AnnotationView extends GetView<AnnotationController> {
         onExport: controller.exportEditedImage,
         showPreviewInfo: false,
         showDefaultAppBarActions: false,
-        previewBorderRadius: 10,
+        previewBorderRadius: 0,
         lockPreviewScroll: true,
         previewBuilder: (context, previewImage) =>
             _AnnotationCanvasFrame(controller: controller, image: previewImage),
@@ -168,46 +168,42 @@ class _EditableCanvasState extends State<_EditableCanvas> {
         return DecoratedBox(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(10),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                FlutterPainter.builder(
-                  controller: controller.painterController,
-                  onSelectedObjectDrawableChanged: controller.selectObject,
-                  builder: (context, painter) => painter,
-                ),
-                Obx(() {
-                  if (controller.mode.value != AnnotationMode.mosaic) {
-                    return IgnorePointer(
-                      child: CustomPaint(
-                        painter: _MosaicPainter(
-                          strokes: controller.strokes,
-                          draftPoints: const [],
-                          draftWidth: controller.strokeWidth.value.toDouble(),
-                        ),
-                      ),
-                    );
-                  }
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onPanStart: _startMosaic,
-                    onPanUpdate: _appendMosaic,
-                    onPanEnd: _finishMosaic,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              FlutterPainter.builder(
+                controller: controller.painterController,
+                onSelectedObjectDrawableChanged: controller.selectObject,
+                builder: (context, painter) => painter,
+              ),
+              Obx(() {
+                if (controller.mode.value != AnnotationMode.mosaic) {
+                  return IgnorePointer(
                     child: CustomPaint(
                       painter: _MosaicPainter(
                         strokes: controller.strokes,
-                        draftPoints: _draftPoints,
+                        draftPoints: const [],
                         draftWidth: controller.strokeWidth.value.toDouble(),
                       ),
                     ),
                   );
-                }),
-              ],
-            ),
+                }
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: _startMosaic,
+                  onPanUpdate: _appendMosaic,
+                  onPanEnd: _finishMosaic,
+                  child: CustomPaint(
+                    painter: _MosaicPainter(
+                      strokes: controller.strokes,
+                      draftPoints: _draftPoints,
+                      draftWidth: controller.strokeWidth.value.toDouble(),
+                    ),
+                  ),
+                );
+              }),
+            ],
           ),
         );
       },
