@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/local_image_file.dart';
 import '../../widgets/image_editor_scaffold.dart';
+import '../filter/filter_controller.dart';
 import 'annotation_controller.dart';
 
 /// 图片编辑页，提供选图、第三方画布编辑、马赛克涂抹和保存到相册。
@@ -376,6 +378,36 @@ class _AnnotationToolTabs extends StatelessWidget {
               selected: controller.mode.value == AnnotationMode.arrow,
               onTap: () => controller.selectShapeTool(EditableLayerType.arrow),
             ),
+            _ToolButton(
+              icon: Icons.filter_vintage_outlined,
+              label: AnnotationMode.filter.label,
+              selected: controller.mode.value == AnnotationMode.filter,
+              onTap: () => controller.setMode(AnnotationMode.filter),
+            ),
+            _ToolButton(
+              icon: Icons.rotate_right,
+              label: AnnotationMode.rotate.label,
+              selected: controller.mode.value == AnnotationMode.rotate,
+              onTap: () => controller.setMode(AnnotationMode.rotate),
+            ),
+            _ToolButton(
+              icon: Icons.flip_outlined,
+              label: AnnotationMode.flip.label,
+              selected: controller.mode.value == AnnotationMode.flip,
+              onTap: () => controller.setMode(AnnotationMode.flip),
+            ),
+            _ToolButton(
+              icon: Icons.aspect_ratio_outlined,
+              label: AnnotationMode.resize.label,
+              selected: controller.mode.value == AnnotationMode.resize,
+              onTap: () => controller.setMode(AnnotationMode.resize),
+            ),
+            _ToolButton(
+              icon: Icons.crop_outlined,
+              label: AnnotationMode.crop.label,
+              selected: controller.mode.value == AnnotationMode.crop,
+              onTap: () => controller.setMode(AnnotationMode.crop),
+            ),
           ],
         ),
       ),
@@ -442,11 +474,256 @@ class _AnnotationPropertyPanel extends StatelessWidget {
       children: [
         _TextToolPanel(controller: controller),
         _MosaicToolPanel(controller: controller),
+        _FilterToolPanel(controller: controller),
+        _RotateToolPanel(controller: controller),
+        _FlipToolPanel(controller: controller),
+        _ResizeToolPanel(controller: controller),
+        _CropToolPanel(controller: controller),
         _ArrowStyleControls(controller: controller),
         _StrokeWidthControls(controller: controller),
         _ColorControls(controller: controller),
       ],
     );
+  }
+}
+
+class _FilterToolPanel extends StatelessWidget {
+  const _FilterToolPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.mode.value != AnnotationMode.filter) {
+        return const SizedBox.shrink();
+      }
+      return _PanelBlock(
+        title: 'annotation.filter.title'.tr,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _ChoicePill(
+                label: 'annotation.filter.none'.tr,
+                selected: controller.filter.value == null,
+                onSelected: () => controller.setFilter(null),
+              ),
+              ...ImageFilterType.values.map(
+                (filter) => _ChoicePill(
+                  label: filter.label,
+                  selected: controller.filter.value == filter,
+                  onSelected: () => controller.setFilter(filter),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _RotateToolPanel extends StatelessWidget {
+  const _RotateToolPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.mode.value != AnnotationMode.rotate) {
+        return const SizedBox.shrink();
+      }
+      final degrees = controller.rotationDegrees.value;
+      return _PanelBlock(
+        title: 'annotation.rotate.title'.tr,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                _IconActionChip(
+                  icon: Icons.rotate_left,
+                  label: 'rotate.angle.left90'.tr,
+                  onTap: () => controller.rotateByQuarterTurn(-90),
+                ),
+                const SizedBox(width: 8),
+                _IconActionChip(
+                  icon: Icons.rotate_right,
+                  label: 'rotate.angle.right90'.tr,
+                  onTap: () => controller.rotateByQuarterTurn(90),
+                ),
+                const SizedBox(width: 8),
+                _IconActionChip(
+                  icon: Icons.refresh,
+                  label: 'annotation.reset'.tr,
+                  onTap: () => controller.setRotationDegrees(0),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text('rotate.angle.custom'.trParams({'degrees': '$degrees'})),
+                Expanded(
+                  child: Slider(
+                    min: -180,
+                    max: 180,
+                    divisions: 360,
+                    value: degrees.toDouble().clamp(-180, 180),
+                    onChanged: (value) =>
+                        controller.setRotationDegrees(value.round()),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _FlipToolPanel extends StatelessWidget {
+  const _FlipToolPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.mode.value != AnnotationMode.flip) {
+        return const SizedBox.shrink();
+      }
+      return _PanelBlock(
+        title: 'flip.direction.title'.tr,
+        child: Row(
+          children: [
+            FilterChip(
+              avatar: const Icon(Icons.swap_horiz, size: 18),
+              label: Text('flip.direction.horizontal'.tr),
+              selected: controller.flipHorizontal.value,
+              onSelected: controller.setFlipHorizontal,
+            ),
+            const SizedBox(width: 8),
+            FilterChip(
+              avatar: const Icon(Icons.swap_vert, size: 18),
+              label: Text('flip.direction.vertical'.tr),
+              selected: controller.flipVertical.value,
+              onSelected: controller.setFlipVertical,
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _ResizeToolPanel extends StatelessWidget {
+  const _ResizeToolPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.mode.value != AnnotationMode.resize) {
+        return const SizedBox.shrink();
+      }
+      return _PanelBlock(
+        title: 'resize.size.title'.tr,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _DimensionField(
+                    label: 'resize.size.width'.tr,
+                    controller: controller.resizeWidthController,
+                    onChanged: controller.updateResizeWidth,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _DimensionField(
+                    label: 'resize.size.height'.tr,
+                    controller: controller.resizeHeightController,
+                    onChanged: controller.updateResizeHeight,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text('resize.size.keepAspectRatio'.tr),
+                    value: controller.resizeKeepAspectRatio.value,
+                    onChanged: (value) =>
+                        controller.setResizeKeepAspectRatio(value ?? true),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text(
+                  'resize.size.percent'.trParams({
+                    'percent': controller.resizePercent.value
+                        .round()
+                        .toString(),
+                  }),
+                ),
+                Expanded(
+                  child: Slider(
+                    min: 10,
+                    max: 300,
+                    divisions: 290,
+                    value: controller.resizePercent.value.clamp(10, 300),
+                    onChanged: controller.updateResizePercent,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _CropToolPanel extends StatelessWidget {
+  const _CropToolPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.mode.value != AnnotationMode.crop) {
+        return const SizedBox.shrink();
+      }
+      return _PanelBlock(
+        title: 'annotation.crop.title'.tr,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: AnnotationCropPreset.values
+                .map(
+                  (preset) => _ChoicePill(
+                    label: preset.label,
+                    selected: controller.cropPreset.value == preset,
+                    onSelected: () => controller.setCropPreset(preset),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ),
+      );
+    });
   }
 }
 
@@ -561,7 +838,12 @@ class _StrokeWidthControls extends StatelessWidget {
           controller.mosaicDrawMode.value == MosaicDrawMode.freehand,
         AnnotationMode.select =>
           controller.selectedObject.value is ShapeDrawable,
-        AnnotationMode.text => false,
+        AnnotationMode.text ||
+        AnnotationMode.filter ||
+        AnnotationMode.rotate ||
+        AnnotationMode.flip ||
+        AnnotationMode.resize ||
+        AnnotationMode.crop => false,
       };
       if (!showControls) {
         return const SizedBox.shrink();
@@ -604,7 +886,12 @@ class _ColorControls extends StatelessWidget {
         AnnotationMode.arrow ||
         AnnotationMode.text => true,
         AnnotationMode.select => controller.selectedObject.value != null,
-        AnnotationMode.mosaic => false,
+        AnnotationMode.mosaic ||
+        AnnotationMode.filter ||
+        AnnotationMode.rotate ||
+        AnnotationMode.flip ||
+        AnnotationMode.resize ||
+        AnnotationMode.crop => false,
       };
       if (!showControls) {
         return const SizedBox.shrink();
@@ -628,6 +915,102 @@ class _ColorControls extends StatelessWidget {
         ),
       );
     });
+  }
+}
+
+class _PanelBlock extends StatelessWidget {
+  const _PanelBlock({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ChoicePill extends StatelessWidget {
+  const _ChoicePill({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onSelected(),
+      ),
+    );
+  }
+}
+
+class _IconActionChip extends StatelessWidget {
+  const _IconActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+      onPressed: onTap,
+    );
+  }
+}
+
+class _DimensionField extends StatelessWidget {
+  const _DimensionField({
+    required this.label,
+    required this.controller,
+    required this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: 'px',
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      onChanged: onChanged,
+    );
   }
 }
 
@@ -985,6 +1368,11 @@ class _ShapeDraftPainter extends CustomPainter {
       case AnnotationMode.brush:
       case AnnotationMode.mosaic:
       case AnnotationMode.text:
+      case AnnotationMode.filter:
+      case AnnotationMode.rotate:
+      case AnnotationMode.flip:
+      case AnnotationMode.resize:
+      case AnnotationMode.crop:
         break;
     }
   }

@@ -846,6 +846,168 @@ class LocalImageChannel {
     }
   }
 
+  Future<AnnotatedImageFile> saveEditedImageBytes({
+    required LocalImageFile source,
+    required Uint8List bytes,
+    String? filter,
+    int rotationDegrees = 0,
+    bool flipHorizontal = false,
+    bool flipVertical = false,
+    int? resizeWidth,
+    int? resizeHeight,
+    double? cropAspectRatio,
+  }) async {
+    if (source.path.trim().isEmpty) {
+      throw const AppException('图片路径为空，无法导出编辑图片');
+    }
+    if (bytes.isEmpty) {
+      throw const AppException('编辑结果为空，请重试');
+    }
+
+    try {
+      final editedImage = processEditedImageBytes(
+        bytes: bytes,
+        filter: filter,
+        rotationDegrees: rotationDegrees,
+        flipHorizontal: flipHorizontal,
+        flipVertical: flipVertical,
+        resizeWidth: resizeWidth,
+        resizeHeight: resizeHeight,
+        cropAspectRatio: cropAspectRatio,
+      );
+      final output = await _writeEncodedImage(
+        image: editedImage,
+        prefix: 'edited',
+        extension: 'png',
+      );
+      await saveImageToGallery(output.path);
+      return AnnotatedImageFile(
+        source: source,
+        outputPath: output.path,
+        outputSizeBytes: await output.length(),
+        mode: 'editor',
+      );
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('图片编辑导出失败，请重试', cause: error);
+    }
+  }
+
+  img.Image processEditedImageBytes({
+    required Uint8List bytes,
+    String? filter,
+    int rotationDegrees = 0,
+    bool flipHorizontal = false,
+    bool flipVertical = false,
+    int? resizeWidth,
+    int? resizeHeight,
+    double? cropAspectRatio,
+  }) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null || decoded.width <= 0 || decoded.height <= 0) {
+      throw const AppException('编辑结果格式异常，请重试');
+    }
+    return processEditedImage(
+      image: decoded,
+      filter: filter,
+      rotationDegrees: rotationDegrees,
+      flipHorizontal: flipHorizontal,
+      flipVertical: flipVertical,
+      resizeWidth: resizeWidth,
+      resizeHeight: resizeHeight,
+      cropAspectRatio: cropAspectRatio,
+    );
+  }
+
+  img.Image processEditedImage({
+    required img.Image image,
+    String? filter,
+    int rotationDegrees = 0,
+    bool flipHorizontal = false,
+    bool flipVertical = false,
+    int? resizeWidth,
+    int? resizeHeight,
+    double? cropAspectRatio,
+  }) {
+    if (image.width <= 0 || image.height <= 0) {
+      throw const AppException('编辑结果格式异常，请重试');
+    }
+    if (image.width * image.height > _maxDecodedPixels) {
+      throw const AppException('图片尺寸过大，请先缩小后再处理');
+    }
+    final normalizedFilter = filter?.trim().toLowerCase();
+    if (normalizedFilter != null &&
+        normalizedFilter.isNotEmpty &&
+        !supportedFilters.contains(normalizedFilter)) {
+      throw const AppException('滤镜类型不支持');
+    }
+    final targetWidth = resizeWidth;
+    final targetHeight = resizeHeight;
+    final needsResize = targetWidth != null || targetHeight != null;
+    if (needsResize) {
+      if (targetWidth == null || targetHeight == null) {
+        throw const AppException('目标宽高必须同时填写');
+      }
+      if (targetWidth < 1 || targetHeight < 1) {
+        throw const AppException('目标宽高必须大于 0');
+      }
+      if (targetWidth > maxResizeDimension ||
+          targetHeight > maxResizeDimension) {
+        throw const AppException('目标宽高不能超过 10000 像素');
+      }
+    }
+    if (cropAspectRatio != null) {
+      if (!cropAspectRatio.isFinite || cropAspectRatio <= 0) {
+        throw const AppException('裁剪比例必须大于 0');
+      }
+      if (cropAspectRatio < 0.1 || cropAspectRatio > 10) {
+        throw const AppException('裁剪比例必须在 0.1 到 10 之间');
+      }
+    }
+
+    var output = img.Image.from(image);
+    if (cropAspectRatio != null) {
+      final cropRect = _cropRect(output, aspectRatio: cropAspectRatio);
+      output = img.copyCrop(
+        output,
+        x: cropRect.left,
+        y: cropRect.top,
+        width: cropRect.width,
+        height: cropRect.height,
+      );
+    }
+
+    final normalizedDegrees = rotationDegrees % 360;
+    if (normalizedDegrees != 0) {
+      output = img.copyRotate(
+        output,
+        angle: normalizedDegrees,
+        interpolation: img.Interpolation.linear,
+      );
+    }
+    if (flipHorizontal) {
+      output = img.flipHorizontal(output);
+    }
+    if (flipVertical) {
+      output = img.flipVertical(output);
+    }
+    if (normalizedFilter != null && normalizedFilter.isNotEmpty) {
+      _applyFilterToImage(output, normalizedFilter);
+    }
+    if (needsResize) {
+      output = img.copyResize(
+        output,
+        width: targetWidth,
+        height: targetHeight,
+        interpolation: img.Interpolation.linear,
+      );
+    }
+    return output;
+  }
+
   Future<GridImageFile> splitGridImage({
     required LocalImageFile source,
     required int gridSize,

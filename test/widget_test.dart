@@ -62,6 +62,7 @@ import 'package:flutter_image_tools/app/theme/app_translations.dart';
 import 'package:flutter_image_tools/app/theme/app_theme.dart';
 import 'package:flutter_image_tools/app/widgets/image_editor_scaffold.dart';
 import 'package:flutter_image_tools/main.dart';
+import 'package:image/image.dart' as img;
 
 void main() {
   testWidgets('显示首页内容', (WidgetTester tester) async {
@@ -614,6 +615,11 @@ void main() {
     expect(find.text('Rectangle'), findsOneWidget);
     expect(find.text('Circle'), findsOneWidget);
     expect(find.text('Arrow'), findsOneWidget);
+    expect(find.text('Filter'), findsOneWidget);
+    expect(find.text('Rotate'), findsOneWidget);
+    expect(find.text('Flip'), findsOneWidget);
+    expect(find.text('Resize'), findsOneWidget);
+    expect(find.text('Crop'), findsOneWidget);
     expect(find.text('annotation_preview.png'), findsNothing);
     expect(find.textContaining('1200 × 800'), findsNothing);
     expect(find.byIcon(Icons.undo), findsOneWidget);
@@ -659,8 +665,87 @@ void main() {
     expect(find.text('Outline Arrow'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
 
+    controller.clearEdits(showMessage: false);
+    controller.setMode(AnnotationMode.filter);
+    await tester.pump();
+
+    expect(find.text('Filter Settings'), findsOneWidget);
+    expect(find.text('None'), findsOneWidget);
+    expect(find.text('Sepia'), findsOneWidget);
+    expect(controller.hasEdits, isFalse);
+
+    controller.setFilter(ImageFilterType.sepia);
+    await tester.pump();
+
+    expect(controller.hasEdits, isTrue);
+
+    controller.setMode(AnnotationMode.rotate);
+    await tester.pump();
+
+    expect(find.text('Rotate Settings'), findsOneWidget);
+    expect(find.text('Rotate Left 90°'), findsOneWidget);
+    expect(find.text('Rotate Right 90°'), findsOneWidget);
+    controller.rotateByQuarterTurn(90);
+    expect(controller.rotationDegrees.value, 90);
+
+    controller.setMode(AnnotationMode.flip);
+    await tester.pump();
+
+    expect(find.text('Flip Direction'), findsOneWidget);
+    expect(find.text('Horizontal Flip'), findsOneWidget);
+    expect(find.text('Vertical Flip'), findsOneWidget);
+    controller.setFlipHorizontal(true);
+    expect(controller.hasImageAdjustments, isTrue);
+
+    controller.setMode(AnnotationMode.resize);
+    await tester.pump();
+
+    expect(find.text('Target Size'), findsOneWidget);
+    expect(find.text('Width'), findsOneWidget);
+    expect(find.text('Height'), findsOneWidget);
+    expect(find.text('Keep Aspect Ratio'), findsOneWidget);
+    controller.updateResizePercent(50);
+    expect(controller.resizeWidthController.text, '600');
+    expect(controller.resizeHeightController.text, '400');
+
+    controller.setMode(AnnotationMode.crop);
+    await tester.pump();
+
+    expect(find.text('Crop Ratio'), findsOneWidget);
+    expect(find.text('Original'), findsOneWidget);
+    expect(find.text('Square'), findsOneWidget);
+    controller.setCropPreset(AnnotationCropPreset.square);
+    expect(controller.cropPreset.value, AnnotationCropPreset.square);
+
     await database.close();
     Get.reset();
+  });
+
+  test('图片编辑处理链支持滤镜旋转翻转尺寸和裁剪', () {
+    // 用纯 Dart 像素管线验证最终导出处理顺序，避免单测依赖相册权限。
+    final source = img.Image(width: 4, height: 2);
+    for (var y = 0; y < source.height; y++) {
+      for (var x = 0; x < source.width; x++) {
+        source.setPixelRgba(x, y, x * 40, y * 80, 20, 255);
+      }
+    }
+
+    final result = LocalImageChannel().processEditedImage(
+      image: source,
+      filter: 'grayscale',
+      rotationDegrees: 90,
+      flipHorizontal: true,
+      flipVertical: true,
+      resizeWidth: 3,
+      resizeHeight: 3,
+      cropAspectRatio: 1,
+    );
+
+    expect(result.width, 3);
+    expect(result.height, 3);
+    final pixel = result.getPixel(1, 1);
+    expect(pixel.r, equals(pixel.g));
+    expect(pixel.g, equals(pixel.b));
   });
 
   test('箭头缩放与方向调整职责分离', () async {

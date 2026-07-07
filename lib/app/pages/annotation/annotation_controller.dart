@@ -6,11 +6,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:get/get.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../exceptions/app_exception.dart';
 import '../../models/annotated_image_file.dart';
 import '../../models/local_image_file.dart';
+import '../filter/filter_controller.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
@@ -23,7 +23,12 @@ enum AnnotationMode {
   text(labelKey: 'annotation.mode.text', value: 'text'),
   rectangle(labelKey: 'annotation.mode.rectangle', value: 'rectangle'),
   circle(labelKey: 'annotation.mode.circle', value: 'circle'),
-  arrow(labelKey: 'annotation.mode.arrow', value: 'arrow');
+  arrow(labelKey: 'annotation.mode.arrow', value: 'arrow'),
+  filter(labelKey: 'annotation.mode.filter', value: 'filter'),
+  rotate(labelKey: 'annotation.mode.rotate', value: 'rotate'),
+  flip(labelKey: 'annotation.mode.flip', value: 'flip'),
+  resize(labelKey: 'annotation.mode.resize', value: 'resize'),
+  crop(labelKey: 'annotation.mode.crop', value: 'crop');
 
   const AnnotationMode({required this.labelKey, required this.value});
 
@@ -76,6 +81,24 @@ enum MosaicDrawMode {
 }
 
 enum MosaicStrokeKind { freehand, rectangle, circle }
+
+enum AnnotationCropPreset {
+  original(labelKey: 'annotation.crop.original', aspectRatio: null),
+  square(labelKey: 'crop.preset.square', aspectRatio: 1),
+  landscape16x9(labelKey: 'crop.preset.landscape16x9', aspectRatio: 16 / 9),
+  landscape4x3(labelKey: 'crop.preset.landscape4x3', aspectRatio: 4 / 3),
+  portrait9x16(labelKey: 'crop.preset.portrait9x16', aspectRatio: 9 / 16);
+
+  const AnnotationCropPreset({
+    required this.labelKey,
+    required this.aspectRatio,
+  });
+
+  final String labelKey;
+  final double? aspectRatio;
+
+  String get label => labelKey.tr;
+}
 
 class DrawingStroke {
   const DrawingStroke({
@@ -220,6 +243,8 @@ class AnnotationController extends GetxController {
   static const double _minDrawableSide = 16;
   static const double _maxShapeStrokeWidth = 32;
   static const String _defaultText = '请输入文字';
+  static const int _minResizeDimension = 1;
+  static const int _maxResizeDimension = LocalImageChannel.maxResizeDimension;
 
   final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
@@ -238,13 +263,35 @@ class AnnotationController extends GetxController {
   final editRevision = 0.obs;
   final textController = TextEditingController();
   final painterController = PainterController();
+  final filter = Rxn<ImageFilterType>();
+  final rotationDegrees = 0.obs;
+  final flipHorizontal = false.obs;
+  final flipVertical = false.obs;
+  final resizeKeepAspectRatio = true.obs;
+  final resizePercent = 100.0.obs;
+  final cropPreset = AnnotationCropPreset.original.obs;
+  final resizeWidthController = TextEditingController();
+  final resizeHeightController = TextEditingController();
 
   ui.Image? _backgroundImage;
   Size _canvasSize = Size.zero;
 
   bool get hasEdits {
     editRevision.value;
-    return painterController.drawables.isNotEmpty || strokes.isNotEmpty;
+    return painterController.drawables.isNotEmpty ||
+        strokes.isNotEmpty ||
+        hasImageAdjustments;
+  }
+
+  bool get hasImageAdjustments {
+    editRevision.value;
+    final image = selectedImage.value;
+    return filter.value != null ||
+        rotationDegrees.value % 360 != 0 ||
+        flipHorizontal.value ||
+        flipVertical.value ||
+        cropPreset.value.aspectRatio != null ||
+        _hasResizeAdjustment(image);
   }
 
   bool get canUndo {
@@ -276,6 +323,8 @@ class AnnotationController extends GetxController {
     painterController.dispose();
     _backgroundImage?.dispose();
     textController.dispose();
+    resizeWidthController.dispose();
+    resizeHeightController.dispose();
     super.onClose();
   }
 
@@ -291,6 +340,7 @@ class AnnotationController extends GetxController {
       await _loadBackground(image);
       selectedImage.value = image;
       result.value = null;
+      _resetImageAdjustments(image);
       clearEdits(showMessage: false);
       await _recentFilesRepository.recordImage(image);
     } on AppException catch (error) {
@@ -302,11 +352,93 @@ class AnnotationController extends GetxController {
 
   void setMode(AnnotationMode value) {
     mode.value = value;
-    if (value != AnnotationMode.select) {
+    if (_isLayerCreationMode(value) || _isImageProcessingMode(value)) {
       painterController.deselectObjectDrawable();
       selectedObject.value = null;
     }
     _applyPainterMode();
+  }
+
+  void setFilter(ImageFilterType? value) {
+    filter.value = value;
+    _markImageAdjustmentChanged();
+  }
+
+  void setRotationDegrees(int degrees) {
+    rotationDegrees.value = degrees.clamp(-360, 360);
+    _markImageAdjustmentChanged();
+  }
+
+  void rotateByQuarterTurn(int degrees) {
+    final normalized = (rotationDegrees.value + degrees) % 360;
+    rotationDegrees.value = normalized > 180 ? normalized - 360 : normalized;
+    _markImageAdjustmentChanged();
+  }
+
+  void setFlipHorizontal(bool value) {
+    flipHorizontal.value = value;
+    _markImageAdjustmentChanged();
+  }
+
+  void setFlipVertical(bool value) {
+    flipVertical.value = value;
+    _markImageAdjustmentChanged();
+  }
+
+  void setCropPreset(AnnotationCropPreset value) {
+    cropPreset.value = value;
+    _markImageAdjustmentChanged();
+  }
+
+  void setResizeKeepAspectRatio(bool value) {
+    resizeKeepAspectRatio.value = value;
+    final image = selectedImage.value;
+    if (value && image != null && image.hasValidDimensions) {
+      _syncResizeHeightFromWidth(image);
+    }
+    _markImageAdjustmentChanged();
+  }
+
+  void updateResizeWidth(String value) {
+    resizeWidthController.text = value;
+    final image = selectedImage.value;
+    if (resizeKeepAspectRatio.value &&
+        image != null &&
+        image.hasValidDimensions) {
+      _syncResizeHeightFromWidth(image);
+    }
+    _updateResizePercentFromFields(image);
+    _markImageAdjustmentChanged();
+  }
+
+  void updateResizeHeight(String value) {
+    resizeHeightController.text = value;
+    final image = selectedImage.value;
+    if (resizeKeepAspectRatio.value &&
+        image != null &&
+        image.hasValidDimensions) {
+      _syncResizeWidthFromHeight(image);
+    }
+    _updateResizePercentFromFields(image);
+    _markImageAdjustmentChanged();
+  }
+
+  void updateResizePercent(double value) {
+    final image = selectedImage.value;
+    if (image == null || !image.hasValidDimensions) {
+      return;
+    }
+    final percent = value.clamp(10, 300).toDouble();
+    resizePercent.value = percent;
+    resizeWidthController.text = _scaleDimension(
+      image.width,
+      percent,
+    ).toString();
+    resizeHeightController.text = _scaleDimension(
+      image.height,
+      percent,
+    ).toString();
+    _markImageAdjustmentChanged();
   }
 
   void setColor(AnnotationColor value) {
@@ -692,19 +824,23 @@ class AnnotationController extends GetxController {
       if (pngBytes.isEmpty) {
         throw AppException('annotation.error.exportEmpty'.tr);
       }
-      final output = await _createOutputFile(pngBytes);
-      await _imageChannel.saveImageToGallery(output.path);
-      final annotated = AnnotatedImageFile(
+      final dimensions = _readResizeDimensionsIfNeeded(source);
+      final annotated = await _imageChannel.saveEditedImageBytes(
         source: source,
-        outputPath: output.path,
-        outputSizeBytes: await output.length(),
-        mode: 'editor',
+        bytes: pngBytes,
+        filter: filter.value?.value,
+        rotationDegrees: rotationDegrees.value,
+        flipHorizontal: flipHorizontal.value,
+        flipVertical: flipVertical.value,
+        resizeWidth: dimensions?.width,
+        resizeHeight: dimensions?.height,
+        cropAspectRatio: cropPreset.value.aspectRatio,
       );
       result.value = annotated;
       await _historyRepository.recordOperationSuccess(
         featureName: 'annotation.featureName'.tr,
         inputPath: source.path,
-        outputPath: output.path,
+        outputPath: annotated.outputPath,
         parameters: _historyParameters(),
       );
       showLatestSnackbar(
@@ -982,19 +1118,6 @@ class AnnotationController extends GetxController {
     return byteData?.buffer.asUint8List() ?? Uint8List(0);
   }
 
-  Future<File> _createOutputFile(Uint8List bytes) async {
-    final root = await getTemporaryDirectory();
-    final directory = Directory('${root.path}/edited_images');
-    if (!directory.existsSync()) {
-      directory.createSync(recursive: true);
-    }
-    final output = File(
-      '${directory.path}/edited_${DateTime.now().millisecondsSinceEpoch}.png',
-    );
-    await output.writeAsBytes(bytes, flush: true);
-    return output;
-  }
-
   Map<String, Object> _historyParameters() {
     return <String, Object>{
       'mode': 'editor',
@@ -1002,6 +1125,14 @@ class AnnotationController extends GetxController {
       'strokes': strokes.length,
       'strokeWidth': strokeWidth.value,
       'color': color.value.value,
+      'filter': filter.value?.value ?? 'none',
+      'rotationDegrees': rotationDegrees.value,
+      'flipHorizontal': flipHorizontal.value,
+      'flipVertical': flipVertical.value,
+      'resizeWidth': resizeWidthController.text.trim(),
+      'resizeHeight': resizeHeightController.text.trim(),
+      'resizePercent': resizePercent.value.round(),
+      'cropPreset': cropPreset.value.name,
     };
   }
 
@@ -1009,6 +1140,166 @@ class AnnotationController extends GetxController {
     selectedObject.value = painterController.selectedObjectDrawable;
     editRevision.value++;
     result.value = null;
+  }
+
+  void _resetImageAdjustments(LocalImageFile image) {
+    filter.value = null;
+    rotationDegrees.value = 0;
+    flipHorizontal.value = false;
+    flipVertical.value = false;
+    resizeKeepAspectRatio.value = true;
+    resizePercent.value = 100;
+    cropPreset.value = AnnotationCropPreset.original;
+    resizeWidthController.text = image.hasValidDimensions
+        ? image.width.toString()
+        : '';
+    resizeHeightController.text = image.hasValidDimensions
+        ? image.height.toString()
+        : '';
+  }
+
+  void _markImageAdjustmentChanged() {
+    result.value = null;
+    editRevision.value++;
+  }
+
+  bool _hasResizeAdjustment(LocalImageFile? image) {
+    if (image == null || !image.hasValidDimensions) {
+      return false;
+    }
+    final dimensions = _readResizeDimensions(showError: false);
+    if (dimensions == null) {
+      return false;
+    }
+    return dimensions.width != image.width || dimensions.height != image.height;
+  }
+
+  _ResizeDimensions? _readResizeDimensionsIfNeeded(LocalImageFile source) {
+    if (!_hasResizeAdjustment(source)) {
+      return null;
+    }
+    return _readResizeDimensions(showError: true);
+  }
+
+  _ResizeDimensions? _readResizeDimensions({required bool showError}) {
+    final width = int.tryParse(resizeWidthController.text.trim());
+    final height = int.tryParse(resizeHeightController.text.trim());
+    if (width == null || height == null) {
+      if (showError) {
+        _showError('annotation.error.invalidDimensions'.tr);
+      }
+      return null;
+    }
+    if (width < _minResizeDimension || height < _minResizeDimension) {
+      if (showError) {
+        _showError('annotation.error.nonPositiveDimensions'.tr);
+      }
+      return null;
+    }
+    if (width > _maxResizeDimension || height > _maxResizeDimension) {
+      if (showError) {
+        _showError(
+          'annotation.error.dimensionsTooLarge'.trParams({
+            'max': _maxResizeDimension.toString(),
+          }),
+        );
+      }
+      return null;
+    }
+    return _ResizeDimensions(width: width, height: height);
+  }
+
+  void _syncResizeHeightFromWidth(LocalImageFile image) {
+    final width = int.tryParse(resizeWidthController.text.trim());
+    if (width == null || width <= 0 || image.width <= 0 || image.height <= 0) {
+      return;
+    }
+    resizeHeightController.text = _scaledCompanion(
+      changed: width,
+      sourceChanged: image.width,
+      sourceCompanion: image.height,
+    ).toString();
+  }
+
+  void _syncResizeWidthFromHeight(LocalImageFile image) {
+    final height = int.tryParse(resizeHeightController.text.trim());
+    if (height == null ||
+        height <= 0 ||
+        image.width <= 0 ||
+        image.height <= 0) {
+      return;
+    }
+    resizeWidthController.text = _scaledCompanion(
+      changed: height,
+      sourceChanged: image.height,
+      sourceCompanion: image.width,
+    ).toString();
+  }
+
+  void _updateResizePercentFromFields(LocalImageFile? image) {
+    if (image == null || !image.hasValidDimensions) {
+      return;
+    }
+    final width = int.tryParse(resizeWidthController.text.trim());
+    if (width == null || width <= 0 || image.width <= 0) {
+      return;
+    }
+    resizePercent.value = (width / image.width * 100).clamp(10, 300);
+  }
+
+  int _scaledCompanion({
+    required int changed,
+    required int sourceChanged,
+    required int sourceCompanion,
+  }) {
+    if (changed <= 0 || sourceChanged <= 0 || sourceCompanion <= 0) {
+      return _minResizeDimension;
+    }
+    return (changed * sourceCompanion / sourceChanged).round().clamp(
+      _minResizeDimension,
+      _maxResizeDimension,
+    );
+  }
+
+  int _scaleDimension(int value, double percent) {
+    return (value * percent / 100).round().clamp(
+      _minResizeDimension,
+      _maxResizeDimension,
+    );
+  }
+
+  bool _isLayerCreationMode(AnnotationMode value) {
+    return switch (value) {
+      AnnotationMode.brush ||
+      AnnotationMode.mosaic ||
+      AnnotationMode.text ||
+      AnnotationMode.rectangle ||
+      AnnotationMode.circle ||
+      AnnotationMode.arrow => true,
+      AnnotationMode.select ||
+      AnnotationMode.filter ||
+      AnnotationMode.rotate ||
+      AnnotationMode.flip ||
+      AnnotationMode.resize ||
+      AnnotationMode.crop => false,
+    };
+  }
+
+  bool _isImageProcessingMode(AnnotationMode value) {
+    return switch (value) {
+      AnnotationMode.filter ||
+      AnnotationMode.rotate ||
+      AnnotationMode.flip ||
+      AnnotationMode.resize ||
+      AnnotationMode.crop => true,
+      AnnotationMode.select ||
+      AnnotationMode.brush ||
+      AnnotationMode.mosaic ||
+      AnnotationMode.text ||
+      AnnotationMode.rectangle ||
+      AnnotationMode.circle ||
+      AnnotationMode.arrow => false,
+    };
   }
 
   Offset get _canvasCenter =>
@@ -1314,6 +1605,13 @@ class _ArrowEndpoints {
 
   final Offset start;
   final Offset end;
+}
+
+class _ResizeDimensions {
+  const _ResizeDimensions({required this.width, required this.height});
+
+  final int width;
+  final int height;
 }
 
 Color _colorFromHex(String value) {
