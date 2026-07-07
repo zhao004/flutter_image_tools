@@ -7,8 +7,8 @@ import 'convert_controller.dart';
 /// 图片格式转换编辑页，选择图片后按统一五段式布局展示格式与质量参数。
 ///
 /// 设计意图：格式转换与压缩一样属于图片导出属性编辑，画布展示当前源图，
-/// 标签栏固定为格式工具，属性面板负责格式和质量，底部工具栏负责批量选择
-/// 与导出。异常策略：页面只触发控制器方法，格式校验、批量任务、历史记录
+/// 标签栏固定为格式工具，属性面板负责格式和质量，顶部栏负责重新选图与导出。
+/// 异常策略：页面只触发控制器方法，格式校验、批量任务、历史记录
 /// 和平台异常仍由控制器统一处理，避免 UI 层改变业务流程。
 class ConvertView extends GetView<ConvertController> {
   const ConvertView({super.key});
@@ -42,7 +42,6 @@ class ConvertView extends GetView<ConvertController> {
           label: 'convert.format.title'.tr,
         ),
         toolbar: _ConvertPropertyPanel(controller: controller),
-        bottomToolbar: _ConvertActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -100,7 +99,9 @@ class _ConvertPropertyPanel extends StatelessWidget {
             max: 100,
             divisions: 99,
             label: '${controller.quality.value}%',
-            onChanged: controller.isBusy.value ? null : controller.updateQuality,
+            onChanged: controller.isBusy.value
+                ? null
+                : controller.updateQuality,
           ),
           Text(
             controller.qualityHint(),
@@ -139,7 +140,9 @@ class _SelectedImagesSummary extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 4),
-          ...images.take(3).map(
+          ...images
+              .take(3)
+              .map(
                 (item) => Text(
                   item.name,
                   maxLines: 1,
@@ -187,7 +190,9 @@ class _ConvertProgress extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 4),
-          ...controller.tasks.take(3).map(
+          ...controller.tasks
+              .take(3)
+              .map(
                 (task) => Text(
                   '${task.source.name} · ${_taskStatus(task)}',
                   maxLines: 1,
@@ -204,47 +209,8 @@ class _ConvertProgress extends StatelessWidget {
     if (!task.isCompleted) {
       return 'convert.task.waiting'.tr;
     }
-    return task.isSuccess ? 'convert.task.success'.tr : 'convert.task.failed'.tr;
-  }
-}
-
-class _ConvertActionToolbar extends StatelessWidget {
-  const _ConvertActionToolbar({required this.controller});
-
-  final ConvertController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasImage = controller.selectedImage.value != null;
-      return Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text('convert.action.pickBatch'.tr),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: hasImage && !controller.isBusy.value
-                  ? controller.convert
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.swap_horiz),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
-        ],
-      );
-    });
+    return task.isSuccess
+        ? 'convert.task.success'.tr
+        : 'convert.task.failed'.tr;
   }
 }

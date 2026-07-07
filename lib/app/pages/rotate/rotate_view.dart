@@ -45,7 +45,6 @@ class RotateView extends GetView<RotateController> {
           label: 'rotate.angle.title'.tr,
         ),
         toolbar: _RotatePropertyPanel(controller: controller),
-        bottomToolbar: _RotateActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -130,47 +129,6 @@ class _RotatePropertyPanel extends StatelessWidget {
         ],
       ],
     );
-  }
-}
-
-class _RotateActionToolbar extends StatelessWidget {
-  const _RotateActionToolbar({required this.controller});
-
-  final RotateController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasImage = controller.selectedImage.value != null;
-      return Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text('rotate.action.pickBatch'.tr),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: hasImage && !controller.isBusy.value
-                  ? controller.rotate
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
-        ],
-      );
-    });
   }
 }
 

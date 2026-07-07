@@ -51,7 +51,6 @@ class CropView extends GetView<CropController> {
           label: 'crop.ratio.title'.tr,
         ),
         toolbar: _CropPropertyPanel(controller: controller),
-        bottomToolbar: _CropActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -261,46 +260,5 @@ class _CropPropertyPanel extends StatelessWidget {
         ],
       ],
     );
-  }
-}
-
-class _CropActionToolbar extends StatelessWidget {
-  const _CropActionToolbar({required this.controller});
-
-  final CropController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasImage = controller.selectedImage.value != null;
-      return Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text('crop.action.pickBatch'.tr),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: hasImage && !controller.isBusy.value
-                  ? controller.cropCurrentImage
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
-        ],
-      );
-    });
   }
 }

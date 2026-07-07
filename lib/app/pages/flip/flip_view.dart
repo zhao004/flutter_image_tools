@@ -45,7 +45,6 @@ class FlipView extends GetView<FlipController> {
           label: 'flip.direction.title'.tr,
         ),
         toolbar: _FlipPropertyPanel(controller: controller),
-        bottomToolbar: _FlipActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -95,46 +94,5 @@ class _FlipPropertyPanel extends StatelessWidget {
         ],
       ],
     );
-  }
-}
-
-class _FlipActionToolbar extends StatelessWidget {
-  const _FlipActionToolbar({required this.controller});
-
-  final FlipController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasImage = controller.selectedImage.value != null;
-      return Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text('flip.action.pickBatch'.tr),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: hasImage && !controller.isBusy.value
-                  ? controller.flip
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
-        ],
-      );
-    });
   }
 }

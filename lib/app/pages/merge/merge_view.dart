@@ -41,7 +41,6 @@ class MergeView extends GetView<MergeController> {
         previewBuilder: (context, _) => _MergePreview(controller: controller),
         tabBar: _MergeToolTabs(controller: controller),
         toolbar: _MergePropertyPanel(controller: controller),
-        bottomToolbar: _MergeActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -270,47 +269,6 @@ class _MergeToolPanel extends StatelessWidget {
       MergeToolbarTab.style => _StyleToolPanel(controller: controller),
       MergeToolbarTab.order => _OrderToolPanel(controller: controller),
     };
-  }
-}
-
-class _MergeActionToolbar extends StatelessWidget {
-  const _MergeActionToolbar({required this.controller});
-
-  final MergeController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasImages = controller.selectedImages.isNotEmpty;
-      return Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text('merge.action.repickBatch'.tr),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: hasImages && !controller.isBusy.value
-                  ? controller.merge
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
-        ],
-      );
-    });
   }
 }
 

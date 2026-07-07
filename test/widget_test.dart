@@ -725,10 +725,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Select Batch'), findsNothing);
     expect(find.text('Compression Quality'), findsOneWidget);
     expect(find.text('Current Quality: 80%'), findsOneWidget);
-    expect(find.text('Save to Gallery'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsNothing);
 
     await database.close();
     Get.reset();
@@ -764,13 +764,13 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Select One'), findsOneWidget);
-    expect(find.text('Select Batch'), findsOneWidget);
+    expect(find.text('Select Batch'), findsNothing);
     expect(find.text('Export Format'), findsOneWidget);
     expect(find.text('JPG'), findsOneWidget);
     expect(find.text('PNG'), findsOneWidget);
     expect(find.text('Export Quality: 95%'), findsOneWidget);
     expect(find.text('JPG and WebP use the export quality.'), findsOneWidget);
-    expect(find.text('Save to Gallery'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsNothing);
 
     await database.close();
     Get.reset();

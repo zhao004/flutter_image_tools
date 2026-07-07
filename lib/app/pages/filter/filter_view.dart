@@ -41,7 +41,6 @@ class FilterView extends GetView<FilterController> {
           label: 'filter.type.title'.tr,
         ),
         toolbar: _FilterPropertyPanel(controller: controller),
-        bottomToolbar: _FilterActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -314,42 +313,5 @@ class _FilterPropertyPanel extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _FilterActionToolbar extends StatelessWidget {
-  const _FilterActionToolbar({required this.controller});
-
-  final FilterController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasImage = controller.selectedImage.value != null;
-      return Row(
-        children: [
-          const Spacer(),
-          Expanded(
-            flex: 3,
-            child: FilledButton.icon(
-              onPressed: hasImage && !controller.isBusy.value
-                  ? controller.applyFilter
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
-        ],
-      );
-    });
   }
 }

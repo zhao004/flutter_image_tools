@@ -420,7 +420,6 @@ class _AnnotationActionToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final isBusy = controller.isBusy.value;
       final selectedObject = controller.selectedObject.value;
       final hasEdits = controller.hasEdits;
       return Row(
@@ -441,17 +440,6 @@ class _AnnotationActionToolbar extends StatelessWidget {
                 ? null
                 : controller.deleteSelectedObject,
             icon: const Icon(Icons.delete_outline),
-          ),
-          const Spacer(),
-          FilledButton.icon(
-            onPressed: isBusy ? null : controller.exportEditedImage,
-            icon: isBusy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: Text('common.saveToGallery'.tr),
           ),
         ],
       );

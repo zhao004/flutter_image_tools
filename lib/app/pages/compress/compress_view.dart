@@ -7,7 +7,7 @@ import 'compress_controller.dart';
 /// 图片压缩编辑页，选择图片后按统一五段式布局展示压缩参数和任务状态。
 ///
 /// 设计意图：压缩虽然不改变画面像素预览，但仍属于图片属性编辑流程；
-/// 使用统一骨架后，选图、画布、参数、进度和导出入口与其他编辑页一致。
+/// 使用统一骨架后，选图、画布、参数、进度和顶部导出入口与其他编辑页一致。
 /// 异常策略：页面只读取控制器状态并触发控制器方法，校验、批量任务、
 /// 历史记录和平台异常仍由控制器处理，避免 UI 层复制业务逻辑。
 class CompressView extends GetView<CompressController> {
@@ -42,7 +42,6 @@ class CompressView extends GetView<CompressController> {
           label: 'compress.quality.title'.tr,
         ),
         toolbar: _CompressPropertyPanel(controller: controller),
-        bottomToolbar: _CompressActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -91,7 +90,9 @@ class _CompressPropertyPanel extends StatelessWidget {
             max: 100,
             divisions: 99,
             label: '${controller.quality.value}%',
-            onChanged: controller.isBusy.value ? null : controller.updateQuality,
+            onChanged: controller.isBusy.value
+                ? null
+                : controller.updateQuality,
           ),
           _SelectedImagesSummary(controller: controller),
           _CompressionProgress(controller: controller),
@@ -126,7 +127,9 @@ class _SelectedImagesSummary extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 4),
-          ...images.take(3).map(
+          ...images
+              .take(3)
+              .map(
                 (item) => Text(
                   item.name,
                   maxLines: 1,
@@ -174,7 +177,9 @@ class _CompressionProgress extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 4),
-          ...controller.tasks.take(3).map(
+          ...controller.tasks
+              .take(3)
+              .map(
                 (task) => Text(
                   '${task.source.name} · ${_taskStatus(task)}',
                   maxLines: 1,
@@ -191,47 +196,8 @@ class _CompressionProgress extends StatelessWidget {
     if (!task.isCompleted) {
       return 'compress.task.waiting'.tr;
     }
-    return task.isSuccess ? 'compress.task.success'.tr : 'compress.task.failed'.tr;
-  }
-}
-
-class _CompressActionToolbar extends StatelessWidget {
-  const _CompressActionToolbar({required this.controller});
-
-  final CompressController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasImage = controller.selectedImage.value != null;
-      return Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: controller.isBusy.value ? null : controller.pickImages,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text('compress.action.pickBatch'.tr),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: hasImage && !controller.isBusy.value
-                  ? controller.compress
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.compress),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
-        ],
-      );
-    });
+    return task.isSuccess
+        ? 'compress.task.success'.tr
+        : 'compress.task.failed'.tr;
   }
 }

@@ -332,25 +332,6 @@ class _GridActionToolbar extends StatelessWidget {
             icon: const Icon(Icons.center_focus_strong_outlined),
             label: Text('grid.action.centerGrid'.tr),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: hasImage && !controller.isBusy.value
-                  ? controller.splitImage
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.ios_share_outlined),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
         ],
       );
     });

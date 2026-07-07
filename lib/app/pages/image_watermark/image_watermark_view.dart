@@ -45,7 +45,6 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
           label: 'imageWatermark.config.title'.tr,
         ),
         toolbar: _ImageWatermarkPropertyPanel(controller: controller),
-        bottomToolbar: _ImageWatermarkActionToolbar(controller: controller),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -225,48 +224,5 @@ class _ImageWatermarkPropertyPanel extends StatelessWidget {
         ],
       ],
     );
-  }
-}
-
-class _ImageWatermarkActionToolbar extends StatelessWidget {
-  const _ImageWatermarkActionToolbar({required this.controller});
-
-  final ImageWatermarkController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final hasSource = controller.selectedImage.value != null;
-      return Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: controller.isBusy.value
-                ? null
-                : controller.pickSourceImages,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text('imageWatermark.action.pickBatch'.tr),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: hasSource && !controller.isBusy.value
-                  ? controller.addWatermark
-                  : null,
-              icon: controller.isBusy.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(
-                controller.isBusy.value
-                    ? 'common.processing'.tr
-                    : 'common.saveToGallery'.tr,
-              ),
-            ),
-          ),
-        ],
-      );
-    });
   }
 }
