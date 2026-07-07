@@ -485,8 +485,8 @@ void main() {
     expect(find.text('Result Summary'), findsOneWidget);
   });
 
-  testWidgets('统一编辑器覆盖属性面板不压缩预览区', (WidgetTester tester) async {
-    // 覆盖式属性面板叠在预览区底部，避免面板打开时改变画布约束导致标注元素抖动。
+  testWidgets('统一编辑器底部导航占位顶起预览区', (WidgetTester tester) async {
+    // 底部工具栏参与页面布局，避免工具入口悬浮遮挡图片预览。
     Widget buildEditor({required Widget? bottomToolbar}) {
       return GetMaterialApp(
         translations: AppTranslations(),
@@ -520,7 +520,6 @@ void main() {
             child: ColoredBox(color: Colors.black12),
           ),
           bottomToolbar: bottomToolbar,
-          overlayToolbar: true,
         ),
       );
     }
@@ -543,18 +542,17 @@ void main() {
     await tester.pump();
 
     expect(find.text('Property Panel'), findsOneWidget);
-    expect(
-      tester.getSize(find.byKey(const ValueKey('overlay-editor-canvas'))),
-      initialSize,
+    final nextSize = tester.getSize(
+      find.byKey(const ValueKey('overlay-editor-canvas')),
     );
+    expect(nextSize.height, lessThan(initialSize.height));
     final panelRect = tester.getRect(
       find.byKey(const ValueKey('overlay-property-panel')),
     );
     final canvasRect = tester.getRect(
       find.byKey(const ValueKey('overlay-editor-canvas')),
     );
-    expect(panelRect.bottom, greaterThan(canvasRect.top));
-    expect(panelRect.top, lessThan(canvasRect.bottom));
+    expect(panelRect.top, greaterThanOrEqualTo(canvasRect.bottom));
   });
 
   testWidgets('显示英文图片滤镜页面', (WidgetTester tester) async {

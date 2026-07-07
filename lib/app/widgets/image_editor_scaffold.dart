@@ -115,6 +115,8 @@ class ImageEditorScaffold extends StatelessWidget {
     final bottomToolbarSurface = bottomToolbar == null
         ? null
         : _EditorBottomToolbarSurface(child: bottomToolbar!);
+    final shouldShowToolbar =
+        showEditingControls && bottomToolbarSurface != null;
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -141,16 +143,10 @@ class ImageEditorScaffold extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            Column(children: [Expanded(child: previewContent)]),
-            if (showEditingControls && bottomToolbarSurface != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: bottomToolbarSurface,
-              ),
+            Expanded(child: previewContent),
+            if (shouldShowToolbar) bottomToolbarSurface,
           ],
         ),
       ),
@@ -349,24 +345,22 @@ class _EditorBottomToolbarSurface extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 920),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.surface.withValues(alpha: 0.96),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: colorScheme.outlineVariant),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withValues(alpha: 0.16),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surface.withValues(alpha: 0.98),
+          border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, -6),
             ),
+          ],
+        ),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 920),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               child: child,
@@ -420,7 +414,66 @@ class EditorDynamicToolPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeCategory = _activeCategory;
     final hasActiveSubItems = activeCategory?.subItems.isNotEmpty ?? false;
+    final hasActivePanel = activePanel != null && activePanel is! SizedBox;
     final shouldShowSubPanel = activePanel != null || hasActiveSubItems;
+    final compactSubPanelHeight = maxPanelHeight.clamp(48, 64).toDouble();
+    final compactLayerCount =
+        (hasActiveSubItems ? 1 : 0) + (hasActivePanel ? 1 : 0);
+    final double stackedCompactHeight =
+        (compactLayerCount * compactSubPanelHeight).toDouble() +
+        (compactLayerCount > 1 ? 8.0 : 0.0);
+    final double compactToolbarHeight = shouldShowSubPanel
+        ? stackCompactPanel
+              ? (stackedCompactHeight < 60.0 ? 60.0 : stackedCompactHeight)
+              : 60.0 + 8.0 + compactSubPanelHeight
+        : 60.0;
+    final primaryTools = SizedBox(
+      height: 60,
+      child: ListView.builder(
+        clipBehavior: Clip.none,
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final item = categories[index];
+          return _PrimaryToolButton(
+            category: item,
+            selected: item.id == activeCategoryId,
+            onTap: () => onCategorySelected(item),
+          );
+        },
+      ),
+    );
+    if (compactPanel) {
+      return SizedBox(
+        height: compactToolbarHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            primaryTools,
+            if (shouldShowSubPanel)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: stackCompactPanel ? 0 : 68,
+                child: _DynamicToolSubPanel(
+                  title: activePanelTitle ?? activeCategory?.name,
+                  maxHeight: maxPanelHeight,
+                  subItems: activeCategory?.subItems ?? const <ToolSubItem>[],
+                  activeSubItemId: activeSubItemId,
+                  onSubItemSelected: onSubItemSelected,
+                  onClosePanel: onClosePanel,
+                  onConfirmPanel: onConfirmPanel,
+                  showHeader: showPanelHeader,
+                  compact: compactPanel,
+                  stackCompactPanel: stackCompactPanel,
+                  child: activePanel ?? const SizedBox.shrink(),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -440,22 +493,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
         ],
-        SizedBox(
-          height: 60,
-          child: ListView.builder(
-            clipBehavior: Clip.none,
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final item = categories[index];
-              return _PrimaryToolButton(
-                category: item,
-                selected: item.id == activeCategoryId,
-                onTap: () => onCategorySelected(item),
-              );
-            },
-          ),
-        ),
+        primaryTools,
       ],
     );
   }
@@ -584,18 +622,8 @@ class _DynamicToolSubPanel extends StatelessWidget {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (child is! SizedBox) ...[
-            SizedBox(
-              height: panelHeight,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: child,
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          if (subItems.isNotEmpty)
-            SizedBox(
+          if (subItems.isNotEmpty) ...[
+            _CompactToolOverlaySurface(
               height: panelHeight,
               child: ListView(
                 clipBehavior: Clip.none,
@@ -603,10 +631,20 @@ class _DynamicToolSubPanel extends StatelessWidget {
                 children: subItemButtons,
               ),
             ),
+            const SizedBox(height: 8),
+          ],
+          if (child is! SizedBox)
+            _CompactToolOverlaySurface(
+              height: panelHeight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: child,
+              ),
+            ),
         ],
       );
     }
-    return SizedBox(
+    return _CompactToolOverlaySurface(
       height: panelHeight,
       child: Row(
         children: [
@@ -654,6 +692,42 @@ class _DynamicToolSubPanel extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CompactToolOverlaySurface extends StatelessWidget {
+  const _CompactToolOverlaySurface({required this.height, required this.child});
+
+  final double height;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surface.withValues(alpha: 0.98),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colorScheme.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withValues(alpha: 0.14),
+                blurRadius: 18,
+                offset: const Offset(0, -6),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: SizedBox(height: height, child: child),
+          ),
+        ),
       ),
     );
   }
