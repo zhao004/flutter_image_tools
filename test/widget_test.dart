@@ -822,6 +822,7 @@ void main() {
     expect(find.text('Annotation Style'), findsNothing);
     expect(find.text('Freehand'), findsWidgets);
     expect(find.text('Rectangle Mosaic'), findsWidgets);
+    expect(find.byTooltip('Close Property Panel'), findsOneWidget);
     expect(find.text('#123456'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
 

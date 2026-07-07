@@ -1153,6 +1153,12 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          IconButton(
+            tooltip: 'annotation.action.closePanel'.tr,
+            visualDensity: VisualDensity.compact,
+            onPressed: controller.closePropertyPanel,
+            icon: const Icon(Icons.close),
+          ),
           OutlinedButton.icon(
             onPressed: () => _showAnnotationColorPicker(context, controller),
             icon: _ColorSwatch(color: controller.color.value),
@@ -1172,12 +1178,6 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
               ),
             ),
           ],
-          IconButton(
-            tooltip: 'annotation.action.closePanel'.tr,
-            visualDensity: VisualDensity.compact,
-            onPressed: controller.closePropertyPanel,
-            icon: const Icon(Icons.close),
-          ),
         ],
       );
     });
