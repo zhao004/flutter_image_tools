@@ -240,6 +240,16 @@ class AnnotationController extends GetxController {
     _addObjectDrawable(drawable);
   }
 
+  void selectShapeTool(EditableLayerType type) {
+    final nextMode = switch (type) {
+      EditableLayerType.text => AnnotationMode.text,
+      EditableLayerType.rectangle => AnnotationMode.rectangle,
+      EditableLayerType.circle => AnnotationMode.circle,
+      EditableLayerType.arrow => AnnotationMode.arrow,
+    };
+    setMode(nextMode);
+  }
+
   void selectObject(ObjectDrawable? drawable) {
     selectedObject.value = drawable;
     mode.value = AnnotationMode.select;

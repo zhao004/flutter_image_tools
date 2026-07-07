@@ -7,9 +7,9 @@ import '../models/local_image_file.dart';
 /// 图片编辑页通用骨架：选图前显示空状态，选图后展示统一五段式编辑布局。
 ///
 /// 设计意图：滤镜、水印、裁剪、尺寸调整、翻转和旋转都遵循“先选图、
-/// 实时预览、标签切换、属性编辑、底部动作”的交互，统一布局可以减少
-/// 重复代码并保持后续工具扩展一致。异常策略：组件只负责展示与触发回调，
-/// 不持有文件处理状态，避免通用层吞掉各工具控制器自己的校验和错误处理。
+/// 实时预览、标签切换、属性编辑”的交互，统一布局可以减少重复代码并保持
+/// 后续工具扩展一致。异常策略：组件只负责展示与触发回调，不持有文件处理状态，
+/// 避免通用层吞掉各工具控制器自己的校验和错误处理。
 class ImageEditorScaffold extends StatelessWidget {
   const ImageEditorScaffold({
     super.key,
@@ -26,7 +26,7 @@ class ImageEditorScaffold extends StatelessWidget {
     required this.onPickImage,
     this.onExport,
     required this.previewBuilder,
-    required this.toolbar,
+    this.toolbar,
     this.imageMeta,
     this.resultSummary,
     this.appBarActions = const [],
@@ -52,7 +52,7 @@ class ImageEditorScaffold extends StatelessWidget {
   final VoidCallback? onExport;
   final Widget Function(BuildContext context, LocalImageFile image)
   previewBuilder;
-  final Widget toolbar;
+  final Widget? toolbar;
   final String? imageMeta;
   final Widget? resultSummary;
   final List<Widget> appBarActions;
@@ -114,10 +114,11 @@ class ImageEditorScaffold extends StatelessWidget {
             ),
             if (showEditingControls) ...[
               if (tabBar != null) _EditorTabBarSurface(child: tabBar!),
-              _EditorPropertyPanelSurface(
-                maxHeight: toolbarMaxHeight,
-                child: toolbar,
-              ),
+              if (toolbar != null)
+                _EditorPropertyPanelSurface(
+                  maxHeight: toolbarMaxHeight,
+                  child: toolbar!,
+                ),
               if (bottomToolbar != null)
                 _EditorBottomToolbarSurface(child: bottomToolbar!),
             ],
@@ -256,6 +257,7 @@ class _EditorPreviewStage extends StatelessWidget {
     );
   }
 }
+
 class _PreviewFrame extends StatelessWidget {
   const _PreviewFrame({required this.child, required this.borderRadius});
 

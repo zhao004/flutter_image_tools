@@ -11,8 +11,8 @@ import 'annotation_controller.dart';
 /// 图片编辑页，提供选图、第三方画布编辑、马赛克涂抹和保存到相册。
 ///
 /// 构建设计：页面复用统一编辑骨架，画布区只承载可编辑图片；工具模式放入
-/// 标签栏，文本、颜色、粗细和图层变换放入属性面板，撤销、清空和删除放入
-/// 底部动作栏。导出、历史记录和异常处理仍由控制器负责，避免改变业务逻辑。
+/// 标签栏，文本、颜色、粗细和图层变换放入属性面板。导出、历史记录和
+/// 异常处理仍由控制器负责，避免改变业务逻辑。
 class AnnotationView extends GetView<AnnotationController> {
   const AnnotationView({super.key});
 
@@ -42,8 +42,7 @@ class AnnotationView extends GetView<AnnotationController> {
         previewBuilder: (context, previewImage) =>
             _AnnotationCanvasFrame(controller: controller, image: previewImage),
         tabBar: _AnnotationToolTabs(controller: controller),
-        toolbar: _AnnotationPropertyPanel(controller: controller),
-        bottomToolbar: _AnnotationActionToolbar(controller: controller),
+        toolbar: _annotationToolbar(),
         resultSummary: result == null
             ? null
             : EditorResultPill(
@@ -55,6 +54,15 @@ class AnnotationView extends GetView<AnnotationController> {
               ),
       );
     });
+  }
+
+  Widget? _annotationToolbar() {
+    final mode = controller.mode.value;
+    final hasSelectedLayer = controller.selectedObject.value != null;
+    if (mode == AnnotationMode.select && !hasSelectedLayer) {
+      return null;
+    }
+    return _AnnotationPropertyPanel(controller: controller);
   }
 }
 
@@ -211,21 +219,21 @@ class _AnnotationToolTabs extends StatelessWidget {
             _ToolButton(
               icon: Icons.crop_square,
               label: AnnotationMode.rectangle.label,
-              selected: false,
+              selected: controller.mode.value == AnnotationMode.rectangle,
               onTap: () =>
-                  controller.addShapeLayer(EditableLayerType.rectangle),
+                  controller.selectShapeTool(EditableLayerType.rectangle),
             ),
             _ToolButton(
               icon: Icons.circle_outlined,
               label: AnnotationMode.circle.label,
-              selected: false,
-              onTap: () => controller.addShapeLayer(EditableLayerType.circle),
+              selected: controller.mode.value == AnnotationMode.circle,
+              onTap: () => controller.selectShapeTool(EditableLayerType.circle),
             ),
             _ToolButton(
               icon: Icons.arrow_forward,
               label: AnnotationMode.arrow.label,
-              selected: false,
-              onTap: () => controller.addShapeLayer(EditableLayerType.arrow),
+              selected: controller.mode.value == AnnotationMode.arrow,
+              onTap: () => controller.selectShapeTool(EditableLayerType.arrow),
             ),
           ],
         ),
@@ -245,11 +253,43 @@ class _AnnotationPropertyPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _TextInputRow(controller: controller),
+        _TextToolPanel(controller: controller),
+        _ShapeToolPanel(controller: controller),
         _LayerControls(controller: controller),
-        _StyleControls(controller: controller),
+        _StrokeStyleControls(controller: controller),
       ],
     );
+  }
+}
+
+class _ShapeToolPanel extends StatelessWidget {
+  const _ShapeToolPanel({required this.controller});
+
+  final AnnotationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final layerType = switch (controller.mode.value) {
+        AnnotationMode.rectangle => EditableLayerType.rectangle,
+        AnnotationMode.circle => EditableLayerType.circle,
+        AnnotationMode.arrow => EditableLayerType.arrow,
+        _ => null,
+      };
+      if (layerType == null) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: FilledButton.icon(
+          onPressed: controller.selectedImage.value == null
+              ? null
+              : () => controller.addShapeLayer(layerType),
+          icon: const Icon(Icons.add),
+          label: Text('annotation.action.addLayer'.tr),
+        ),
+      );
+    });
   }
 }
 
@@ -318,8 +358,8 @@ class _LayerControls extends StatelessWidget {
   }
 }
 
-class _TextInputRow extends StatelessWidget {
-  const _TextInputRow({required this.controller});
+class _TextToolPanel extends StatelessWidget {
+  const _TextToolPanel({required this.controller});
 
   final AnnotationController controller;
 
@@ -358,8 +398,8 @@ class _TextInputRow extends StatelessWidget {
   }
 }
 
-class _StyleControls extends StatelessWidget {
-  const _StyleControls({required this.controller});
+class _StrokeStyleControls extends StatelessWidget {
+  const _StrokeStyleControls({required this.controller});
 
   final AnnotationController controller;
 
@@ -368,6 +408,18 @@ class _StyleControls extends StatelessWidget {
     return Obx(() {
       final selectedColor = controller.color.value;
       final strokeWidth = controller.strokeWidth.value;
+      final showControls = switch (controller.mode.value) {
+        AnnotationMode.brush ||
+        AnnotationMode.mosaic ||
+        AnnotationMode.rectangle ||
+        AnnotationMode.circle ||
+        AnnotationMode.arrow ||
+        AnnotationMode.text => true,
+        AnnotationMode.select => controller.selectedObject.value != null,
+      };
+      if (!showControls) {
+        return const SizedBox.shrink();
+      }
       return Row(
         children: [
           Expanded(
@@ -405,41 +457,6 @@ class _StyleControls extends StatelessWidget {
               divisions: 29,
               onChanged: controller.updateStrokeWidth,
             ),
-          ),
-        ],
-      );
-    });
-  }
-}
-
-class _AnnotationActionToolbar extends StatelessWidget {
-  const _AnnotationActionToolbar({required this.controller});
-
-  final AnnotationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final selectedObject = controller.selectedObject.value;
-      final hasEdits = controller.hasEdits;
-      return Row(
-        children: [
-          IconButton(
-            tooltip: 'annotation.action.undo'.tr,
-            onPressed: hasEdits ? controller.undo : null,
-            icon: const Icon(Icons.undo),
-          ),
-          IconButton(
-            tooltip: 'annotation.action.clear'.tr,
-            onPressed: hasEdits ? () => controller.clearEdits() : null,
-            icon: const Icon(Icons.layers_clear_outlined),
-          ),
-          IconButton(
-            tooltip: 'annotation.action.deleteLayer'.tr,
-            onPressed: selectedObject == null
-                ? null
-                : controller.deleteSelectedObject,
-            icon: const Icon(Icons.delete_outline),
           ),
         ],
       );

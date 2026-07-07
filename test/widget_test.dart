@@ -566,7 +566,7 @@ void main() {
   });
 
   testWidgets('显示英文图片标注页面', (WidgetTester tester) async {
-    // 先验证统一编辑器空状态，再注入图片进入工具、属性和动作栏布局。
+    // 先验证统一编辑器空状态，再注入图片进入工具标签和属性面板布局。
     final database = AppDatabase(NativeDatabase.memory());
     final controller = Get.put(
       AnnotationController(
@@ -591,7 +591,7 @@ void main() {
     expect(find.text('Select Image'), findsWidgets);
     expect(
       find.text(
-        'Select one image to enter the editor, then use the bottom toolbar for text, shapes, arrows, mosaic, and brush.',
+        'Select one image to enter the editor, then use the tool tabs for text, shapes, arrows, mosaic, and brush.',
       ),
       findsOneWidget,
     );
@@ -615,6 +615,12 @@ void main() {
     expect(find.text('Rectangle'), findsOneWidget);
     expect(find.text('Circle'), findsOneWidget);
     expect(find.text('Arrow'), findsOneWidget);
+    expect(find.text('Red'), findsNothing);
+    expect(find.text('Stroke: 12 px'), findsNothing);
+
+    controller.setMode(AnnotationMode.brush);
+    await tester.pump();
+
     expect(find.text('Red'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
     expect(find.byIcon(Icons.save_outlined), findsWidgets);
