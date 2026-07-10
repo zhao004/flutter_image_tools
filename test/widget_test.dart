@@ -485,12 +485,13 @@ void main() {
     expect(find.text('Grid Split'), findsOneWidget);
     expect(find.byIcon(Icons.add_photo_alternate_outlined), findsOneWidget);
     expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
-    expect(find.text('Save to Gallery'), findsNothing);
+    expect(find.text('Save to Gallery'), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-export-action')), findsOneWidget);
-    final exportButton = tester.widget<IconButton>(
+    final exportButton = tester.widget<FilledButton>(
       find.byKey(const ValueKey('editor-export-action')),
     );
-    expect(exportButton.tooltip, 'Save to Gallery');
+    expect(exportButton.onPressed, isNotNull);
+    expect(find.byTooltip('Save to Gallery'), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-canvas-surface')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('editor-image-info-overlay')),
@@ -505,7 +506,7 @@ void main() {
 
   testWidgets('统一编辑器窄屏图标导出按钮不溢出', (WidgetTester tester) async {
     // 窄屏继续保留纯图标主操作和 Tooltip，避免标题与辅助动作挤压。
-    tester.view.physicalSize = const Size(360, 640);
+    tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -1525,7 +1526,7 @@ void main() {
     expect(find.text('Compression Quality'), findsWidgets);
     expect(find.text('Current Quality: 80%'), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-export-action')), findsOneWidget);
-    expect(find.text('Save to Gallery'), findsNothing);
+    expect(find.text('Save to Gallery'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -1568,7 +1569,7 @@ void main() {
     expect(find.text('Export Quality: 95%'), findsOneWidget);
     expect(find.text('JPG and WebP use the export quality.'), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-export-action')), findsOneWidget);
-    expect(find.text('Save to Gallery'), findsNothing);
+    expect(find.text('Save to Gallery'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -1736,7 +1737,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('Layout'), findsOneWidget);
-    expect(find.text('Style'), findsOneWidget);
+    expect(find.text('Border'), findsOneWidget);
+    expect(find.text('Background'), findsOneWidget);
     expect(find.text('Order'), findsOneWidget);
     expect(find.text('Horizontal'), findsOneWidget);
     expect(find.text('Vertical'), findsOneWidget);
@@ -1859,7 +1861,7 @@ void main() {
     expect(find.text('Scale: 25%'), findsOneWidget);
     expect(find.text('Rotation: 0°'), findsOneWidget);
     expect(find.text('Watermark Settings'), findsNothing);
-    final disabledExportButton = tester.widget<IconButton>(
+    final disabledExportButton = tester.widget<FilledButton>(
       find.byKey(const ValueKey('editor-export-action')),
     );
     expect(disabledExportButton.onPressed, isNull);
@@ -1874,7 +1876,7 @@ void main() {
     );
     await tester.pump();
 
-    final enabledExportButton = tester.widget<IconButton>(
+    final enabledExportButton = tester.widget<FilledButton>(
       find.byKey(const ValueKey('editor-export-action')),
     );
     expect(enabledExportButton.onPressed, isNotNull);

@@ -56,14 +56,14 @@ enum MergeBorderColor {
 }
 
 enum MergeToolbarTab {
-  layout(labelKey: 'merge.tool.layout', icon: 'layout'),
-  style(labelKey: 'merge.tool.style', icon: 'style'),
-  order(labelKey: 'merge.tool.order', icon: 'order');
+  layout(labelKey: 'merge.tool.layout'),
+  border(labelKey: 'merge.tool.border'),
+  background(labelKey: 'merge.tool.background'),
+  order(labelKey: 'merge.tool.order');
 
-  const MergeToolbarTab({required this.labelKey, required this.icon});
+  const MergeToolbarTab({required this.labelKey});
 
   final String labelKey;
-  final String icon;
 }
 
 /// 图片拼接控制器，管理批量选图、工具分组、布局参数和拼接结果。

@@ -22,7 +22,8 @@ class _EditorVisualTokens {
 
   static const double maxContentWidth = 920;
   static const double stagePadding = 16;
-  static const double primaryToolbarHeight = 64;
+  static const double primaryToolbarHeight = 72;
+  static const double compactExportBreakpoint = 360;
 }
 
 /// 图片编辑底部一级工具模型。
@@ -83,7 +84,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.showDefaultAppBarActions = true,
     this.showRepickAction = true,
     this.expandPreviewToAvailableHeight = false,
-    this.overlayToolbar = true,
+    this.overlayToolbar = false,
   });
 
   final String title;
@@ -142,15 +143,31 @@ class ImageEditorScaffold extends StatelessWidget {
           );
     final shouldShowToolbar =
         showEditingControls && bottomToolbarSurface != null;
-    final colorScheme = Theme.of(context).colorScheme;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final useCompactExport =
+        viewportWidth < _EditorVisualTokens.compactExportBreakpoint ||
+        appBarActions.length >= 2;
     return Scaffold(
       backgroundColor: _EditorVisualTokens.canvasColor,
       appBar: AppBar(
-        backgroundColor: colorScheme.surfaceContainerLowest,
+        backgroundColor: _EditorVisualTokens.canvasColor,
+        foregroundColor: _EditorVisualTokens.canvasTextColor,
         surfaceTintColor: Colors.transparent,
-        shape: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
-        titleSpacing: 4,
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        toolbarHeight: 64,
+        titleSpacing: 0,
+        iconTheme: const IconThemeData(
+          color: _EditorVisualTokens.canvasTextColor,
+          size: 26,
+        ),
+        title: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: _EditorVisualTokens.canvasTextColor,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         actions: [
           ...appBarActions,
           if (showDefaultAppBarActions) ...[
@@ -167,6 +184,7 @@ class ImageEditorScaffold extends StatelessWidget {
                 icon: exportIcon,
                 isBusy: isBusy,
                 onPressed: image == null || isBusy ? null : onExport,
+                compact: useCompactExport,
               ),
             ),
           ],
@@ -198,12 +216,14 @@ class _EditorExportAction extends StatelessWidget {
     required this.icon,
     required this.isBusy,
     required this.onPressed,
+    required this.compact,
   });
 
   final String label;
   final IconData icon;
   final bool isBusy;
   final VoidCallback? onPressed;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -217,11 +237,27 @@ class _EditorExportAction extends StatelessWidget {
             : colorScheme.onPrimary,
       ),
     );
-    return IconButton.filled(
-      key: const ValueKey('editor-export-action'),
-      tooltip: label,
-      onPressed: onPressed,
-      icon: isBusy ? progress : Icon(icon),
+    if (compact) {
+      return IconButton.filled(
+        key: const ValueKey('editor-export-action'),
+        tooltip: label,
+        onPressed: onPressed,
+        icon: isBusy ? progress : Icon(icon),
+      );
+    }
+    return Tooltip(
+      message: label,
+      child: FilledButton.icon(
+        key: const ValueKey('editor-export-action'),
+        onPressed: onPressed,
+        icon: isBusy ? progress : Icon(icon, size: 20),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          visualDensity: VisualDensity.compact,
+        ),
+      ),
     );
   }
 }
@@ -498,13 +534,6 @@ class _PreviewFrame extends StatelessWidget {
       decoration: BoxDecoration(
         color: _EditorVisualTokens.previewBackdropColor,
         border: Border.all(color: _EditorVisualTokens.canvasPanelBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.38),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
-          ),
-        ],
       ),
       child: ClipRect(child: child),
     );
@@ -528,18 +557,10 @@ class _EditorBottomToolbarSurface extends StatelessWidget {
       child: DecoratedBox(
         key: const ValueKey('editor-bottom-toolbar-surface'),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          color: elevated
+              ? colorScheme.surfaceContainerLow
+              : colorScheme.surfaceContainerLowest,
           border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
-          boxShadow: elevated
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    blurRadius: 20,
-                    offset: const Offset(0, -8),
-                  ),
-                ]
-              : null,
         ),
         child: Align(
           alignment: Alignment.bottomCenter,
@@ -548,7 +569,7 @@ class _EditorBottomToolbarSurface extends StatelessWidget {
               maxWidth: _EditorVisualTokens.maxContentWidth,
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              padding: const EdgeInsets.only(top: 8),
               child: child,
             ),
           ),
@@ -704,7 +725,6 @@ class EditorDynamicToolPanel extends StatelessWidget {
               child: activePanel ?? const SizedBox.shrink(),
             ),
           ),
-          const SizedBox(height: 8),
         ],
         primaryTools,
       ],
@@ -734,12 +754,11 @@ class _ToolParameterSurface extends StatelessWidget {
       width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: colorScheme.outlineVariant),
+          color: colorScheme.surfaceContainerLowest,
+          border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: child,
         ),
       ),
@@ -1003,7 +1022,7 @@ class _PrimaryToolButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final foreground = selected
-        ? colorScheme.onSecondaryContainer
+        ? colorScheme.primary
         : colorScheme.onSurfaceVariant;
     return Semantics(
       button: true,
@@ -1011,44 +1030,47 @@ class _PrimaryToolButton extends StatelessWidget {
       label: category.name,
       child: Tooltip(
         message: category.name,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: onTap,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                width: 72,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? colorScheme.secondaryContainer
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(category.icon, size: 22, color: foreground),
-                    const SizedBox(height: 3),
-                    Text(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              width: 80,
+              height: _EditorVisualTokens.primaryToolbarHeight,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    width: 40,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? colorScheme.secondaryContainer
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(category.icon, size: 24, color: foreground),
+                  ),
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
                       category.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: foreground,
                         fontWeight: selected
                             ? FontWeight.w700
                             : FontWeight.w500,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1153,6 +1175,9 @@ class EditorImagePreview extends StatelessWidget {
 class EditorImageLoadError extends StatelessWidget {
   const EditorImageLoadError({super.key, required this.imageName});
 
+  static const double _minimumDetailedWidth = 200;
+  static const double _minimumDetailedHeight = 160;
+
   final String imageName;
 
   @override
@@ -1164,11 +1189,11 @@ class EditorImageLoadError extends StatelessWidget {
         color: _EditorVisualTokens.previewBackdropColor,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final shortestSide = math.min(
-              constraints.maxWidth,
-              constraints.maxHeight,
-            );
-            final isCompact = shortestSide.isFinite && shortestSide < 96;
+            final isCompact =
+                !constraints.maxWidth.isFinite ||
+                !constraints.maxHeight.isFinite ||
+                constraints.maxWidth < _minimumDetailedWidth ||
+                constraints.maxHeight < _minimumDetailedHeight;
             if (isCompact) {
               return const Center(
                 child: Icon(

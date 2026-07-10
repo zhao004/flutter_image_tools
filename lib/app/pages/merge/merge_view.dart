@@ -38,6 +38,9 @@ class MergeView extends GetView<MergeController> {
         imageMeta: images.isEmpty
             ? null
             : '${'merge.image.selectedCount'.trParams({'count': images.length.toString()})} · ${controller.formatBytes(controller.totalSizeBytes)}',
+        showPreviewInfo: false,
+        lockPreviewScroll: true,
+        expandPreviewToAvailableHeight: true,
         previewBuilder: (context, _) => _MergePreview(controller: controller),
         bottomToolbar: _MergeBottomToolPanel(controller: controller),
         resultSummary: result == null
@@ -70,34 +73,39 @@ class _MergePreview extends StatelessWidget {
       final borderColor = _parseColor(controller.borderColor.value.value);
       final cornerRadius = controller.cornerRadius.value.toDouble();
 
-      return ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 560),
-        child: AspectRatio(
-          aspectRatio: _previewAspectRatio(controller.mode.value),
-          child: DecoratedBox(
-            decoration: BoxDecoration(color: backgroundColor),
-            child: Padding(
-              padding: EdgeInsets.all(math.max(spacing, 6)),
-              child: _MergePreviewLayout(
-                images: images,
-                mode: controller.mode.value,
-                spacing: spacing,
-                borderWidth: borderWidth,
-                borderColor: borderColor,
-                cornerRadius: cornerRadius,
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final previewWidth = constraints.maxWidth.isFinite
+              ? math.max(1.0, math.min(constraints.maxWidth, 900)).toDouble()
+              : 900.0;
+          final previewHeight = constraints.maxHeight.isFinite
+              ? math.max(1.0, math.min(constraints.maxHeight, 560)).toDouble()
+              : 560.0;
+          final shortestSide = math.min(previewWidth, previewHeight);
+          final previewPadding = math
+              .min(math.max(spacing, 6), shortestSide * 0.2)
+              .toDouble();
+          return SizedBox(
+            width: previewWidth,
+            height: previewHeight,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: backgroundColor),
+              child: Padding(
+                padding: EdgeInsets.all(previewPadding),
+                child: _MergePreviewLayout(
+                  images: images,
+                  mode: controller.mode.value,
+                  spacing: spacing,
+                  borderWidth: borderWidth,
+                  borderColor: borderColor,
+                  cornerRadius: cornerRadius,
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       );
     });
-  }
-
-  double _previewAspectRatio(MergeMode mode) {
-    return switch (mode) {
-      MergeMode.horizontal => 16 / 9,
-      MergeMode.vertical => 3 / 4,
-    };
   }
 }
 
@@ -123,20 +131,79 @@ class _MergePreviewLayout extends StatelessWidget {
     if (images.isEmpty) {
       return const SizedBox.shrink();
     }
-    return switch (mode) {
-      MergeMode.horizontal => Row(
-        children: _withSpacing(
-          images.map((image) => Expanded(child: _tile(image))).toList(),
-          isHorizontal: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportWidth = constraints.maxWidth.isFinite
+            ? math.max(1.0, constraints.maxWidth)
+            : 900.0;
+        final viewportHeight = constraints.maxHeight.isFinite
+            ? math.max(1.0, constraints.maxHeight)
+            : 560.0;
+        return switch (mode) {
+          MergeMode.horizontal => _buildHorizontal(
+            viewportWidth: viewportWidth,
+            viewportHeight: viewportHeight,
+          ),
+          MergeMode.vertical => _buildVertical(
+            viewportWidth: viewportWidth,
+            viewportHeight: viewportHeight,
+          ),
+        };
+      },
+    );
+  }
+
+  Widget _buildHorizontal({
+    required double viewportWidth,
+    required double viewportHeight,
+  }) {
+    final tiles = images
+        .map(
+          (image) => SizedBox(
+            width: viewportHeight * _aspectRatio(image),
+            height: viewportHeight,
+            child: _tile(image),
+          ),
+        )
+        .toList(growable: false);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const ClampingScrollPhysics(),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minWidth: viewportWidth),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: _withSpacing(tiles, isHorizontal: true),
         ),
       ),
-      MergeMode.vertical => Column(
-        children: _withSpacing(
-          images.map((image) => Expanded(child: _tile(image))).toList(),
-          isHorizontal: false,
+    );
+  }
+
+  Widget _buildVertical({
+    required double viewportWidth,
+    required double viewportHeight,
+  }) {
+    final tiles = images
+        .map(
+          (image) => SizedBox(
+            width: viewportWidth,
+            height: viewportWidth / _aspectRatio(image),
+            child: _tile(image),
+          ),
+        )
+        .toList(growable: false);
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: viewportHeight),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: _withSpacing(tiles, isHorizontal: false),
         ),
       ),
-    };
+    );
   }
 
   Widget _tile(LocalImageFile image) {
@@ -146,6 +213,13 @@ class _MergePreviewLayout extends StatelessWidget {
       borderColor: borderColor,
       cornerRadius: cornerRadius,
     );
+  }
+
+  double _aspectRatio(LocalImageFile image) {
+    if (!image.hasValidDimensions || image.height <= 0) {
+      return 1;
+    }
+    return (image.width / image.height).clamp(0.05, 20);
   }
 
   List<Widget> _withSpacing(
@@ -237,7 +311,12 @@ class _MergeBottomToolPanel extends StatelessWidget {
           controller: controller,
           selectedTab: selectedTab,
         ),
-        maxPanelHeight: selectedTab == MergeToolbarTab.order ? 220 : 190,
+        maxPanelHeight: switch (selectedTab) {
+          MergeToolbarTab.layout => 156,
+          MergeToolbarTab.border => 236,
+          MergeToolbarTab.background => 112,
+          MergeToolbarTab.order => 220,
+        },
         showPanelHeader: false,
       );
     });
@@ -254,7 +333,10 @@ class _MergeToolPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (selectedTab) {
       MergeToolbarTab.layout => _LayoutToolPanel(controller: controller),
-      MergeToolbarTab.style => _StyleToolPanel(controller: controller),
+      MergeToolbarTab.border => _BorderToolPanel(controller: controller),
+      MergeToolbarTab.background => _BackgroundToolPanel(
+        controller: controller,
+      ),
       MergeToolbarTab.order => _OrderToolPanel(controller: controller),
     };
   }
@@ -271,15 +353,32 @@ class _LayoutToolPanel extends StatelessWidget {
       () => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          EditorOptionWrap<MergeMode>(
-            values: MergeMode.values,
-            selected: controller.mode.value,
-            labelFor: (value) => value.labelKey.tr,
-            enabled: !controller.isBusy.value,
-            onSelected: controller.setMode,
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<MergeMode>(
+              segments: MergeMode.values
+                  .map(
+                    (mode) => ButtonSegment<MergeMode>(
+                      value: mode,
+                      icon: Icon(
+                        mode == MergeMode.horizontal
+                            ? Icons.view_column_outlined
+                            : Icons.view_stream_outlined,
+                      ),
+                      label: Text(mode.labelKey.tr),
+                    ),
+                  )
+                  .toList(growable: false),
+              selected: <MergeMode>{controller.mode.value},
+              showSelectedIcon: false,
+              onSelectionChanged: controller.isBusy.value
+                  ? null
+                  : (selection) => controller.setMode(selection.first),
+            ),
           ),
           const SizedBox(height: 8),
           _LabeledSlider(
+            icon: Icons.space_bar,
             label: 'merge.layout.spacing'.trParams({
               'value': controller.spacing.value.toString(),
             }),
@@ -297,8 +396,8 @@ class _LayoutToolPanel extends StatelessWidget {
   }
 }
 
-class _StyleToolPanel extends StatelessWidget {
-  const _StyleToolPanel({required this.controller});
+class _BorderToolPanel extends StatelessWidget {
+  const _BorderToolPanel({required this.controller});
 
   final MergeController controller;
 
@@ -308,17 +407,8 @@ class _StyleToolPanel extends StatelessWidget {
       () => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ChoiceSection<MergeBackgroundColor>(
-            title: 'merge.layout.backgroundColor'.tr,
-            values: MergeBackgroundColor.values,
-            selected: controller.backgroundColor.value,
-            enabled: !controller.isBusy.value,
-            labelFor: (value) => value.labelKey.tr,
-            colorFor: (value) => _parseColor(value.value),
-            onSelected: controller.setBackgroundColor,
-          ),
-          const SizedBox(height: 8),
           _LabeledSlider(
+            icon: Icons.rounded_corner,
             label: 'merge.layout.cornerRadius'.trParams({
               'value': controller.cornerRadius.value.toString(),
             }),
@@ -332,6 +422,7 @@ class _StyleToolPanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _LabeledSlider(
+            icon: Icons.border_outer_outlined,
             label: 'merge.layout.borderWidth'.trParams({
               'value': controller.borderWidth.value.toString(),
             }),
@@ -344,7 +435,7 @@ class _StyleToolPanel extends StatelessWidget {
                 : controller.updateBorderWidth,
           ),
           const SizedBox(height: 8),
-          _ChoiceSection<MergeBorderColor>(
+          _ColorChoiceSection<MergeBorderColor>(
             title: 'merge.layout.borderColor'.tr,
             values: MergeBorderColor.values,
             selected: controller.borderColor.value,
@@ -354,6 +445,27 @@ class _StyleToolPanel extends StatelessWidget {
             onSelected: controller.setBorderColor,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BackgroundToolPanel extends StatelessWidget {
+  const _BackgroundToolPanel({required this.controller});
+
+  final MergeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => _ColorChoiceSection<MergeBackgroundColor>(
+        title: 'merge.layout.backgroundColor'.tr,
+        values: MergeBackgroundColor.values,
+        selected: controller.backgroundColor.value,
+        enabled: !controller.isBusy.value,
+        labelFor: (value) => value.labelKey.tr,
+        colorFor: (value) => _parseColor(value.value),
+        onSelected: controller.setBackgroundColor,
       ),
     );
   }
@@ -382,6 +494,7 @@ class _OrderToolPanel extends StatelessWidget {
 
 class _LabeledSlider extends StatelessWidget {
   const _LabeledSlider({
+    required this.icon,
     required this.label,
     required this.value,
     required this.min,
@@ -392,6 +505,7 @@ class _LabeledSlider extends StatelessWidget {
 
   static const double _touchTargetHeight = 48;
 
+  final IconData icon;
   final String label;
   final double value;
   final double min;
@@ -404,7 +518,32 @@ class _LabeledSlider extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            SizedBox(
+              width: 40,
+              child: Text(
+                value.round().toString(),
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+          ],
+        ),
         SizedBox(
           height: _touchTargetHeight,
           child: Slider(
@@ -421,15 +560,15 @@ class _LabeledSlider extends StatelessWidget {
   }
 }
 
-class _ChoiceSection<T> extends StatelessWidget {
-  const _ChoiceSection({
+class _ColorChoiceSection<T> extends StatelessWidget {
+  const _ColorChoiceSection({
     required this.title,
     required this.values,
     required this.selected,
     required this.enabled,
     required this.labelFor,
     required this.onSelected,
-    this.colorFor,
+    required this.colorFor,
   });
 
   final String title;
@@ -437,7 +576,7 @@ class _ChoiceSection<T> extends StatelessWidget {
   final T selected;
   final bool enabled;
   final String Function(T value) labelFor;
-  final Color Function(T value)? colorFor;
+  final Color Function(T value) colorFor;
   final ValueChanged<T> onSelected;
 
   @override
@@ -446,28 +585,54 @@ class _ChoiceSection<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 4),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: values
-                .map(
-                  (value) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      avatar: colorFor == null
-                          ? null
-                          : CircleAvatar(
-                              backgroundColor: colorFor!(value),
-                              radius: 8,
-                            ),
-                      label: Text(labelFor(value)),
-                      selected: selected == value,
-                      onSelected: enabled ? (_) => onSelected(value) : null,
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 52,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: values.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final value = values[index];
+              final label = labelFor(value);
+              final isSelected = selected == value;
+              return Semantics(
+                button: true,
+                selected: isSelected,
+                label: label,
+                child: Tooltip(
+                  message: label,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: enabled ? () => onSelected(value) : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 52,
+                      height: 52,
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outlineVariant,
+                          width: isSelected ? 3 : 1,
+                        ),
+                      ),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colorFor(value),
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                )
-                .toList(growable: false),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -520,7 +685,8 @@ Color _parseColor(String hex) {
 IconData _toolbarTabIcon(MergeToolbarTab tab) {
   return switch (tab) {
     MergeToolbarTab.layout => Icons.dashboard_customize_outlined,
-    MergeToolbarTab.style => Icons.palette_outlined,
+    MergeToolbarTab.border => Icons.tune,
+    MergeToolbarTab.background => Icons.format_color_fill_outlined,
     MergeToolbarTab.order => Icons.swap_vert_outlined,
   };
 }
