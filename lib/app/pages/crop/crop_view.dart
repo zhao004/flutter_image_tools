@@ -165,7 +165,7 @@ class _CropEditorState extends State<_CropEditor> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError || snapshot.data == null) {
-          return Center(child: Text('crop.error.pickImageFirst'.tr));
+          return EditorImageLoadError(imageName: widget.image.name);
         }
         final imageBytes = snapshot.data!;
         return Stack(

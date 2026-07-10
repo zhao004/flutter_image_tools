@@ -1,8 +1,29 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../models/local_image_file.dart';
+
+/// 图片编辑工作台视觉常量。
+///
+/// 设计意图：画布在浅色和深色主题下都保持稳定的中性深色，避免图片周围
+/// 背景随系统主题跳变；工具栏和动作按钮继续使用 Material 3 语义色。
+class _EditorVisualTokens {
+  const _EditorVisualTokens._();
+
+  static const Color canvasColor = Color(0xFF191B20);
+  static const Color canvasPanelColor = Color(0xE62A2E34);
+  static const Color canvasPanelBorderColor = Color(0x33FFFFFF);
+  static const Color previewBackdropColor = Color(0xFF252A30);
+  static const Color canvasTextColor = Color(0xFFF4F6F8);
+  static const Color canvasMutedTextColor = Color(0xFFB9C0C8);
+
+  static const double maxContentWidth = 920;
+  static const double stagePadding = 16;
+  static const double primaryToolbarHeight = 64;
+}
 
 /// 图片编辑底部一级工具模型。
 ///
@@ -31,12 +52,11 @@ class ToolSubItem {
   final IconData icon;
 }
 
-/// 图片编辑页通用骨架：选图前显示空状态，选图后展示统一五段式编辑布局。
+/// 图片编辑页通用工作台。
 ///
-/// 设计意图：滤镜、水印、裁剪、尺寸调整、翻转和旋转都遵循“先选图、
-/// 实时预览、标签切换、属性编辑”的交互，统一布局可以减少重复代码并保持
-/// 后续工具扩展一致。异常策略：组件只负责展示与触发回调，不持有文件处理状态，
-/// 避免通用层吞掉各工具控制器自己的校验和错误处理。
+/// 构建设计：顶部集中放置辅助操作和主导出动作，中间使用沉浸式深色画布，
+/// 参数面板与一级工具坞固定在底部。异常策略：组件只负责展示与触发回调，
+/// 不持有文件处理状态，业务校验和导出异常继续由各页面控制器处理。
 class ImageEditorScaffold extends StatelessWidget {
   const ImageEditorScaffold({
     super.key,
@@ -61,6 +81,7 @@ class ImageEditorScaffold extends StatelessWidget {
     this.showEditingControlsWhenEmpty = false,
     this.showPreviewInfo = true,
     this.showDefaultAppBarActions = true,
+    this.showRepickAction = true,
     this.expandPreviewToAvailableHeight = false,
     this.overlayToolbar = true,
   });
@@ -87,6 +108,7 @@ class ImageEditorScaffold extends StatelessWidget {
   final bool showEditingControlsWhenEmpty;
   final bool showPreviewInfo;
   final bool showDefaultAppBarActions;
+  final bool showRepickAction;
   final bool expandPreviewToAvailableHeight;
   final bool overlayToolbar;
 
@@ -114,42 +136,92 @@ class ImageEditorScaffold extends StatelessWidget {
           );
     final bottomToolbarSurface = bottomToolbar == null
         ? null
-        : _EditorBottomToolbarSurface(child: bottomToolbar!);
+        : _EditorBottomToolbarSurface(
+            elevated: overlayToolbar,
+            child: bottomToolbar!,
+          );
     final shouldShowToolbar =
         showEditingControls && bottomToolbarSurface != null;
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: _EditorVisualTokens.canvasColor,
       appBar: AppBar(
-        title: Text(title),
+        backgroundColor: colorScheme.surfaceContainerLowest,
+        surfaceTintColor: Colors.transparent,
+        shape: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+        titleSpacing: 4,
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          ...appBarActions,
           if (showDefaultAppBarActions) ...[
-            if (image != null)
+            if (showRepickAction && image != null)
               IconButton(
                 tooltip: repickLabel,
                 onPressed: isBusy ? null : onPickImage,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
               ),
-            IconButton(
-              tooltip: exportLabel,
-              onPressed: image == null || isBusy ? null : onExport,
-              icon: isBusy
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(exportIcon),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: _EditorExportAction(
+                label: exportLabel,
+                icon: exportIcon,
+                isBusy: isBusy,
+                onPressed: image == null || isBusy ? null : onExport,
+              ),
             ),
           ],
-          ...appBarActions,
         ],
       ),
-      body: SafeArea(
+      body: ColoredBox(
+        key: const ValueKey('editor-canvas-surface'),
+        color: _EditorVisualTokens.canvasColor,
         child: Column(
           children: [
-            Expanded(child: previewContent),
+            Expanded(
+              child: SafeArea(
+                top: false,
+                bottom: !shouldShowToolbar,
+                child: previewContent,
+              ),
+            ),
             if (shouldShowToolbar) bottomToolbarSurface,
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EditorExportAction extends StatelessWidget {
+  const _EditorExportAction({
+    required this.label,
+    required this.icon,
+    required this.isBusy,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isBusy;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final progress = SizedBox.square(
+      dimension: 18,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: onPressed == null
+            ? colorScheme.onSurfaceVariant
+            : colorScheme.onPrimary,
+      ),
+    );
+    return IconButton.filled(
+      key: const ValueKey('editor-export-action'),
+      tooltip: label,
+      onPressed: onPressed,
+      icon: isBusy ? progress : Icon(icon),
     );
   }
 }
@@ -174,39 +246,55 @@ class _EditorEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 72, color: colorScheme.primary),
-                  const SizedBox(height: 18),
-                  Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 8),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          key: const ValueKey('editor-empty-state'),
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.34),
                   ),
-                  const SizedBox(height: 20),
-                  FilledButton.icon(
-                    onPressed: isBusy ? null : onPickImage,
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(buttonLabel),
-                  ),
-                ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Icon(icon, size: 48, color: colorScheme.primaryFixed),
+                ),
               ),
-            ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: _EditorVisualTokens.canvasTextColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: _EditorVisualTokens.canvasMutedTextColor,
+                ),
+              ),
+              const SizedBox(height: 22),
+              FilledButton.icon(
+                onPressed: isBusy ? null : onPickImage,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: Text(buttonLabel),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -222,9 +310,6 @@ class _EditorPreviewStage extends StatelessWidget {
     required this.expandPreviewToAvailableHeight,
   });
 
-  static const double _stagePadding = 16;
-  static const double _previewInfoReservedHeight = 52;
-  static const double _resultSummaryReservedHeight = 48;
   static const double _minimumExpandedPreviewHeight = 160;
 
   final LocalImageFile image;
@@ -241,71 +326,162 @@ class _EditorPreviewStage extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight.isFinite
-            ? constraints.maxHeight - _stagePadding * 2
-            : null;
+            ? constraints.maxHeight
+            : 560.0;
+        final topInset = showPreviewInfo ? 76.0 : 20.0;
+        final bottomInset = resultSummary == null ? 20.0 : 72.0;
+        final contentHeight = math.max(
+          0.0,
+          availableHeight - topInset - bottomInset,
+        );
         final previewFrame = _PreviewFrame(
           child: previewBuilder(context, image),
         );
-        final reservedHeight =
-            (showPreviewInfo ? _previewInfoReservedHeight : 0) +
-            (resultSummary == null ? 0 : _resultSummaryReservedHeight);
-        final expandedPreviewHeight = availableHeight == null
-            ? null
-            : (availableHeight - reservedHeight).clamp(
-                _minimumExpandedPreviewHeight,
-                availableHeight,
-              );
+        final expandedPreviewHeight = math.max(
+          math.min(_minimumExpandedPreviewHeight, availableHeight),
+          contentHeight,
+        );
 
-        return Center(
-          child: SingleChildScrollView(
-            physics: lockPreviewScroll
-                ? const NeverScrollableScrollPhysics()
-                : null,
-            padding: const EdgeInsets.all(_stagePadding),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 920,
-                minHeight: availableHeight ?? 0,
+        return Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Positioned.fill(
+              child: Center(
+                child: SingleChildScrollView(
+                  physics: lockPreviewScroll
+                      ? const NeverScrollableScrollPhysics()
+                      : null,
+                  padding: EdgeInsets.fromLTRB(
+                    _EditorVisualTokens.stagePadding,
+                    topInset,
+                    _EditorVisualTokens.stagePadding,
+                    bottomInset,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: _EditorVisualTokens.maxContentWidth,
+                      minHeight: contentHeight,
+                    ),
+                    child: Center(
+                      child: expandPreviewToAvailableHeight
+                          ? SizedBox(
+                              height: expandedPreviewHeight,
+                              child: Center(child: previewFrame),
+                            )
+                          : previewFrame,
+                    ),
+                  ),
+                ),
               ),
+            ),
+            if (showPreviewInfo)
+              Positioned(
+                top: 12,
+                left: 12,
+                right: 12,
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: _EditorImageInfoOverlay(image: image, meta: meta),
+                  ),
+                ),
+              ),
+            if (resultSummary != null)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 620),
+                    child: _EditorCanvasOverlaySurface(
+                      key: const ValueKey('editor-result-overlay'),
+                      child: resultSummary!,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _EditorImageInfoOverlay extends StatelessWidget {
+  const _EditorImageInfoOverlay({required this.image, required this.meta});
+
+  final LocalImageFile image;
+  final String? meta;
+
+  @override
+  Widget build(BuildContext context) {
+    final tooltip = meta == null ? image.name : '${image.name}\n$meta';
+    return Tooltip(
+      message: tooltip,
+      child: _EditorCanvasOverlaySurface(
+        key: const ValueKey('editor-image-info-overlay'),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.image_outlined,
+              size: 18,
+              color: _EditorVisualTokens.canvasMutedTextColor,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (expandPreviewToAvailableHeight &&
-                      expandedPreviewHeight != null)
-                    SizedBox(
-                      height: expandedPreviewHeight,
-                      child: Center(child: previewFrame),
-                    )
-                  else
-                    previewFrame,
-                  if (showPreviewInfo) ...[
-                    const SizedBox(height: 12),
+                  Text(
+                    image.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: _EditorVisualTokens.canvasTextColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (meta != null)
                     Text(
-                      image.name,
+                      meta!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    if (meta != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        meta!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _EditorVisualTokens.canvasMutedTextColor,
                       ),
-                    ],
-                  ],
-                  if (resultSummary != null) ...[
-                    const SizedBox(height: 10),
-                    resultSummary!,
-                  ],
+                    ),
                 ],
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorCanvasOverlaySurface extends StatelessWidget {
+  const _EditorCanvasOverlaySurface({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _EditorVisualTokens.canvasPanelColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _EditorVisualTokens.canvasPanelBorderColor),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: child,
+      ),
     );
   }
 }
@@ -317,27 +493,31 @@ class _PreviewFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
+      key: const ValueKey('editor-preview-frame'),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: _EditorVisualTokens.previewBackdropColor,
+        border: Border.all(color: _EditorVisualTokens.canvasPanelBorderColor),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.10),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
+            color: Colors.black.withValues(alpha: 0.38),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: child,
+      child: ClipRect(child: child),
     );
   }
 }
 
 class _EditorBottomToolbarSurface extends StatelessWidget {
-  const _EditorBottomToolbarSurface({required this.child});
+  const _EditorBottomToolbarSurface({
+    required this.elevated,
+    required this.child,
+  });
 
+  final bool elevated;
   final Widget child;
 
   @override
@@ -348,22 +528,27 @@ class _EditorBottomToolbarSurface extends StatelessWidget {
       child: DecoratedBox(
         key: const ValueKey('editor-bottom-toolbar-surface'),
         decoration: BoxDecoration(
-          color: colorScheme.surface.withValues(alpha: 0.98),
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.12),
-              blurRadius: 18,
-              offset: const Offset(0, -6),
-            ),
-          ],
+          boxShadow: elevated
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    blurRadius: 20,
+                    offset: const Offset(0, -8),
+                  ),
+                ]
+              : null,
         ),
         child: Align(
           alignment: Alignment.bottomCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 920),
+            constraints: const BoxConstraints(
+              maxWidth: _EditorVisualTokens.maxContentWidth,
+            ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: child,
             ),
           ),
@@ -413,34 +598,57 @@ class EditorDynamicToolPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viewportSize = MediaQuery.sizeOf(context);
+    final isLandscape = viewportSize.width > viewportSize.height;
+    final responsivePanelLimit = math.max(
+      72.0,
+      (viewportSize.height - kToolbarHeight) * (isLandscape ? 0.28 : 0.36),
+    );
+    final effectiveMaxPanelHeight = math.min(
+      maxPanelHeight,
+      responsivePanelLimit,
+    );
     final activeCategory = _activeCategory;
     final hasActiveSubItems = activeCategory?.subItems.isNotEmpty ?? false;
     final hasActivePanel = activePanel != null && activePanel is! SizedBox;
     final shouldShowSubPanel = activePanel != null || hasActiveSubItems;
-    final compactSubPanelHeight = maxPanelHeight.clamp(48, 64).toDouble();
+    final compactSubPanelHeight = effectiveMaxPanelHeight
+        .clamp(48, 64)
+        .toDouble();
     final compactLayerCount =
         (hasActiveSubItems ? 1 : 0) + (hasActivePanel ? 1 : 0);
     final double stackedCompactHeight =
         (compactLayerCount * compactSubPanelHeight).toDouble() +
         (compactLayerCount > 1 ? 8.0 : 0.0);
+    final compactPanelHeight = stackCompactPanel
+        ? stackedCompactHeight
+        : compactSubPanelHeight;
     final double compactToolbarHeight = shouldShowSubPanel
-        ? stackCompactPanel
-              ? (stackedCompactHeight < 60.0 ? 60.0 : stackedCompactHeight)
-              : 60.0 + 8.0 + compactSubPanelHeight
-        : 60.0;
+        ? _EditorVisualTokens.primaryToolbarHeight + 8.0 + compactPanelHeight
+        : _EditorVisualTokens.primaryToolbarHeight;
     final primaryTools = SizedBox(
       key: const ValueKey('editor-primary-tool-tabs'),
-      height: 60,
-      child: ListView.builder(
-        clipBehavior: Clip.none,
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
-        itemBuilder: (context, index) {
-          final item = categories[index];
-          return _PrimaryToolButton(
-            category: item,
-            selected: item.id == activeCategoryId,
-            onTap: () => onCategorySelected(item),
+      height: _EditorVisualTokens.primaryToolbarHeight,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            clipBehavior: Clip.none,
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: categories
+                    .map(
+                      (item) => _PrimaryToolButton(
+                        category: item,
+                        selected: item.id == activeCategoryId,
+                        onTap: () => onCategorySelected(item),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ),
           );
         },
       ),
@@ -455,12 +663,13 @@ class EditorDynamicToolPanel extends StatelessWidget {
             primaryTools,
             if (shouldShowSubPanel)
               Positioned(
+                key: const ValueKey('editor-compact-tool-panel'),
                 left: 0,
                 right: 0,
-                bottom: stackCompactPanel ? 0 : 68,
+                bottom: _EditorVisualTokens.primaryToolbarHeight + 8,
                 child: _DynamicToolSubPanel(
                   title: activePanelTitle ?? activeCategory?.name,
-                  maxHeight: maxPanelHeight,
+                  maxHeight: effectiveMaxPanelHeight,
                   subItems: activeCategory?.subItems ?? const <ToolSubItem>[],
                   activeSubItemId: activeSubItemId,
                   onSubItemSelected: onSubItemSelected,
@@ -480,18 +689,20 @@ class EditorDynamicToolPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (shouldShowSubPanel) ...[
-          _DynamicToolSubPanel(
-            title: activePanelTitle ?? activeCategory?.name,
-            maxHeight: maxPanelHeight,
-            subItems: activeCategory?.subItems ?? const <ToolSubItem>[],
-            activeSubItemId: activeSubItemId,
-            onSubItemSelected: onSubItemSelected,
-            onClosePanel: onClosePanel,
-            onConfirmPanel: onConfirmPanel,
-            showHeader: showPanelHeader,
-            compact: compactPanel,
-            stackCompactPanel: stackCompactPanel,
-            child: activePanel ?? const SizedBox.shrink(),
+          _ToolParameterSurface(
+            child: _DynamicToolSubPanel(
+              title: activePanelTitle ?? activeCategory?.name,
+              maxHeight: effectiveMaxPanelHeight,
+              subItems: activeCategory?.subItems ?? const <ToolSubItem>[],
+              activeSubItemId: activeSubItemId,
+              onSubItemSelected: onSubItemSelected,
+              onClosePanel: onClosePanel,
+              onConfirmPanel: onConfirmPanel,
+              showHeader: showPanelHeader,
+              compact: compactPanel,
+              stackCompactPanel: stackCompactPanel,
+              child: activePanel ?? const SizedBox.shrink(),
+            ),
           ),
           const SizedBox(height: 8),
         ],
@@ -507,6 +718,32 @@ class EditorDynamicToolPanel extends StatelessWidget {
       }
     }
     return null;
+  }
+}
+
+class _ToolParameterSurface extends StatelessWidget {
+  const _ToolParameterSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      key: const ValueKey('editor-tool-parameter-surface'),
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: child,
+        ),
+      ),
+    );
   }
 }
 
@@ -556,6 +793,10 @@ class _DynamicToolSubPanel extends StatelessWidget {
                     if (onClosePanel != null)
                       IconButton(
                         visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 48,
+                          height: 48,
+                        ),
                         tooltip: MaterialLocalizations.of(
                           context,
                         ).closeButtonTooltip,
@@ -576,6 +817,10 @@ class _DynamicToolSubPanel extends StatelessWidget {
                     if (onConfirmPanel != null)
                       IconButton(
                         visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 48,
+                          height: 48,
+                        ),
                         tooltip: MaterialLocalizations.of(
                           context,
                         ).okButtonLabel,
@@ -657,6 +902,10 @@ class _DynamicToolSubPanel extends StatelessWidget {
             if (onClosePanel != null)
               IconButton(
                 visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 48,
+                  height: 48,
+                ),
                 tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                 onPressed: onClosePanel,
                 icon: const Icon(Icons.close),
@@ -674,6 +923,10 @@ class _DynamicToolSubPanel extends StatelessWidget {
             if (onConfirmPanel != null)
               IconButton(
                 visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 48,
+                  height: 48,
+                ),
                 tooltip: MaterialLocalizations.of(context).okButtonLabel,
                 onPressed: onConfirmPanel,
                 icon: const Icon(Icons.check),
@@ -714,13 +967,13 @@ class _CompactToolOverlaySurface extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 920),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: colorScheme.surface.withValues(alpha: 0.98),
-            borderRadius: BorderRadius.circular(16),
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: colorScheme.outlineVariant),
             boxShadow: [
               BoxShadow(
-                color: colorScheme.shadow.withValues(alpha: 0.14),
-                blurRadius: 18,
+                color: Colors.black.withValues(alpha: 0.20),
+                blurRadius: 20,
                 offset: const Offset(0, -6),
               ),
             ],
@@ -749,30 +1002,55 @@ class _PrimaryToolButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final foreground = selected ? colorScheme.primary : colorScheme.onSurface;
-    return SizedBox(
-      width: 72,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
+    final foreground = selected
+        ? colorScheme.onSecondaryContainer
+        : colorScheme.onSurfaceVariant;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: category.name,
+      child: Tooltip(
+        message: category.name,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(category.icon, size: 24, color: foreground),
-              const SizedBox(height: 4),
-              Text(
-                category.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: foreground,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: onTap,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                width: 72,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? colorScheme.secondaryContainer
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(category.icon, size: 22, color: foreground),
+                    const SizedBox(height: 3),
+                    Text(
+                      category.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: foreground,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -797,11 +1075,18 @@ class _SecondaryToolButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
-        avatar: Icon(item.icon, size: 18),
+        avatar: Icon(
+          item.icon,
+          size: 18,
+          color: selected
+              ? colorScheme.onSecondaryContainer
+              : colorScheme.onSurfaceVariant,
+        ),
         label: Text(item.name),
         selected: selected,
         onSelected: (_) => onTap(),
         selectedColor: colorScheme.secondaryContainer,
+        showCheckmark: false,
       ),
     );
   }
@@ -832,7 +1117,13 @@ class EditorImagePreview extends StatelessWidget {
     final preview = Stack(
       fit: StackFit.expand,
       children: [
-        Image.file(File(image.path), fit: fit),
+        Image.file(
+          File(image.path),
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) {
+            return EditorImageLoadError(imageName: image.name);
+          },
+        ),
         ?child,
       ],
     );
@@ -850,6 +1141,77 @@ class EditorImagePreview extends StatelessWidget {
                 transform: transform!,
                 child: filteredPreview,
               ),
+      ),
+    );
+  }
+}
+
+/// 统一图片加载失败占位。
+///
+/// 构建设计：大预览显示错误说明和文件名，小型缩略图只显示错误图标并通过
+/// Tooltip 提供完整信息，避免在水印或拼接缩略图中产生文本溢出。
+class EditorImageLoadError extends StatelessWidget {
+  const EditorImageLoadError({super.key, required this.imageName});
+
+  final String imageName;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = '${'common.imageLoadFailed'.tr}\n$imageName';
+    return Tooltip(
+      message: message,
+      child: ColoredBox(
+        color: _EditorVisualTokens.previewBackdropColor,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final shortestSide = math.min(
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
+            final isCompact = shortestSide.isFinite && shortestSide < 96;
+            if (isCompact) {
+              return const Center(
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  size: 28,
+                  color: _EditorVisualTokens.canvasMutedTextColor,
+                ),
+              );
+            }
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.broken_image_outlined,
+                      size: 40,
+                      color: _EditorVisualTokens.canvasMutedTextColor,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'common.imageLoadFailed'.tr,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: _EditorVisualTokens.canvasTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      imageName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _EditorVisualTokens.canvasMutedTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -915,6 +1277,11 @@ class EditorResultPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.28),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

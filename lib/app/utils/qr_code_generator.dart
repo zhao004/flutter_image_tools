@@ -88,6 +88,14 @@ class QrCodeGenerator {
     );
   }
 
+  /// 返回指定阶数的 Reed-Solomon 生成多项式系数，供标准码字回归测试使用。
+  static List<int> generatorPolynomialForTesting(int degree) {
+    if (degree < 1 || degree > 68) {
+      throw ArgumentError('纠错多项式阶数必须在 1 到 68 之间');
+    }
+    return List<int>.unmodifiable(_generatorPolynomial(degree));
+  }
+
   static int _versionForLength(int length) {
     for (var version = 1; version <= _dataCodewords.length; version++) {
       if (length <= _byteCapacity(version)) {
@@ -410,9 +418,10 @@ class QrCodeGenerator {
     var poly = <int>[1];
     for (var i = 0; i < degree; i++) {
       final next = List<int>.filled(poly.length + 1, 0);
+      final root = _gfPow(2, i);
       for (var j = 0; j < poly.length; j++) {
-        next[j] ^= _gfMultiply(poly[j], _gfPow(2, i));
-        next[j + 1] ^= poly[j];
+        next[j] ^= poly[j];
+        next[j + 1] ^= _gfMultiply(poly[j], root);
       }
       poly = next;
     }

@@ -29,6 +29,18 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('Version 1-L 使用标准七阶 Reed-Solomon 生成多项式', () {
+      expect(QrCodeGenerator.generatorPolynomialForTesting(7), [
+        127,
+        122,
+        154,
+        164,
+        11,
+        68,
+        117,
+      ]);
+    });
   });
 
   group('BarcodeGenerator', () {

@@ -195,7 +195,7 @@ class _GenerateCard extends StatelessWidget {
                     label: Text(
                       controller.isBusy.value
                           ? 'qrcode.action.generating'.tr
-                          : 'common.saveToGallery'.tr,
+                          : 'qrcode.action.generateQr'.tr,
                     ),
                   ),
                   FilledButton.tonalIcon(
@@ -203,7 +203,7 @@ class _GenerateCard extends StatelessWidget {
                         ? null
                         : controller.generateBarcode,
                     icon: const Icon(Icons.view_week_outlined),
-                    label: Text('common.saveToGallery'.tr),
+                    label: Text('qrcode.action.generateBarcode'.tr),
                   ),
                 ],
               ),

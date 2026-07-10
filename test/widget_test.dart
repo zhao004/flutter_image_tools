@@ -32,6 +32,8 @@ import 'package:flutter_image_tools/app/pages/filter/filter_view.dart'
     as filter_page;
 import 'package:flutter_image_tools/app/pages/gif/gif_controller.dart';
 import 'package:flutter_image_tools/app/pages/gif/gif_view.dart';
+import 'package:flutter_image_tools/app/pages/grid/grid_controller.dart';
+import 'package:flutter_image_tools/app/pages/grid/grid_view.dart' as grid_page;
 import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
 import 'package:flutter_image_tools/app/pages/image_watermark/image_watermark_controller.dart';
@@ -80,6 +82,8 @@ void main() {
     expect(find.text('设置'), findsNothing);
     expect(find.byIcon(Icons.more_vert), findsNothing);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+
+    await _closeRegisteredAppDatabase();
   });
 
   testWidgets('显示英文首页内容', (WidgetTester tester) async {
@@ -94,6 +98,8 @@ void main() {
     expect(find.text('Settings'), findsNothing);
     expect(find.byIcon(Icons.more_vert), findsNothing);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+
+    await _closeRegisteredAppDatabase();
   });
 
   testWidgets('设置页加载后显示已保存的功能设置', (WidgetTester tester) async {
@@ -381,7 +387,8 @@ void main() {
     expect(find.text('QR Code'), findsOneWidget);
     expect(find.text('Generate QR Code / Barcode'), findsOneWidget);
     expect(find.text('Enter text, a link, or a short note'), findsOneWidget);
-    expect(find.text('Save to Gallery'), findsWidgets);
+    expect(find.text('Generate QR Code'), findsOneWidget);
+    expect(find.text('Generate Barcode'), findsOneWidget);
 
     expect(find.text('Scan QR Code / Barcode'), findsOneWidget);
     expect(
@@ -434,8 +441,8 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('统一编辑器选图后显示五段式布局', (WidgetTester tester) async {
-    // 直接验证通用骨架的导航、画布、标签、属性面板和底部动作栏，避免单测依赖真实图片解码。
+  testWidgets('统一编辑器选图后显示沉浸式工作台', (WidgetTester tester) async {
+    // 验证顶部主操作、深色画布、状态浮层和底部工具区，避免单测依赖真实图片解码。
     await tester.pumpWidget(
       GetMaterialApp(
         translations: AppTranslations(),
@@ -478,10 +485,253 @@ void main() {
     expect(find.text('Grid Split'), findsOneWidget);
     expect(find.byIcon(Icons.add_photo_alternate_outlined), findsOneWidget);
     expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsNothing);
+    expect(find.byKey(const ValueKey('editor-export-action')), findsOneWidget);
+    final exportButton = tester.widget<IconButton>(
+      find.byKey(const ValueKey('editor-export-action')),
+    );
+    expect(exportButton.tooltip, 'Save to Gallery');
+    expect(find.byKey(const ValueKey('editor-canvas-surface')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('editor-image-info-overlay')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('editor-result-overlay')), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-canvas')), findsOneWidget);
     expect(find.text('preview.png'), findsOneWidget);
     expect(find.text('Bottom Toolbar'), findsOneWidget);
     expect(find.text('Result Summary'), findsOneWidget);
+  });
+
+  testWidgets('统一编辑器窄屏图标导出按钮不溢出', (WidgetTester tester) async {
+    // 窄屏继续保留纯图标主操作和 Tooltip，避免标题与辅助动作挤压。
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: ImageEditorScaffold(
+          title: 'Image Compression',
+          selectedImage: const LocalImageFile(
+            path: 'preview.png',
+            name: 'preview.png',
+            sizeBytes: 1024,
+            mimeType: 'image/png',
+            width: 800,
+            height: 600,
+          ),
+          isBusy: false,
+          emptyIcon: Icons.compress,
+          emptyTitle: 'Select Image',
+          emptyMessage: 'Select an image first.',
+          pickLabel: 'Select One',
+          repickLabel: 'Select Again',
+          exportLabel: 'Save to Gallery',
+          exportIcon: Icons.save_outlined,
+          onPickImage: () {},
+          onExport: () {},
+          previewBuilder: (context, image) =>
+              const SizedBox(width: 240, height: 160),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('editor-export-action')), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byKey(const ValueKey('editor-export-action')),
+          )
+          .tooltip,
+      'Save to Gallery',
+    );
+    expect(find.text('Save to Gallery'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('图片预览失败时显示错误占位', (WidgetTester tester) async {
+    // 无效文件路径必须落到可理解的占位状态，而不是向测试或页面抛出构建异常。
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const Scaffold(
+          body: Center(
+            child: EditorImagePreview(
+              image: LocalImageFile(
+                path: 'missing-image.png',
+                name: 'missing-image.png',
+                sizeBytes: 1024,
+                mimeType: 'image/png',
+                width: 800,
+                height: 600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump();
+
+    expect(find.text('Image failed to load'), findsOneWidget);
+    expect(find.text('missing-image.png'), findsOneWidget);
+    expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+  });
+
+  testWidgets('小缩略图坏图占位仅显示图标', (WidgetTester tester) async {
+    // 缩略图空间不足时隐藏长文本，通过 Tooltip 保留错误详情，避免产生布局溢出。
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const Scaffold(
+          body: Center(
+            child: SizedBox.square(
+              dimension: 64,
+              child: EditorImageLoadError(imageName: 'missing-thumb.png'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+    expect(find.text('Image failed to load'), findsNothing);
+    expect(find.text('missing-thumb.png'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('紧凑堆叠参数面板位于一级工具栏上方', (WidgetTester tester) async {
+    // 堆叠面板必须完整占用自身高度，并与固定一级工具栏保留间距。
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: EditorDynamicToolPanel(
+              categories: const [
+                ToolCategory(
+                  id: 'draw',
+                  name: 'Draw',
+                  icon: Icons.draw_outlined,
+                  subItems: [
+                    ToolSubItem(
+                      id: 'brush',
+                      name: 'Brush',
+                      icon: Icons.brush_outlined,
+                    ),
+                  ],
+                ),
+              ],
+              activeCategoryId: 'draw',
+              activeSubItemId: 'brush',
+              onCategorySelected: (_) {},
+              onSubItemSelected: (_) {},
+              activePanel: const Text('Brush Settings'),
+              compactPanel: true,
+              stackCompactPanel: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final parameterPanelRect = tester.getRect(
+      find.byKey(const ValueKey('editor-compact-tool-panel')),
+    );
+    final primaryToolbarRect = tester.getRect(
+      find.byKey(const ValueKey('editor-primary-tool-tabs')),
+    );
+    expect(
+      parameterPanelRect.bottom,
+      lessThanOrEqualTo(primaryToolbarRect.top),
+    );
+    expect(parameterPanelRect.overlaps(primaryToolbarRect), isFalse);
+    expect(find.text('Brush Settings'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('短横屏编辑器保留可操作画布空间', (WidgetTester tester) async {
+    // 参数面板按可用高度收缩，避免短横屏下工具区吞没整个图片画布。
+    tester.view.physicalSize = const Size(720, 360);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: ImageEditorScaffold(
+          title: 'Landscape Editor',
+          selectedImage: const LocalImageFile(
+            path: 'preview.png',
+            name: 'preview.png',
+            sizeBytes: 1024,
+            mimeType: 'image/png',
+            width: 1200,
+            height: 800,
+          ),
+          isBusy: false,
+          emptyIcon: Icons.image_outlined,
+          emptyTitle: 'Select Image',
+          emptyMessage: 'Select an image first.',
+          pickLabel: 'Select One',
+          repickLabel: 'Select Again',
+          exportLabel: 'Save',
+          exportIcon: Icons.save_outlined,
+          onPickImage: () {},
+          onExport: () {},
+          showPreviewInfo: false,
+          expandPreviewToAvailableHeight: true,
+          previewBuilder: (context, image) => const SizedBox.expand(
+            key: ValueKey('landscape-editor-canvas'),
+            child: ColoredBox(color: Colors.black12),
+          ),
+          bottomToolbar: EditorDynamicToolPanel(
+            categories: const [
+              ToolCategory(id: 'settings', name: 'Settings', icon: Icons.tune),
+            ],
+            activeCategoryId: 'settings',
+            onCategorySelected: (_) {},
+            activePanel: const SizedBox(
+              height: 260,
+              child: Text('Tall Settings Panel'),
+            ),
+            maxPanelHeight: 300,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final canvasSize = tester.getSize(
+      find.byKey(const ValueKey('landscape-editor-canvas')),
+    );
+    expect(canvasSize.height, greaterThanOrEqualTo(72));
+    expect(
+      find.byKey(const ValueKey('editor-tool-parameter-surface')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('统一编辑器底部导航占位顶起预览区', (WidgetTester tester) async {
@@ -1274,6 +1524,7 @@ void main() {
     expect(find.text('Select Batch'), findsNothing);
     expect(find.text('Compression Quality'), findsWidgets);
     expect(find.text('Current Quality: 80%'), findsOneWidget);
+    expect(find.byKey(const ValueKey('editor-export-action')), findsOneWidget);
     expect(find.text('Save to Gallery'), findsNothing);
 
     await database.close();
@@ -1316,6 +1567,7 @@ void main() {
     expect(find.text('PNG'), findsOneWidget);
     expect(find.text('Export Quality: 95%'), findsOneWidget);
     expect(find.text('JPG and WebP use the export quality.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('editor-export-action')), findsOneWidget);
     expect(find.text('Save to Gallery'), findsNothing);
 
     await database.close();
@@ -1491,6 +1743,15 @@ void main() {
     expect(find.text('Grid'), findsNothing);
     expect(find.text('Long Image'), findsNothing);
     expect(find.text('Image Spacing: 8px'), findsOneWidget);
+    final spacingSlider = find.byType(Slider);
+    expect(spacingSlider, findsOneWidget);
+    expect(tester.getSize(spacingSlider).height, greaterThanOrEqualTo(48));
+
+    await tester.drag(spacingSlider, const Offset(800, 0));
+    await tester.pump();
+
+    expect(Get.find<MergeController>().spacing.value, 100);
+    expect(find.text('Image Spacing: 100px'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -1598,6 +1859,87 @@ void main() {
     expect(find.text('Scale: 25%'), findsOneWidget);
     expect(find.text('Rotation: 0°'), findsOneWidget);
     expect(find.text('Watermark Settings'), findsNothing);
+    final disabledExportButton = tester.widget<IconButton>(
+      find.byKey(const ValueKey('editor-export-action')),
+    );
+    expect(disabledExportButton.onPressed, isNull);
+
+    controller.selectedWatermark.value = const LocalImageFile(
+      path: 'watermark_logo.png',
+      name: 'watermark_logo.png',
+      sizeBytes: 320,
+      mimeType: 'image/png',
+      width: 128,
+      height: 128,
+    );
+    await tester.pump();
+
+    final enabledExportButton = tester.widget<IconButton>(
+      find.byKey(const ValueKey('editor-export-action')),
+    );
+    expect(enabledExportButton.onPressed, isNotNull);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('宫格自定义预览错误回调使用统一占位', (WidgetTester tester) async {
+    // 直接执行自定义 Image.file 的错误回调，避免文件系统异步时序影响测试稳定性。
+    final database = AppDatabase(NativeDatabase.memory());
+    final controller = GridController(
+      imageChannel: LocalImageChannel(),
+      historyRepository: OperationHistoryRepository(database: database),
+      recentFilesRepository: RecentFilesRepository(database: database),
+    );
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'missing-grid-image.png',
+      name: 'missing-grid-image.png',
+      sizeBytes: 512,
+      mimeType: 'image/png',
+      width: 800,
+      height: 600,
+    );
+    Get.put(controller);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const grid_page.GridView(),
+      ),
+    );
+    await tester.pump();
+
+    final gridImageFinder = find.byType(Image);
+    expect(gridImageFinder, findsOneWidget);
+    final gridImage = tester.widget<Image>(gridImageFinder);
+    expect(gridImage.errorBuilder, isNotNull);
+    final errorPlaceholder = gridImage.errorBuilder!(
+      gridImageFinder.evaluate().single,
+      StateError('测试坏图'),
+      StackTrace.current,
+    );
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(width: 240, height: 160, child: errorPlaceholder),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+    expect(find.text('Image failed to load'), findsOneWidget);
+    expect(find.text('missing-grid-image.png'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
     await database.close();
     Get.reset();
@@ -1686,7 +2028,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Save to Gallery'), findsWidgets);
+    expect(find.text('Create GIF'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -1727,4 +2069,13 @@ class _DelayedSettingsRepository extends AppSettingsRepository {
     await Future<void>.delayed(delay);
     return super.getDefaultExportDirectory();
   }
+}
+
+Future<void> _closeRegisteredAppDatabase() async {
+  // 根应用测试会通过 InitialBinding 延迟创建真实数据库；
+  // 测试结束必须主动关闭并清理 GetX，避免后续内存数据库触发重复实例告警。
+  if (Get.isRegistered<AppDatabase>()) {
+    await Get.find<AppDatabase>().close();
+  }
+  Get.reset();
 }

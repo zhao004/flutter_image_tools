@@ -38,7 +38,7 @@ class AnnotationView extends GetView<AnnotationController> {
         onPickImage: controller.pickImage,
         onExport: controller.exportEditedImage,
         showPreviewInfo: false,
-        showDefaultAppBarActions: false,
+        showRepickAction: false,
         expandPreviewToAvailableHeight: true,
         overlayToolbar: true,
         lockPreviewScroll: true,
@@ -95,18 +95,6 @@ class _AnnotationTopActions extends StatelessWidget {
               onPressed: isBusy ? null : controller.deleteSelectedObject,
               icon: const Icon(Icons.delete_outline),
             ),
-          IconButton(
-            tooltip: 'common.saveToGallery'.tr,
-            onPressed: image == null || isBusy
-                ? null
-                : controller.exportEditedImage,
-            icon: isBusy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-          ),
         ],
       );
     });
@@ -190,8 +178,8 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                 File(widget.image.path),
                 fit: BoxFit.fill,
                 errorBuilder: (context, error, stackTrace) {
-                  // 异常策略：预览图片路径失效时保持画布可用，避免图片解码失败阻断标注层交互。
-                  return const SizedBox.shrink();
+                  // 异常策略：底图失效时保留标注层结构，同时明确提示文件无法加载。
+                  return EditorImageLoadError(imageName: widget.image.name);
                 },
               ),
               AnimatedBuilder(

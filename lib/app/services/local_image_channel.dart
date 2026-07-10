@@ -31,11 +31,13 @@ import '../models/pdf_pages_image_export.dart';
 import '../models/resized_image_file.dart';
 import '../models/rotated_image_file.dart';
 import '../models/watermarked_image_file.dart';
+import '../utils/platform_path.dart';
+import 'gif_processing_service.dart';
 
 /// 本地图片能力服务，封装选图、相册保存和图片处理。
 ///
 /// 设计意图：常用图片能力使用 Flutter 插件和 Dart 侧图像处理，减少平台通道
-/// 依赖；PDF、GIF、EXIF 和扫码等复杂能力暂保留原生通道，避免一次性迁移扩大风险。
+/// 依赖；GIF 使用后台 isolate 处理，PDF、EXIF 和扫码等能力保留原生通道。
 class LocalImageChannel {
   LocalImageChannel({MethodChannel? channel, ImagePicker? imagePicker})
     : _channel = channel ?? const MethodChannel(_channelName),
@@ -1027,7 +1029,7 @@ class LocalImageChannel {
       if (cropLeftRatio == null ||
           cropTopRatio == null ||
           cropSizeRatio == null ||
-          !_isValidGridCropRatio(
+          !isValidGridCropRatio(
             left: cropLeftRatio,
             top: cropTopRatio,
             size: cropSizeRatio,
@@ -1093,7 +1095,11 @@ class LocalImageChannel {
     }
   }
 
-  bool _isValidGridCropRatio({
+  /// 校验网格选择器传入的归一化字段。
+  ///
+  /// left/top 分别基于画布宽高，size 基于最短边，三者不能直接相加比较；
+  /// 最终像素区域由 [_gridCropRect] 统一收敛到图片边界。
+  static bool isValidGridCropRatio({
     required double left,
     required double top,
     required double size,
@@ -1106,9 +1112,7 @@ class LocalImageChannel {
         size > 0 &&
         size <= 1 &&
         left <= 1 &&
-        top <= 1 &&
-        left + size <= 1.05 &&
-        top + size <= 1.05;
+        top <= 1;
   }
 
   Future<ExifInfo> readExif({required LocalImageFile source}) async {
@@ -1239,13 +1243,12 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'imagesToGif',
-        <String, Object?>{'paths': paths, 'delayMs': delayMs},
+      final output = await _createOutputFile(prefix: 'gif', extension: 'gif');
+      final result = await GifProcessingService.createGif(
+        paths: paths,
+        outputPath: output.path,
+        delayMs: delayMs,
       );
-      if (result == null) {
-        throw const AppException('GIF 生成结果为空，请重试');
-      }
       final gif = GifImageFile.fromMap(
         sources: sources,
         delayMs: delayMs,
@@ -1283,13 +1286,14 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'exportGifFrames',
-        <String, Object?>{'path': source.path, 'frameStepMs': frameStepMs},
+      final outputDirectory = await _createOutputDirectory(
+        'gif_frames_${DateTime.now().millisecondsSinceEpoch}',
       );
-      if (result == null) {
-        throw const AppException('GIF 拆帧结果为空，请重试');
-      }
+      final result = await GifProcessingService.exportFrames(
+        sourcePath: source.path,
+        outputDirectory: outputDirectory.path,
+        frameStepMs: frameStepMs,
+      );
       final export = GifFramesExport.fromMap(
         source: source,
         frameStepMs: frameStepMs,
@@ -1328,17 +1332,16 @@ class LocalImageChannel {
     }
 
     try {
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'compressGif',
-        <String, Object?>{
-          'path': source.path,
-          'frameStepMs': frameStepMs,
-          'scalePercent': scalePercent,
-        },
+      final output = await _createOutputFile(
+        prefix: 'compressed_gif',
+        extension: 'gif',
       );
-      if (result == null) {
-        throw const AppException('GIF 压缩结果为空，请重试');
-      }
+      final result = await GifProcessingService.compressGif(
+        sourcePath: source.path,
+        outputPath: output.path,
+        frameStepMs: frameStepMs,
+        scalePercent: scalePercent,
+      );
       final compressed = CompressedGifFile.fromMap(
         source: source,
         frameStepMs: frameStepMs,
@@ -1544,12 +1547,16 @@ class LocalImageChannel {
     final directory = await _createOutputDirectory(prefix);
     final safeExtension = extension.trim().replaceAll('.', '').toLowerCase();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return File('${directory.path}\\${prefix}_$timestamp.$safeExtension');
+    return File(
+      PlatformPath.join(directory.path, '${prefix}_$timestamp.$safeExtension'),
+    );
   }
 
   Future<Directory> _createOutputDirectory(String prefix) async {
     final root = await getTemporaryDirectory();
-    final directory = Directory('${root.path}\\image_tools_$prefix');
+    final directory = Directory(
+      PlatformPath.join(root.path, 'image_tools_$prefix'),
+    );
     if (!directory.existsSync()) {
       directory.createSync(recursive: true);
     }

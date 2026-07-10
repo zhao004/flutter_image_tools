@@ -133,7 +133,13 @@ class _GridPreviewCanvas extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.file(File(image.path), fit: BoxFit.fill),
+            Image.file(
+              File(image.path),
+              fit: BoxFit.fill,
+              errorBuilder: (context, error, stackTrace) {
+                return EditorImageLoadError(imageName: image.name);
+              },
+            ),
             ColoredBox(color: Colors.black.withValues(alpha: 0.10)),
             Obx(() {
               final gridRect = controller.gridRectFor(canvasSize);

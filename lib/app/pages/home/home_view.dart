@@ -44,7 +44,7 @@ class HomeView extends GetView<HomeController> {
                     child: SizedBox(
                       width: contentWidth,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.only(top: 4),
                         child: TextField(
                           onChanged: controller.updateQuery,
                           textInputAction: TextInputAction.search,
@@ -63,7 +63,7 @@ class HomeView extends GetView<HomeController> {
                     child: SizedBox(
                       width: contentWidth,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 24),
+                        padding: const EdgeInsets.only(top: 16),
                         child: _SectionHeader(
                           icon: Icons.star_outline,
                           titleKey: 'home.section.favorites',
@@ -97,7 +97,7 @@ class HomeView extends GetView<HomeController> {
                     child: SizedBox(
                       width: contentWidth,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 24),
+                        padding: const EdgeInsets.only(top: 16),
                         child: _SectionHeader(
                           icon: Icons.grid_view_outlined,
                           titleKey: 'home.section.allTools',
@@ -109,14 +109,14 @@ class HomeView extends GetView<HomeController> {
                 ),
                 Obx(
                   () => SliverPadding(
-                    padding: EdgeInsets.fromLTRB(sideInset, 0, sideInset, 28),
+                    padding: EdgeInsets.fromLTRB(sideInset, 0, sideInset, 20),
                     sliver: SliverGrid.builder(
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 198,
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                            childAspectRatio: 1.12,
+                            maxCrossAxisExtent: 188,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 1.18,
                           ),
                       itemCount: controller.filteredTools.length,
                       itemBuilder: (context, index) {
@@ -160,20 +160,20 @@ class _SectionHeader extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 18),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,10 +237,10 @@ class _EmptyPanel extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
@@ -288,24 +288,24 @@ class _ToolCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: isAvailable
                           ? colorScheme.primaryContainer
                           : colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(13),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       _toolIconFor(tool.icon),
-                      size: 21,
+                      size: 20,
                       color: isAvailable
                           ? colorScheme.onPrimaryContainer
                           : foreground,
@@ -314,10 +314,11 @@ class _ToolCard extends StatelessWidget {
                   const Spacer(),
                   IconButton(
                     constraints: const BoxConstraints.tightFor(
-                      width: 34,
-                      height: 34,
+                      width: 48,
+                      height: 48,
                     ),
                     padding: EdgeInsets.zero,
+                    iconSize: 20,
                     tooltip: isFavorite
                         ? 'home.favorite.remove'.tr
                         : 'home.favorite.add'.tr,
@@ -329,17 +330,17 @@ class _ToolCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               Text(
                 tool.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: theme.textTheme.titleSmall?.copyWith(
                   color: foreground,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 tool.description,
                 maxLines: 2,
@@ -347,7 +348,7 @@ class _ToolCard extends StatelessWidget {
                 style: theme.textTheme.bodySmall?.copyWith(color: foreground),
               ),
               if (!isAvailable) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

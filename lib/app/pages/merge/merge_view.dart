@@ -186,19 +186,14 @@ class _PreviewImageTile extends StatelessWidget {
     final file = File(image.path);
     final radius = BorderRadius.circular(cornerRadius.clamp(0, 48));
     final child = file.existsSync()
-        ? Image.file(file, fit: BoxFit.cover)
-        : ColoredBox(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: Center(
-              child: Text(
-                image.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-            ),
-          );
+        ? Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return EditorImageLoadError(imageName: image.name);
+            },
+          )
+        : EditorImageLoadError(imageName: image.name);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -272,28 +267,32 @@ class _LayoutToolPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        EditorOptionWrap<MergeMode>(
-          values: MergeMode.values,
-          selected: controller.mode.value,
-          labelFor: (value) => value.labelKey.tr,
-          enabled: !controller.isBusy.value,
-          onSelected: controller.setMode,
-        ),
-        const SizedBox(height: 8),
-        _LabeledSlider(
-          label: 'merge.layout.spacing'.trParams({
-            'value': controller.spacing.value.toString(),
-          }),
-          value: controller.spacing.value.toDouble(),
-          min: 0,
-          max: 100,
-          divisions: 20,
-          onChanged: controller.isBusy.value ? null : controller.updateSpacing,
-        ),
-      ],
+    return Obx(
+      () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          EditorOptionWrap<MergeMode>(
+            values: MergeMode.values,
+            selected: controller.mode.value,
+            labelFor: (value) => value.labelKey.tr,
+            enabled: !controller.isBusy.value,
+            onSelected: controller.setMode,
+          ),
+          const SizedBox(height: 8),
+          _LabeledSlider(
+            label: 'merge.layout.spacing'.trParams({
+              'value': controller.spacing.value.toString(),
+            }),
+            value: controller.spacing.value.toDouble(),
+            min: 0,
+            max: 100,
+            divisions: 20,
+            onChanged: controller.isBusy.value
+                ? null
+                : controller.updateSpacing,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -305,55 +304,57 @@ class _StyleToolPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _ChoiceSection<MergeBackgroundColor>(
-          title: 'merge.layout.backgroundColor'.tr,
-          values: MergeBackgroundColor.values,
-          selected: controller.backgroundColor.value,
-          enabled: !controller.isBusy.value,
-          labelFor: (value) => value.labelKey.tr,
-          colorFor: (value) => _parseColor(value.value),
-          onSelected: controller.setBackgroundColor,
-        ),
-        const SizedBox(height: 8),
-        _LabeledSlider(
-          label: 'merge.layout.cornerRadius'.trParams({
-            'value': controller.cornerRadius.value.toString(),
-          }),
-          value: controller.cornerRadius.value.toDouble(),
-          min: 0,
-          max: 200,
-          divisions: 20,
-          onChanged: controller.isBusy.value
-              ? null
-              : controller.updateCornerRadius,
-        ),
-        const SizedBox(height: 8),
-        _LabeledSlider(
-          label: 'merge.layout.borderWidth'.trParams({
-            'value': controller.borderWidth.value.toString(),
-          }),
-          value: controller.borderWidth.value.toDouble(),
-          min: 0,
-          max: 50,
-          divisions: 10,
-          onChanged: controller.isBusy.value
-              ? null
-              : controller.updateBorderWidth,
-        ),
-        const SizedBox(height: 8),
-        _ChoiceSection<MergeBorderColor>(
-          title: 'merge.layout.borderColor'.tr,
-          values: MergeBorderColor.values,
-          selected: controller.borderColor.value,
-          enabled: !controller.isBusy.value,
-          labelFor: (value) => value.labelKey.tr,
-          colorFor: (value) => _parseColor(value.value),
-          onSelected: controller.setBorderColor,
-        ),
-      ],
+    return Obx(
+      () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ChoiceSection<MergeBackgroundColor>(
+            title: 'merge.layout.backgroundColor'.tr,
+            values: MergeBackgroundColor.values,
+            selected: controller.backgroundColor.value,
+            enabled: !controller.isBusy.value,
+            labelFor: (value) => value.labelKey.tr,
+            colorFor: (value) => _parseColor(value.value),
+            onSelected: controller.setBackgroundColor,
+          ),
+          const SizedBox(height: 8),
+          _LabeledSlider(
+            label: 'merge.layout.cornerRadius'.trParams({
+              'value': controller.cornerRadius.value.toString(),
+            }),
+            value: controller.cornerRadius.value.toDouble(),
+            min: 0,
+            max: 200,
+            divisions: 20,
+            onChanged: controller.isBusy.value
+                ? null
+                : controller.updateCornerRadius,
+          ),
+          const SizedBox(height: 8),
+          _LabeledSlider(
+            label: 'merge.layout.borderWidth'.trParams({
+              'value': controller.borderWidth.value.toString(),
+            }),
+            value: controller.borderWidth.value.toDouble(),
+            min: 0,
+            max: 50,
+            divisions: 10,
+            onChanged: controller.isBusy.value
+                ? null
+                : controller.updateBorderWidth,
+          ),
+          const SizedBox(height: 8),
+          _ChoiceSection<MergeBorderColor>(
+            title: 'merge.layout.borderColor'.tr,
+            values: MergeBorderColor.values,
+            selected: controller.borderColor.value,
+            enabled: !controller.isBusy.value,
+            labelFor: (value) => value.labelKey.tr,
+            colorFor: (value) => _parseColor(value.value),
+            onSelected: controller.setBorderColor,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -389,6 +390,8 @@ class _LabeledSlider extends StatelessWidget {
     required this.onChanged,
   });
 
+  static const double _touchTargetHeight = 48;
+
   final String label;
   final double value;
   final double min;
@@ -403,7 +406,7 @@ class _LabeledSlider extends StatelessWidget {
       children: [
         Text(label, style: Theme.of(context).textTheme.bodySmall),
         SizedBox(
-          height: 32,
+          height: _touchTargetHeight,
           child: Slider(
             value: value,
             min: min,

@@ -32,7 +32,7 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
         exportLabel: 'common.saveToGallery'.tr,
         exportIcon: Icons.save_outlined,
         onPickImage: controller.pickSourceImage,
-        onExport: controller.addWatermark,
+        onExport: watermark == null ? null : controller.addWatermark,
         imageMeta: image == null
             ? null
             : '${controller.formatDimensions(image)} · ${watermark?.name ?? 'imageWatermark.watermark.empty'.tr}',
@@ -71,7 +71,13 @@ class _ImageWatermarkOverlay extends StatelessWidget {
       opacity: controller.opacity.value / 100,
       child: Transform.rotate(
         angle: controller.rotationDegrees.value * math.pi / 180,
-        child: Image.file(File(watermark.path), fit: BoxFit.contain),
+        child: Image.file(
+          File(watermark.path),
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return EditorImageLoadError(imageName: watermark.name);
+          },
+        ),
       ),
     );
     final size = 220.0 * controller.scalePercent.value / 100;
