@@ -84,6 +84,7 @@ class ImageWatermarkController extends GetxController {
   final position = ImageWatermarkPosition.bottomRight.obs;
   final opacity = 70.obs;
   final scalePercent = 25.obs;
+  final spacing = 56.obs;
   final rotationDegrees = 0.obs;
   final isBusy = false.obs;
 
@@ -136,6 +137,10 @@ class ImageWatermarkController extends GetxController {
     scalePercent.value = value.round().clamp(5, 100);
   }
 
+  void updateSpacing(double value) {
+    spacing.value = value.round().clamp(8, 160);
+  }
+
   void updateRotation(double value) {
     rotationDegrees.value = value.round().clamp(-180, 180);
   }
@@ -175,6 +180,7 @@ class ImageWatermarkController extends GetxController {
             position: position.value.value,
             opacity: opacity.value,
             scalePercent: scalePercent.value,
+            spacing: spacing.value,
             rotationDegrees: rotationDegrees.value,
           );
           result.value = watermarked;
@@ -239,6 +245,7 @@ class ImageWatermarkController extends GetxController {
       'position': position.value.value,
       'opacity': opacity.value,
       'scalePercent': scalePercent.value,
+      'spacing': spacing.value,
       'rotationDegrees': rotationDegrees.value,
     };
   }

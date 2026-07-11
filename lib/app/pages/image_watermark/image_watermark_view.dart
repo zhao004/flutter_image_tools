@@ -63,46 +63,49 @@ class _ImageWatermarkOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final watermark = controller.selectedWatermark.value;
-    if (watermark == null) {
-      return const SizedBox.shrink();
-    }
-    final logo = Opacity(
-      opacity: controller.opacity.value / 100,
-      child: Transform.rotate(
-        angle: controller.rotationDegrees.value * math.pi / 180,
-        child: Image.file(
-          File(watermark.path),
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return EditorImageLoadError(imageName: watermark.name);
-          },
-        ),
-      ),
-    );
-    final size = 220.0 * controller.scalePercent.value / 100;
-    final constrainedLogo = SizedBox.square(
-      dimension: size.clamp(36, 220),
-      child: logo,
-    );
-    if (controller.position.value == ImageWatermarkPosition.tile) {
-      return IgnorePointer(
-        child: _DiagonalImageWatermarkTile(
-          key: const ValueKey('image-watermark-tile-layer'),
-          watermark: constrainedLogo,
-          tileSize: size.clamp(36, 220).toDouble(),
+    return Obx(() {
+      final watermark = controller.selectedWatermark.value;
+      if (watermark == null) {
+        return const SizedBox.shrink();
+      }
+      final logo = Opacity(
+        opacity: controller.opacity.value / 100,
+        child: Transform.rotate(
+          angle: controller.rotationDegrees.value * math.pi / 180,
+          child: Image.file(
+            File(watermark.path),
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return EditorImageLoadError(imageName: watermark.name);
+            },
+          ),
         ),
       );
-    }
-    return IgnorePointer(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Align(
-          alignment: _alignmentFor(controller.position.value),
-          child: constrainedLogo,
+      final size = 220.0 * controller.scalePercent.value / 100;
+      final constrainedLogo = SizedBox.square(
+        dimension: size.clamp(36, 220),
+        child: logo,
+      );
+      if (controller.position.value == ImageWatermarkPosition.tile) {
+        return IgnorePointer(
+          child: _DiagonalImageWatermarkTile(
+            key: const ValueKey('image-watermark-tile-layer'),
+            watermark: constrainedLogo,
+            tileSize: size.clamp(36, 220).toDouble(),
+            spacing: controller.spacing.value.toDouble(),
+          ),
+        );
+      }
+      return IgnorePointer(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Align(
+            alignment: _alignmentFor(controller.position.value),
+            child: constrainedLogo,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Alignment _alignmentFor(ImageWatermarkPosition position) {
@@ -127,13 +130,15 @@ class _DiagonalImageWatermarkTile extends StatelessWidget {
     super.key,
     required this.watermark,
     required this.tileSize,
+    required this.spacing,
   });
 
   static const double _tileRotationRadians = -math.pi / 6;
-  static const double _gap = 56;
+  static const double _minimumTileGap = 8;
 
   final Widget watermark;
   final double tileSize;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +151,8 @@ class _DiagonalImageWatermarkTile extends StatelessWidget {
           final safeHeight = constraints.hasBoundedHeight
               ? constraints.maxHeight
               : MediaQuery.sizeOf(context).height;
-          final stride = tileSize + _gap;
+          final safeSpacing = spacing.clamp(_minimumTileGap, 160.0);
+          final stride = tileSize + safeSpacing;
           final expandedWidth = safeWidth + safeHeight;
           final expandedHeight = safeWidth + safeHeight;
           final columnCount = (expandedWidth / stride).ceil() + 4;
@@ -256,44 +262,46 @@ class _ImageWatermarkSourcePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final watermark = controller.selectedWatermark.value;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          FilledButton.tonalIcon(
-            onPressed: controller.isBusy.value
-                ? null
-                : controller.pickWatermarkImage,
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-            label: Text(
-              watermark == null
-                  ? 'imageWatermark.action.pickWatermark'.tr
-                  : 'imageWatermark.action.repickWatermark'.tr,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (watermark != null) ...[
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 120,
-              child: Text(
-                watermark.name,
+    return Obx(() {
+      final watermark = controller.selectedWatermark.value;
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            FilledButton.tonalIcon(
+              onPressed: controller.isBusy.value
+                  ? null
+                  : controller.pickWatermarkImage,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(
+                watermark == null
+                    ? 'imageWatermark.action.pickWatermark'.tr
+                    : 'imageWatermark.action.repickWatermark'.tr,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+            if (watermark != null) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 120,
+                child: Text(
+                  watermark.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+            if (controller.tasks.isNotEmpty) ...[
+              const SizedBox(width: 16),
+              _ImageWatermarkProgressIndicator(controller: controller),
+            ],
           ],
-          if (controller.tasks.isNotEmpty) ...[
-            const SizedBox(width: 16),
-            _ImageWatermarkProgressIndicator(controller: controller),
-          ],
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
 }
 
@@ -304,16 +312,18 @@ class _ImageWatermarkPositionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: EditorOptionWrap<ImageWatermarkPosition>(
-        values: ImageWatermarkPosition.values,
-        selected: controller.position.value,
-        labelFor: (value) => value.labelKey.tr,
-        enabled: !controller.isBusy.value,
-        onSelected: controller.setPosition,
-      ),
-    );
+    return Obx(() {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: EditorOptionWrap<ImageWatermarkPosition>(
+          values: ImageWatermarkPosition.values,
+          selected: controller.position.value,
+          labelFor: (value) => value.labelKey.tr,
+          enabled: !controller.isBusy.value,
+          onSelected: controller.setPosition,
+        ),
+      );
+    });
   }
 }
 
@@ -324,53 +334,67 @@ class _ImageWatermarkStylePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _ImageWatermarkSlider(
-            label: 'imageWatermark.config.opacity'.trParams({
-              'opacity': '${controller.opacity.value}',
-            }),
-            value: controller.opacity.value.toDouble(),
-            min: 10,
-            max: 100,
-            divisions: 18,
-            enabled: !controller.isBusy.value,
-            onChanged: controller.updateOpacity,
-          ),
-          const SizedBox(width: 16),
-          _ImageWatermarkSlider(
-            label: 'imageWatermark.config.scale'.trParams({
-              'scale': '${controller.scalePercent.value}',
-            }),
-            value: controller.scalePercent.value.toDouble(),
-            min: 5,
-            max: 100,
-            divisions: 19,
-            enabled: !controller.isBusy.value,
-            onChanged: controller.updateScale,
-          ),
-          const SizedBox(width: 16),
-          _ImageWatermarkSlider(
-            label: 'imageWatermark.config.rotation'.trParams({
-              'rotation': '${controller.rotationDegrees.value}',
-            }),
-            value: controller.rotationDegrees.value.toDouble(),
-            min: -180,
-            max: 180,
-            divisions: 72,
-            enabled: !controller.isBusy.value,
-            onChanged: controller.updateRotation,
-          ),
-          if (controller.tasks.isNotEmpty) ...[
+    return Obx(() {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _ImageWatermarkSlider(
+              label: 'imageWatermark.config.opacity'.trParams({
+                'opacity': '${controller.opacity.value}',
+              }),
+              value: controller.opacity.value.toDouble(),
+              min: 10,
+              max: 100,
+              divisions: 18,
+              enabled: !controller.isBusy.value,
+              onChanged: controller.updateOpacity,
+            ),
             const SizedBox(width: 16),
-            _ImageWatermarkProgressIndicator(controller: controller),
+            _ImageWatermarkSlider(
+              label: 'imageWatermark.config.scale'.trParams({
+                'scale': '${controller.scalePercent.value}',
+              }),
+              value: controller.scalePercent.value.toDouble(),
+              min: 5,
+              max: 100,
+              divisions: 19,
+              enabled: !controller.isBusy.value,
+              onChanged: controller.updateScale,
+            ),
+            const SizedBox(width: 16),
+            _ImageWatermarkSlider(
+              label: 'imageWatermark.config.spacing'.trParams({
+                'spacing': '${controller.spacing.value}',
+              }),
+              value: controller.spacing.value.toDouble(),
+              min: 8,
+              max: 160,
+              divisions: 38,
+              enabled: !controller.isBusy.value,
+              onChanged: controller.updateSpacing,
+            ),
+            const SizedBox(width: 16),
+            _ImageWatermarkSlider(
+              label: 'imageWatermark.config.rotation'.trParams({
+                'rotation': '${controller.rotationDegrees.value}',
+              }),
+              value: controller.rotationDegrees.value.toDouble(),
+              min: -180,
+              max: 180,
+              divisions: 72,
+              enabled: !controller.isBusy.value,
+              onChanged: controller.updateRotation,
+            ),
+            if (controller.tasks.isNotEmpty) ...[
+              const SizedBox(width: 16),
+              _ImageWatermarkProgressIndicator(controller: controller),
+            ],
           ],
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
 }
 

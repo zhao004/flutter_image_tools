@@ -736,6 +736,7 @@ class LocalImageChannel {
     required String position,
     required int opacity,
     required int scalePercent,
+    required int spacing,
     required int rotationDegrees,
   }) async {
     if (source.path.trim().isEmpty || watermark.path.trim().isEmpty) {
@@ -759,6 +760,9 @@ class LocalImageChannel {
     if (scalePercent < 5 || scalePercent > 100) {
       throw const AppException('水印缩放必须在 5% 到 100% 之间');
     }
+    if (spacing < 8 || spacing > 160) {
+      throw const AppException('水印间距必须在 8 到 160 之间');
+    }
     if (rotationDegrees < -180 || rotationDegrees > 180) {
       throw const AppException('旋转角度必须在 -180 到 180 之间');
     }
@@ -781,7 +785,7 @@ class LocalImageChannel {
       }
       _applyOpacity(overlay, opacity);
       if (normalizedPosition == 'tile') {
-        _drawTiledImageWatermark(baseImage, overlay);
+        _drawTiledImageWatermark(baseImage, overlay, spacing);
       } else {
         final positionOffset = _watermarkImagePosition(
           image: baseImage,
@@ -1795,9 +1799,14 @@ class LocalImageChannel {
     );
   }
 
-  void _drawTiledImageWatermark(img.Image image, img.Image overlay) {
-    final stepX = overlay.width + 72;
-    final stepY = overlay.height + 72;
+  void _drawTiledImageWatermark(
+    img.Image image,
+    img.Image overlay,
+    int spacing,
+  ) {
+    final safeSpacing = spacing.clamp(8, 160);
+    final stepX = overlay.width + safeSpacing;
+    final stepY = overlay.height + safeSpacing;
     final layerSize =
         math
             .sqrt(image.width * image.width + image.height * image.height)

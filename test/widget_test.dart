@@ -2344,6 +2344,7 @@ void main() {
     expect(find.text('Bottom Right'), findsNothing);
     expect(find.text('Opacity: 70%'), findsNothing);
     expect(find.text('Scale: 25%'), findsNothing);
+    expect(find.text('Spacing: 56px'), findsNothing);
     expect(find.text('Rotation: 0°'), findsNothing);
 
     await tester.tap(find.text('Position'));
@@ -2357,8 +2358,27 @@ void main() {
 
     expect(find.text('Opacity: 70%'), findsOneWidget);
     expect(find.text('Scale: 25%'), findsOneWidget);
+    expect(find.text('Spacing: 56px'), findsOneWidget);
     expect(find.text('Rotation: 0°'), findsOneWidget);
     expect(find.text('Watermark Settings'), findsNothing);
+
+    final styleSliders = find.byType(Slider);
+    expect(styleSliders, findsNWidgets(4));
+    tester.widget<Slider>(styleSliders.at(0)).onChanged?.call(40);
+    await tester.pump();
+    expect(controller.opacity.value, 40);
+    expect(find.text('Opacity: 40%'), findsOneWidget);
+
+    tester.widget<Slider>(styleSliders.at(1)).onChanged?.call(50);
+    await tester.pump();
+    expect(controller.scalePercent.value, 50);
+    expect(find.text('Scale: 50%'), findsOneWidget);
+
+    tester.widget<Slider>(styleSliders.at(2)).onChanged?.call(88);
+    await tester.pump();
+    expect(controller.spacing.value, 88);
+    expect(find.text('Spacing: 88px'), findsOneWidget);
+
     final disabledExportButton = tester.widget<IconButton>(
       find.byKey(const ValueKey('editor-export-action')),
     );
