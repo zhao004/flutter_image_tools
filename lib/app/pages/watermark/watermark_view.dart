@@ -4,6 +4,8 @@ import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../models/local_image_file.dart';
+import '../../utils/watermark_layout.dart';
 import '../../widgets/image_editor_scaffold.dart';
 import 'watermark_controller.dart';
 
@@ -37,7 +39,11 @@ class WatermarkView extends GetView<WatermarkController> {
             : '${controller.formatDimensions(image)} · ${controller.position.value.labelKey.tr}',
         previewBuilder: (context, previewImage) => EditorImagePreview(
           image: previewImage,
-          child: _TextWatermarkOverlay(controller: controller),
+          overlayBuilder: (context, previewSize) => _TextWatermarkOverlay(
+            controller: controller,
+            image: previewImage,
+            previewSize: previewSize,
+          ),
         ),
         showPreviewInfo: false,
         expandPreviewToAvailableHeight: true,
@@ -56,9 +62,15 @@ class WatermarkView extends GetView<WatermarkController> {
 }
 
 class _TextWatermarkOverlay extends StatelessWidget {
-  const _TextWatermarkOverlay({required this.controller});
+  const _TextWatermarkOverlay({
+    required this.controller,
+    required this.image,
+    required this.previewSize,
+  });
 
   final WatermarkController controller;
+  final LocalImageFile image;
+  final Size previewSize;
 
   @override
   Widget build(BuildContext context) {
@@ -75,23 +87,25 @@ class _TextWatermarkOverlay extends StatelessWidget {
           color: controller.color.value.withValues(
             alpha: controller.opacity.value / 100,
           ),
-          fontSize: controller.fontSize.value.toDouble(),
+          fontSize: _scaled(controller.fontSize.value),
           fontWeight: FontWeight.w700,
         ),
       );
+      final previewSpacing = _scaled(controller.spacing.value);
+      final previewMargin = _scaled(WatermarkLayout.positionMarginPixels);
       if (controller.position.value == WatermarkPosition.tile) {
         return IgnorePointer(
           child: _DiagonalTextWatermarkTile(
             key: const ValueKey('text-watermark-tile-layer'),
             text: text,
             watermark: watermark,
-            spacing: controller.spacing.value.toDouble(),
+            spacing: previewSpacing,
           ),
         );
       }
       return IgnorePointer(
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(previewMargin),
           child: Align(
             alignment: _alignmentFor(controller.position.value),
             child: watermark,
@@ -115,6 +129,16 @@ class _TextWatermarkOverlay extends StatelessWidget {
       case WatermarkPosition.tile:
         return Alignment.center;
     }
+  }
+
+  double _scaled(int outputPixels) {
+    return WatermarkLayout.outputPixelsToPreview(
+      outputPixels: outputPixels,
+      sourceWidth: image.width.toDouble(),
+      sourceHeight: image.height.toDouble(),
+      previewWidth: previewSize.width,
+      previewHeight: previewSize.height,
+    );
   }
 }
 
@@ -145,10 +169,7 @@ class _DiagonalTextWatermarkTile extends StatelessWidget {
           final safeHeight = constraints.hasBoundedHeight
               ? constraints.maxHeight
               : MediaQuery.sizeOf(context).height;
-          final estimatedTextWidth = math.max(
-            96.0,
-            text.characters.length * 20,
-          );
+          final estimatedTextWidth = math.max(1.0, text.characters.length * 20);
           final safeSpacing = spacing.clamp(_minimumTileGap, 160.0);
           final tileWidth = estimatedTextWidth + safeSpacing;
           final tileHeight = _baseTileHeight + safeSpacing;

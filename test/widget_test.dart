@@ -66,6 +66,7 @@ import 'package:flutter_image_tools/app/repositories/recent_files_repository.dar
 import 'package:flutter_image_tools/app/services/local_image_channel.dart';
 import 'package:flutter_image_tools/app/theme/app_translations.dart';
 import 'package:flutter_image_tools/app/theme/app_theme.dart';
+import 'package:flutter_image_tools/app/utils/watermark_layout.dart';
 import 'package:flutter_image_tools/app/widgets/image_editor_scaffold.dart';
 import 'package:flutter_image_tools/main.dart';
 import 'package:image/image.dart' as img;
@@ -2418,7 +2419,18 @@ void main() {
     final watermarkText = tester
         .widgetList<Text>(find.text('Checked Text'))
         .firstWhere((text) => text.style?.fontWeight == FontWeight.w700);
-    expect(watermarkText.style?.fontSize, 48);
+    final textPreviewSize = tester.getSize(find.byType(EditorImagePreview));
+    final expectedTextPreviewFontSize = WatermarkLayout.outputPixelsToPreview(
+      outputPixels: 48,
+      sourceWidth: controller.selectedImage.value!.width.toDouble(),
+      sourceHeight: controller.selectedImage.value!.height.toDouble(),
+      previewWidth: textPreviewSize.width,
+      previewHeight: textPreviewSize.height,
+    );
+    expect(
+      watermarkText.style?.fontSize,
+      closeTo(expectedTextPreviewFontSize, 0.01),
+    );
     expect(
       watermarkText.style?.color,
       const Color(0xFF123456).withValues(alpha: 0.4),
@@ -2537,6 +2549,22 @@ void main() {
       find.byKey(const ValueKey('image-watermark-tile-layer')),
       findsOneWidget,
     );
+    final imagePreviewSize = tester.getSize(find.byType(EditorImagePreview));
+    final expectedLogoSize = WatermarkLayout.imageWatermarkPreviewSize(
+      sourceWidth: controller.selectedImage.value!.width.toDouble(),
+      sourceHeight: controller.selectedImage.value!.height.toDouble(),
+      watermarkWidth: controller.selectedWatermark.value!.width.toDouble(),
+      watermarkHeight: controller.selectedWatermark.value!.height.toDouble(),
+      previewWidth: imagePreviewSize.width,
+      previewHeight: imagePreviewSize.height,
+      scalePercent: controller.scalePercent.value,
+    );
+    final logoImage = tester.widget<Image>(find.byType(Image).last);
+    expect(logoImage.width, isNull);
+    final tileLayerSize = tester.getSize(
+      find.byKey(const ValueKey('image-watermark-tile-layer')),
+    );
+    expect(tileLayerSize.width, greaterThan(expectedLogoSize.width));
 
     final enabledExportButton = tester.widget<IconButton>(
       find.byKey(const ValueKey('editor-export-action')),

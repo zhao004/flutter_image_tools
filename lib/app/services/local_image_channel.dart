@@ -35,6 +35,7 @@ import '../models/rotated_image_file.dart';
 import '../models/watermarked_image_file.dart';
 import '../utils/platform_path.dart';
 import 'gif_processing_service.dart';
+import 'watermark_processing_service.dart';
 
 /// 相册保存回调，用于测试时绕过真实系统相册权限。
 typedef GallerySaveCallback =
@@ -695,39 +696,30 @@ class LocalImageChannel {
     }
 
     try {
-      final decoded = await _readImage(source.path);
+      final output = await _createOutputFile(
+        prefix: 'text_watermark',
+        extension: 'png',
+      );
       final textLayer = await _createTextWatermarkLayer(
         text: normalizedText,
         fontSize: fontSize,
         opacity: opacity,
         color: color,
-        maxWidth: decoded.width,
+        maxWidth: source.hasValidDimensions ? source.width : maxResizeDimension,
       );
-      if (normalizedPosition == 'tile') {
-        _drawTiledTextWatermark(decoded, textLayer, spacing);
-      } else {
-        final positionOffset = _watermarkTextPosition(
-          image: decoded,
-          overlay: textLayer,
-          position: normalizedPosition,
-        );
-        img.compositeImage(
-          decoded,
-          textLayer,
-          dstX: positionOffset.x,
-          dstY: positionOffset.y,
-        );
-      }
-      final output = await _writeEncodedImage(
-        image: decoded,
-        prefix: 'text_watermark',
-        extension: 'png',
+      final processed = await WatermarkProcessingService.addTextWatermark(
+        sourcePath: source.path,
+        textLayerPng: Uint8List.fromList(img.encodePng(textLayer)),
+        outputPath: output.path,
+        position: normalizedPosition,
+        spacing: spacing,
       );
       await saveImageToGallery(output.path);
       final watermarked = WatermarkedImageFile(
         source: source,
-        outputPath: output.path,
-        outputSizeBytes: await output.length(),
+        outputPath: processed['outputPath'] as String? ?? output.path,
+        outputSizeBytes:
+            processed['outputSizeBytes'] as int? ?? await output.length(),
         text: normalizedText,
         position: normalizedPosition,
       );
@@ -779,53 +771,27 @@ class LocalImageChannel {
     }
 
     try {
-      final baseImage = await _readImage(source.path);
-      final rawWatermark = await _readImage(watermark.path);
-      final scaledSize = _scaledWatermarkSize(
-        source: baseImage,
-        watermark: rawWatermark,
-        scalePercent: scalePercent,
-      );
-      var overlay = img.copyResize(
-        rawWatermark,
-        width: scaledSize.x,
-        height: scaledSize.y,
-        interpolation: img.Interpolation.linear,
-      );
-      if (rotationDegrees != 0) {
-        overlay = img.copyRotate(
-          overlay,
-          angle: rotationDegrees,
-          interpolation: img.Interpolation.linear,
-        );
-      }
-      _applyOpacity(overlay, opacity);
-      if (normalizedPosition == 'tile') {
-        _drawTiledImageWatermark(baseImage, overlay, spacing);
-      } else {
-        final positionOffset = _watermarkImagePosition(
-          image: baseImage,
-          overlay: overlay,
-          position: normalizedPosition,
-        );
-        img.compositeImage(
-          baseImage,
-          overlay,
-          dstX: positionOffset.x,
-          dstY: positionOffset.y,
-        );
-      }
-      final output = await _writeEncodedImage(
-        image: baseImage,
+      final output = await _createOutputFile(
         prefix: 'image_watermark',
         extension: 'png',
+      );
+      final processed = await WatermarkProcessingService.addImageWatermark(
+        sourcePath: source.path,
+        watermarkPath: watermark.path,
+        outputPath: output.path,
+        position: normalizedPosition,
+        opacity: opacity,
+        scalePercent: scalePercent,
+        spacing: spacing,
+        rotationDegrees: rotationDegrees,
       );
       await saveImageToGallery(output.path);
       final watermarked = ImageWatermarkedFile(
         source: source,
         watermark: watermark,
-        outputPath: output.path,
-        outputSizeBytes: await output.length(),
+        outputPath: processed['outputPath'] as String? ?? output.path,
+        outputSizeBytes:
+            processed['outputSizeBytes'] as int? ?? await output.length(),
         position: normalizedPosition,
         opacity: opacity,
         scalePercent: scalePercent,
@@ -1701,78 +1667,6 @@ class LocalImageChannel {
     return _ImageRect(left: left, top: top, width: size, height: size);
   }
 
-  _ImagePoint _watermarkTextPosition({
-    required img.Image image,
-    required img.Image overlay,
-    required String position,
-  }) {
-    const margin = 24;
-    return switch (position) {
-      'topleft' => const _ImagePoint(margin, margin),
-      'topright' => _ImagePoint(
-        math.max(margin, image.width - overlay.width - margin),
-        margin,
-      ),
-      'bottomleft' => _ImagePoint(
-        margin,
-        math.max(margin, image.height - overlay.height - margin),
-      ),
-      'bottomright' => _ImagePoint(
-        math.max(margin, image.width - overlay.width - margin),
-        math.max(margin, image.height - overlay.height - margin),
-      ),
-      _ => _ImagePoint(
-        math.max(0, (image.width - overlay.width) ~/ 2),
-        math.max(0, (image.height - overlay.height) ~/ 2),
-      ),
-    };
-  }
-
-  _ImagePoint _watermarkImagePosition({
-    required img.Image image,
-    required img.Image overlay,
-    required String position,
-  }) {
-    const margin = 24;
-    return switch (position) {
-      'topleft' => const _ImagePoint(margin, margin),
-      'topright' => _ImagePoint(
-        math.max(margin, image.width - overlay.width - margin),
-        margin,
-      ),
-      'bottomleft' => _ImagePoint(
-        margin,
-        math.max(margin, image.height - overlay.height - margin),
-      ),
-      'bottomright' => _ImagePoint(
-        math.max(margin, image.width - overlay.width - margin),
-        math.max(margin, image.height - overlay.height - margin),
-      ),
-      _ => _ImagePoint(
-        math.max(0, (image.width - overlay.width) ~/ 2),
-        math.max(0, (image.height - overlay.height) ~/ 2),
-      ),
-    };
-  }
-
-  _ImagePoint _scaledWatermarkSize({
-    required img.Image source,
-    required img.Image watermark,
-    required int scalePercent,
-  }) {
-    final maxWidth = math.max(1, source.width * scalePercent ~/ 100);
-    final maxHeight = math.max(1, source.height * scalePercent ~/ 100);
-    final ratio = math.min(
-      maxWidth / math.max(1, watermark.width),
-      maxHeight / math.max(1, watermark.height),
-    );
-    final safeRatio = math.min(1.0, math.max(ratio, 0.0));
-    return _ImagePoint(
-      math.max(1, (watermark.width * safeRatio).round()),
-      math.max(1, (watermark.height * safeRatio).round()),
-    );
-  }
-
   Future<img.Image> _createTextWatermarkLayer({
     required String text,
     required int fontSize,
@@ -1810,85 +1704,6 @@ class LocalImageChannel {
       throw const AppException('文字水印渲染结果异常，请重试');
     }
     return layer;
-  }
-
-  void _drawTiledTextWatermark(
-    img.Image image,
-    img.Image overlay,
-    int spacing,
-  ) {
-    final safeSpacing = spacing.clamp(8, 160);
-    final stepX = overlay.width + safeSpacing;
-    final stepY = overlay.height + safeSpacing;
-    final layerSize =
-        math
-            .sqrt(image.width * image.width + image.height * image.height)
-            .ceil() +
-        math.max(stepX, stepY) * 2;
-    final layer = img.Image(width: layerSize, height: layerSize, numChannels: 4)
-      ..clear(img.ColorRgba8(0, 0, 0, 0));
-    var row = 0;
-    for (var y = 0; y < layer.height + stepY; y += stepY) {
-      final rowOffset = row.isOdd ? stepX ~/ 2 : 0;
-      for (var x = -stepX; x < layer.width + stepX; x += stepX) {
-        img.compositeImage(layer, overlay, dstX: x + rowOffset, dstY: y);
-      }
-      row += 1;
-    }
-    final rotatedLayer = img.copyRotate(
-      layer,
-      angle: -30,
-      interpolation: img.Interpolation.linear,
-    );
-    img.compositeImage(
-      image,
-      rotatedLayer,
-      dstX: (image.width - rotatedLayer.width) ~/ 2,
-      dstY: (image.height - rotatedLayer.height) ~/ 2,
-    );
-  }
-
-  void _drawTiledImageWatermark(
-    img.Image image,
-    img.Image overlay,
-    int spacing,
-  ) {
-    final safeSpacing = spacing.clamp(8, 160);
-    final stepX = overlay.width + safeSpacing;
-    final stepY = overlay.height + safeSpacing;
-    final layerSize =
-        math
-            .sqrt(image.width * image.width + image.height * image.height)
-            .ceil() +
-        math.max(stepX, stepY) * 2;
-    final layer = img.Image(width: layerSize, height: layerSize, numChannels: 4)
-      ..clear(img.ColorRgba8(0, 0, 0, 0));
-    var row = 0;
-    for (var y = 0; y < layer.height + stepY; y += stepY) {
-      final rowOffset = row.isOdd ? stepX ~/ 2 : 0;
-      for (var x = -stepX; x < layer.width + stepX; x += stepX) {
-        img.compositeImage(layer, overlay, dstX: x + rowOffset, dstY: y);
-      }
-      row += 1;
-    }
-    final rotatedLayer = img.copyRotate(
-      layer,
-      angle: -30,
-      interpolation: img.Interpolation.linear,
-    );
-    img.compositeImage(
-      image,
-      rotatedLayer,
-      dstX: (image.width - rotatedLayer.width) ~/ 2,
-      dstY: (image.height - rotatedLayer.height) ~/ 2,
-    );
-  }
-
-  void _applyOpacity(img.Image image, int opacity) {
-    final alphaScale = opacity.clamp(0, 100) / 100;
-    for (final pixel in image) {
-      pixel.a = (pixel.a * alphaScale).round().clamp(0, 255);
-    }
   }
 
   void _applyFilterToImage(img.Image image, String filter) {
@@ -2000,11 +1815,4 @@ class _ImageRect {
   final int top;
   final int width;
   final int height;
-}
-
-class _ImagePoint {
-  const _ImagePoint(this.x, this.y);
-
-  final int x;
-  final int y;
 }

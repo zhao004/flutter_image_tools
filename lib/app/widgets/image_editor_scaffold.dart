@@ -1185,6 +1185,7 @@ class EditorImagePreview extends StatelessWidget {
     this.colorFilter,
     this.transform,
     this.child,
+    this.overlayBuilder,
     this.fit = BoxFit.contain,
   });
 
@@ -1192,6 +1193,7 @@ class EditorImagePreview extends StatelessWidget {
   final ColorFilter? colorFilter;
   final Matrix4? transform;
   final Widget? child;
+  final Widget Function(BuildContext context, Size previewSize)? overlayBuilder;
   final BoxFit fit;
 
   @override
@@ -1199,18 +1201,27 @@ class EditorImagePreview extends StatelessWidget {
     final aspectRatio = image.hasValidDimensions && image.height > 0
         ? image.width / image.height
         : 1.0;
-    final preview = Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.file(
-          File(image.path),
-          fit: fit,
-          errorBuilder: (context, error, stackTrace) {
-            return EditorImageLoadError(imageName: image.name);
-          },
-        ),
-        ?child,
-      ],
+    final preview = LayoutBuilder(
+      builder: (context, constraints) {
+        final previewSize = Size(
+          constraints.maxWidth.isFinite ? constraints.maxWidth : 0,
+          constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
+        );
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.file(
+              File(image.path),
+              fit: fit,
+              errorBuilder: (context, error, stackTrace) {
+                return EditorImageLoadError(imageName: image.name);
+              },
+            ),
+            ?child,
+            if (overlayBuilder != null) overlayBuilder!(context, previewSize),
+          ],
+        );
+      },
     );
     final filteredPreview = colorFilter == null
         ? preview

@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../models/local_image_file.dart';
+import '../../utils/watermark_layout.dart';
 import '../../widgets/image_editor_scaffold.dart';
 import 'image_watermark_controller.dart';
 
@@ -38,7 +40,11 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
             : '${controller.formatDimensions(image)} · ${watermark?.name ?? 'imageWatermark.watermark.empty'.tr}',
         previewBuilder: (context, previewImage) => EditorImagePreview(
           image: previewImage,
-          child: _ImageWatermarkOverlay(controller: controller),
+          overlayBuilder: (context, previewSize) => _ImageWatermarkOverlay(
+            controller: controller,
+            image: previewImage,
+            previewSize: previewSize,
+          ),
         ),
         showPreviewInfo: false,
         expandPreviewToAvailableHeight: true,
@@ -57,9 +63,15 @@ class ImageWatermarkView extends GetView<ImageWatermarkController> {
 }
 
 class _ImageWatermarkOverlay extends StatelessWidget {
-  const _ImageWatermarkOverlay({required this.controller});
+  const _ImageWatermarkOverlay({
+    required this.controller,
+    required this.image,
+    required this.previewSize,
+  });
 
   final ImageWatermarkController controller;
+  final LocalImageFile image;
+  final Size previewSize;
 
   @override
   Widget build(BuildContext context) {
@@ -81,24 +93,47 @@ class _ImageWatermarkOverlay extends StatelessWidget {
           ),
         ),
       );
-      final size = 220.0 * controller.scalePercent.value / 100;
-      final constrainedLogo = SizedBox.square(
-        dimension: size.clamp(36, 220),
+      final previewWatermarkSize = WatermarkLayout.imageWatermarkPreviewSize(
+        sourceWidth: image.width.toDouble(),
+        sourceHeight: image.height.toDouble(),
+        watermarkWidth: watermark.width.toDouble(),
+        watermarkHeight: watermark.height.toDouble(),
+        previewWidth: previewSize.width,
+        previewHeight: previewSize.height,
+        scalePercent: controller.scalePercent.value,
+      );
+      final constrainedLogo = SizedBox(
+        width: previewWatermarkSize.width,
+        height: previewWatermarkSize.height,
         child: logo,
+      );
+      final previewSpacing = WatermarkLayout.outputPixelsToPreview(
+        outputPixels: controller.spacing.value,
+        sourceWidth: image.width.toDouble(),
+        sourceHeight: image.height.toDouble(),
+        previewWidth: previewSize.width,
+        previewHeight: previewSize.height,
+      );
+      final previewMargin = WatermarkLayout.outputPixelsToPreview(
+        outputPixels: WatermarkLayout.positionMarginPixels,
+        sourceWidth: image.width.toDouble(),
+        sourceHeight: image.height.toDouble(),
+        previewWidth: previewSize.width,
+        previewHeight: previewSize.height,
       );
       if (controller.position.value == ImageWatermarkPosition.tile) {
         return IgnorePointer(
           child: _DiagonalImageWatermarkTile(
             key: const ValueKey('image-watermark-tile-layer'),
             watermark: constrainedLogo,
-            tileSize: size.clamp(36, 220).toDouble(),
-            spacing: controller.spacing.value.toDouble(),
+            tileSize: previewWatermarkSize.width,
+            spacing: previewSpacing,
           ),
         );
       }
       return IgnorePointer(
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(previewMargin),
           child: Align(
             alignment: _alignmentFor(controller.position.value),
             child: constrainedLogo,
