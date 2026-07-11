@@ -2290,6 +2290,7 @@ void main() {
       watermarkText.style?.color,
       const Color(0xFF123456).withValues(alpha: 0.4),
     );
+    expect(watermarkText.style?.shadows, isNull);
 
     await database.close();
     Get.reset();

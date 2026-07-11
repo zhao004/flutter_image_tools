@@ -77,9 +77,6 @@ class _TextWatermarkOverlay extends StatelessWidget {
           ),
           fontSize: controller.fontSize.value.toDouble(),
           fontWeight: FontWeight.w700,
-          shadows: const [
-            Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
-          ],
         ),
       );
       if (controller.position.value == WatermarkPosition.tile) {
