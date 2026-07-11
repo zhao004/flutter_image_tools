@@ -150,9 +150,11 @@ class _MergePreviewLayout extends StatelessWidget {
   }) {
     final tileSpecs = _horizontalTileSpecs();
     final contentWidth =
-        tileSpecs.fold<double>(0, (sum, tile) => sum + tile.frameWidth) +
-        spacing * (tileSpecs.length - 1) +
-        borderWidth * 2;
+        tileSpecs.fold<double>(
+          0,
+          (sum, tile) => sum + tile.outerWidth(borderWidth),
+        ) +
+        spacing * (tileSpecs.length - 1);
     final contentHeight = tileSpecs.first.frameHeight + borderWidth * 2;
     final previewScale = _fitScale(
       visibleContentExtent: _horizontalVisibleWidth(tileSpecs),
@@ -163,8 +165,8 @@ class _MergePreviewLayout extends StatelessWidget {
         .map(
           (tile) => SizedBox(
             key: ValueKey('merge-preview-tile-${tile.image.path}'),
-            width: tile.frameWidth * previewScale,
-            height: tile.frameHeight * previewScale,
+            width: tile.outerWidth(borderWidth) * previewScale,
+            height: tile.outerHeight(borderWidth) * previewScale,
             child: _tile(tile, previewScale),
           ),
         )
@@ -199,9 +201,11 @@ class _MergePreviewLayout extends StatelessWidget {
     final tileSpecs = _verticalTileSpecs();
     final contentWidth = tileSpecs.first.frameWidth + borderWidth * 2;
     final contentHeight =
-        tileSpecs.fold<double>(0, (sum, tile) => sum + tile.frameHeight) +
-        spacing * (tileSpecs.length - 1) +
-        borderWidth * 2;
+        tileSpecs.fold<double>(
+          0,
+          (sum, tile) => sum + tile.outerHeight(borderWidth),
+        ) +
+        spacing * (tileSpecs.length - 1);
     final previewScale = _fitScale(
       visibleContentExtent: _verticalVisibleHeight(tileSpecs),
       viewportExtent: viewportHeight,
@@ -211,8 +215,8 @@ class _MergePreviewLayout extends StatelessWidget {
         .map(
           (tile) => SizedBox(
             key: ValueKey('merge-preview-tile-${tile.image.path}'),
-            width: tile.frameWidth * previewScale,
-            height: tile.frameHeight * previewScale,
+            width: tile.outerWidth(borderWidth) * previewScale,
+            height: tile.outerHeight(borderWidth) * previewScale,
             child: _tile(tile, previewScale),
           ),
         )
@@ -241,13 +245,12 @@ class _MergePreviewLayout extends StatelessWidget {
   }
 
   Widget _contentFrame({required double scale, required Widget child}) {
-    final scaledBorderWidth = borderWidth * scale;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(cornerRadius * scale),
       ),
-      child: Padding(padding: EdgeInsets.all(scaledBorderWidth), child: child),
+      child: child,
     );
   }
 
@@ -255,6 +258,7 @@ class _MergePreviewLayout extends StatelessWidget {
     return _PreviewImageTile(
       tile: tile,
       backgroundColor: backgroundColor,
+      borderWidth: borderWidth * previewScale,
       cornerRadius: cornerRadius * previewScale,
     );
   }
@@ -323,7 +327,10 @@ class _MergePreviewLayout extends StatelessWidget {
     final visibleTiles = tileSpecs
         .take(_visibleTileCount)
         .toList(growable: false);
-    return visibleTiles.fold<double>(0, (sum, tile) => sum + tile.frameWidth) +
+    return visibleTiles.fold<double>(
+          0,
+          (sum, tile) => sum + tile.outerWidth(borderWidth),
+        ) +
         spacing * math.max(0, visibleTiles.length - 1);
   }
 
@@ -331,7 +338,10 @@ class _MergePreviewLayout extends StatelessWidget {
     final visibleTiles = tileSpecs
         .take(_visibleTileCount)
         .toList(growable: false);
-    return visibleTiles.fold<double>(0, (sum, tile) => sum + tile.frameHeight) +
+    return visibleTiles.fold<double>(
+          0,
+          (sum, tile) => sum + tile.outerHeight(borderWidth),
+        ) +
         spacing * math.max(0, visibleTiles.length - 1);
   }
 
@@ -403,24 +413,34 @@ class _PreviewTileSpec {
   final LocalImageFile image;
   final double frameWidth;
   final double frameHeight;
+
+  double outerWidth(double borderWidth) => frameWidth + borderWidth * 2;
+
+  double outerHeight(double borderWidth) => frameHeight + borderWidth * 2;
 }
 
 class _PreviewImageTile extends StatelessWidget {
   const _PreviewImageTile({
     required this.tile,
     required this.backgroundColor,
+    required this.borderWidth,
     required this.cornerRadius,
   });
 
   final _PreviewTileSpec tile;
   final Color backgroundColor;
+  final double borderWidth;
   final double cornerRadius;
 
   @override
   Widget build(BuildContext context) {
     final image = tile.image;
     final file = File(image.path);
+    final safeBorderWidth = math.max(0.0, borderWidth);
     final radius = BorderRadius.circular(cornerRadius.clamp(0, 48));
+    final imageRadius = BorderRadius.circular(
+      math.max(0.0, cornerRadius - safeBorderWidth).clamp(0.0, 48.0),
+    );
     final child = file.existsSync()
         ? Image.file(
             file,
@@ -435,7 +455,14 @@ class _PreviewImageTile extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(color: backgroundColor, borderRadius: radius),
-      child: ClipRRect(borderRadius: radius, child: child),
+      child: Padding(
+        padding: EdgeInsets.all(safeBorderWidth),
+        child: ClipRRect(
+          key: ValueKey('merge-preview-image-content-${tile.image.path}'),
+          borderRadius: imageRadius,
+          child: child,
+        ),
+      ),
     );
   }
 }

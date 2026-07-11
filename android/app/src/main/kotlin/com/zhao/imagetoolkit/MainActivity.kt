@@ -1736,13 +1736,13 @@ class MainActivity : FlutterActivity() {
         borderWidth: Int,
     ): MergeLayout {
         val frameHeight = bitmaps.minOf { it.height }.coerceAtLeast(1)
-        val width = bitmaps.sumOf { it.width } + spacing * (bitmaps.size - 1) + borderWidth * 2
+        val width = bitmaps.sumOf { it.width + borderWidth * 2 } + spacing * (bitmaps.size - 1)
         val height = frameHeight + borderWidth * 2
         val positions = mutableListOf<BitmapPosition>()
-        var x = borderWidth
+        var x = 0
         for (bitmap in bitmaps) {
-            positions.add(BitmapPosition(x, borderWidth, bitmap.width, frameHeight))
-            x += bitmap.width + spacing
+            positions.add(BitmapPosition(x + borderWidth, borderWidth, bitmap.width, frameHeight))
+            x += bitmap.width + borderWidth * 2 + spacing
         }
         return MergeLayout(width = width, height = height, positions = positions)
     }
@@ -1754,12 +1754,12 @@ class MainActivity : FlutterActivity() {
     ): MergeLayout {
         val frameWidth = bitmaps.minOf { it.width }.coerceAtLeast(1)
         val width = frameWidth + borderWidth * 2
-        val height = bitmaps.sumOf { it.height } + spacing * (bitmaps.size - 1) + borderWidth * 2
+        val height = bitmaps.sumOf { it.height + borderWidth * 2 } + spacing * (bitmaps.size - 1)
         val positions = mutableListOf<BitmapPosition>()
-        var y = borderWidth
+        var y = 0
         for (bitmap in bitmaps) {
-            positions.add(BitmapPosition(borderWidth, y, frameWidth, bitmap.height))
-            y += bitmap.height + spacing
+            positions.add(BitmapPosition(borderWidth, y + borderWidth, frameWidth, bitmap.height))
+            y += bitmap.height + borderWidth * 2 + spacing
         }
         return MergeLayout(width = width, height = height, positions = positions)
     }

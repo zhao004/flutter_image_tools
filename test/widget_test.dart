@@ -2130,6 +2130,22 @@ void main() {
       greaterThanOrEqualTo(48),
     );
 
+    tester.widget<Slider>(borderSliders.at(1)).onChanged?.call(20);
+    await tester.pump();
+
+    expect(Get.find<MergeController>().borderWidth.value, 20);
+    expect(find.text('Border Width: 20px'), findsOneWidget);
+    final borderedTile = tester.getRect(
+      find.byKey(const ValueKey('merge-preview-tile-first.png')),
+    );
+    final borderedImageContent = tester.getRect(
+      find.byKey(const ValueKey('merge-preview-image-content-first.png')),
+    );
+    expect(borderedImageContent.left, greaterThan(borderedTile.left));
+    expect(borderedImageContent.top, greaterThan(borderedTile.top));
+    expect(borderedImageContent.right, lessThan(borderedTile.right));
+    expect(borderedImageContent.bottom, lessThan(borderedTile.bottom));
+
     tester.widget<Slider>(borderSliders.at(2)).onChanged?.call(100);
     await tester.pump();
 
