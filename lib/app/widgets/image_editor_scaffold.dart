@@ -23,7 +23,6 @@ class _EditorVisualTokens {
   static const double maxContentWidth = 920;
   static const double stagePadding = 16;
   static const double primaryToolbarHeight = 72;
-  static const double compactExportBreakpoint = 360;
 }
 
 /// 图片编辑底部一级工具模型。
@@ -143,10 +142,6 @@ class ImageEditorScaffold extends StatelessWidget {
           );
     final shouldShowToolbar =
         showEditingControls && bottomToolbarSurface != null;
-    final viewportWidth = MediaQuery.sizeOf(context).width;
-    final useCompactExport =
-        viewportWidth < _EditorVisualTokens.compactExportBreakpoint ||
-        appBarActions.length >= 2;
     return Scaffold(
       backgroundColor: _EditorVisualTokens.canvasColor,
       appBar: AppBar(
@@ -184,7 +179,6 @@ class ImageEditorScaffold extends StatelessWidget {
                 icon: exportIcon,
                 isBusy: isBusy,
                 onPressed: image == null || isBusy ? null : onExport,
-                compact: useCompactExport,
               ),
             ),
           ],
@@ -216,14 +210,12 @@ class _EditorExportAction extends StatelessWidget {
     required this.icon,
     required this.isBusy,
     required this.onPressed,
-    required this.compact,
   });
 
   final String label;
   final IconData icon;
   final bool isBusy;
   final VoidCallback? onPressed;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -237,27 +229,11 @@ class _EditorExportAction extends StatelessWidget {
             : colorScheme.onPrimary,
       ),
     );
-    if (compact) {
-      return IconButton.filled(
-        key: const ValueKey('editor-export-action'),
-        tooltip: label,
-        onPressed: onPressed,
-        icon: isBusy ? progress : Icon(icon),
-      );
-    }
-    return Tooltip(
-      message: label,
-      child: FilledButton.icon(
-        key: const ValueKey('editor-export-action'),
-        onPressed: onPressed,
-        icon: isBusy ? progress : Icon(icon, size: 20),
-        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          visualDensity: VisualDensity.compact,
-        ),
-      ),
+    return IconButton.filled(
+      key: const ValueKey('editor-export-action'),
+      tooltip: label,
+      onPressed: onPressed,
+      icon: isBusy ? progress : Icon(icon),
     );
   }
 }

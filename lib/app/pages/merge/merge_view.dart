@@ -72,6 +72,7 @@ class _MergePreview extends StatelessWidget {
       final borderWidth = controller.borderWidth.value.toDouble();
       final borderColor = _parseColor(controller.borderColor.value.value);
       final cornerRadius = controller.cornerRadius.value.toDouble();
+      final mode = controller.mode.value;
 
       return LayoutBuilder(
         builder: (context, constraints) {
@@ -94,7 +95,7 @@ class _MergePreview extends StatelessWidget {
                 padding: EdgeInsets.all(previewPadding),
                 child: _MergePreviewLayout(
                   images: images,
-                  mode: controller.mode.value,
+                  mode: mode,
                   spacing: spacing,
                   borderWidth: borderWidth,
                   borderColor: borderColor,
@@ -167,6 +168,7 @@ class _MergePreviewLayout extends StatelessWidget {
         )
         .toList(growable: false);
     return SingleChildScrollView(
+      key: const ValueKey('merge-preview-horizontal-scroll'),
       scrollDirection: Axis.horizontal,
       physics: const ClampingScrollPhysics(),
       child: ConstrainedBox(
@@ -194,6 +196,7 @@ class _MergePreviewLayout extends StatelessWidget {
         )
         .toList(growable: false);
     return SingleChildScrollView(
+      key: const ValueKey('merge-preview-vertical-scroll'),
       physics: const ClampingScrollPhysics(),
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: viewportHeight),
