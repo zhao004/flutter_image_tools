@@ -657,8 +657,11 @@ class _EditorDynamicToolPanelState extends State<EditorDynamicToolPanel> {
                 children: widget.categories
                     .map(
                       (item) => _PrimaryToolButton(
+                        key: ValueKey('editor-primary-tool-${item.id}'),
                         category: item,
-                        selected: item.id == widget.activeCategoryId,
+                        selected:
+                            !_isPanelCollapsed &&
+                            item.id == widget.activeCategoryId,
                         onTap: () => _handleCategoryTap(
                           item,
                           hasSubPanelContent: hasSubPanelContent,
@@ -753,7 +756,11 @@ class _EditorDynamicToolPanelState extends State<EditorDynamicToolPanel> {
         widget.onCategorySelected(category);
         return;
       }
-      setState(() => _isPanelCollapsed = !_isPanelCollapsed);
+      final willCollapse = !_isPanelCollapsed;
+      setState(() => _isPanelCollapsed = willCollapse);
+      if (willCollapse) {
+        FocusScope.of(context).unfocus();
+      }
       return;
     }
     if (_isPanelCollapsed) {
@@ -1031,6 +1038,7 @@ class _CompactToolOverlaySurface extends StatelessWidget {
 
 class _PrimaryToolButton extends StatelessWidget {
   const _PrimaryToolButton({
+    super.key,
     required this.category,
     required this.selected,
     required this.onTap,

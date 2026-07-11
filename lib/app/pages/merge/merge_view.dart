@@ -126,7 +126,6 @@ class _MergePreviewLayout extends StatelessWidget {
   final double borderWidth;
   final Color borderColor;
   final double cornerRadius;
-  static const double _minimumReadableScale = 0.5;
 
   @override
   Widget build(BuildContext context) {
@@ -168,10 +167,9 @@ class _MergePreviewLayout extends StatelessWidget {
       (height, tile) => math.max(height, tile.height),
     );
     final previewScale = _fitScale(
-      contentWidth: contentWidth,
-      contentHeight: contentHeight,
-      viewportWidth: viewportWidth,
-      viewportHeight: viewportHeight,
+      visibleContentExtent: _horizontalVisibleWidth(tileSpecs),
+      viewportExtent: viewportWidth,
+      visibleTileCount: _visibleTileCount,
     );
     final tiles = tileSpecs
         .map(
@@ -212,10 +210,9 @@ class _MergePreviewLayout extends StatelessWidget {
         tileSpecs.fold<double>(0, (sum, tile) => sum + tile.height) +
         spacing * (tileSpecs.length - 1);
     final previewScale = _fitScale(
-      contentWidth: contentWidth,
-      contentHeight: contentHeight,
-      viewportWidth: viewportWidth,
-      viewportHeight: viewportHeight,
+      visibleContentExtent: _verticalVisibleHeight(tileSpecs),
+      viewportExtent: viewportHeight,
+      visibleTileCount: _visibleTileCount,
     );
     final tiles = tileSpecs
         .map(
@@ -302,19 +299,41 @@ class _MergePreviewLayout extends StatelessWidget {
   }
 
   double _fitScale({
-    required double contentWidth,
-    required double contentHeight,
-    required double viewportWidth,
-    required double viewportHeight,
+    required double visibleContentExtent,
+    required double viewportExtent,
+    required int visibleTileCount,
   }) {
-    if (contentWidth <= 0 || contentHeight <= 0) {
+    if (visibleTileCount <= 0 || visibleContentExtent <= 0) {
       return 1;
     }
-    final fitScale = math.min(
-      viewportWidth / contentWidth,
-      viewportHeight / contentHeight,
-    );
-    return math.min(1.0, math.max(fitScale, _minimumReadableScale));
+    final fitScale = viewportExtent / visibleContentExtent;
+    return math.min(1.0, fitScale);
+  }
+
+  int get _visibleTileCount {
+    if (images.length > 3) {
+      return 3;
+    }
+    if (images.length > 2) {
+      return 2;
+    }
+    return images.length;
+  }
+
+  double _horizontalVisibleWidth(List<_PreviewTileSpec> tileSpecs) {
+    final visibleTiles = tileSpecs
+        .take(_visibleTileCount)
+        .toList(growable: false);
+    return visibleTiles.fold<double>(0, (sum, tile) => sum + tile.width) +
+        spacing * math.max(0, visibleTiles.length - 1);
+  }
+
+  double _verticalVisibleHeight(List<_PreviewTileSpec> tileSpecs) {
+    final visibleTiles = tileSpecs
+        .take(_visibleTileCount)
+        .toList(growable: false);
+    return visibleTiles.fold<double>(0, (sum, tile) => sum + tile.height) +
+        spacing * math.max(0, visibleTiles.length - 1);
   }
 
   List<Widget> _withSpacing(

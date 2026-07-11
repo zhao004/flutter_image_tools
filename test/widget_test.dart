@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:drift/native.dart';
 import 'package:flex_color_picker/flex_color_picker.dart' as flex_color_picker;
 import 'package:flutter/material.dart';
@@ -621,6 +623,15 @@ void main() {
   testWidgets('点击已选一级导航可收起并切换属性设置面板', (WidgetTester tester) async {
     // 同一导航负责折叠/恢复当前属性面板，切换到其他导航时立即展开新面板。
     var activeCategoryId = 'draw';
+    bool isPrimaryToolSelected(String id) {
+      // 只校验选中标记，避免测试与合并后的语义标签和动作细节强绑定。
+      return tester
+              .getSemantics(find.byKey(ValueKey('editor-primary-tool-$id')))
+              .flagsCollection
+              .isSelected ==
+          Tristate.isTrue;
+    }
+
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -665,6 +676,7 @@ void main() {
       find.byKey(const ValueKey('editor-tool-parameter-surface')),
       findsOneWidget,
     );
+    expect(isPrimaryToolSelected('draw'), isTrue);
 
     await tester.tap(find.text('Draw'));
     await tester.pumpAndSettle();
@@ -674,6 +686,7 @@ void main() {
       find.byKey(const ValueKey('editor-tool-parameter-surface')),
       findsNothing,
     );
+    expect(isPrimaryToolSelected('draw'), isFalse);
 
     await tester.tap(find.text('Erase'));
     await tester.pumpAndSettle();
@@ -683,6 +696,7 @@ void main() {
       find.byKey(const ValueKey('editor-tool-parameter-surface')),
       findsOneWidget,
     );
+    expect(isPrimaryToolSelected('erase'), isTrue);
 
     await tester.tap(find.text('Erase'));
     await tester.pumpAndSettle();
@@ -1788,8 +1802,47 @@ void main() {
         expect(content.height, lessThanOrEqualTo(viewport.height + tolerance));
       }
 
-      expect(firstTile.height, greaterThan(100));
-      expect(secondTile.height, greaterThan(100));
+      expect(firstTile.width, greaterThan(tolerance));
+      expect(firstTile.height, greaterThan(tolerance));
+      expect(secondTile.width, greaterThan(tolerance));
+      expect(secondTile.height, greaterThan(tolerance));
+    }
+
+    void expectVisiblePreviewTiles({
+      required String viewportKey,
+      required List<String> visibleTileKeys,
+      required String overflowTileKey,
+      required bool horizontal,
+    }) {
+      // 通过首屏几何位置验证多图默认缩放数量，剩余图片仍在滚动画布中可访问。
+      final viewport = tester.getRect(find.byKey(ValueKey(viewportKey)));
+      const tolerance = 1.0;
+
+      for (final key in visibleTileKeys) {
+        final tile = tester.getRect(find.byKey(ValueKey(key)));
+        if (horizontal) {
+          expect(tile.left, greaterThanOrEqualTo(viewport.left - tolerance));
+          expect(tile.right, lessThanOrEqualTo(viewport.right + tolerance));
+        } else {
+          expect(tile.top, greaterThanOrEqualTo(viewport.top - tolerance));
+          expect(tile.bottom, lessThanOrEqualTo(viewport.bottom + tolerance));
+        }
+      }
+
+      final overflowTile = tester.getRect(
+        find.byKey(ValueKey(overflowTileKey)),
+      );
+      if (horizontal) {
+        expect(
+          overflowTile.left,
+          greaterThanOrEqualTo(viewport.right - tolerance),
+        );
+      } else {
+        expect(
+          overflowTile.top,
+          greaterThanOrEqualTo(viewport.bottom - tolerance),
+        );
+      }
     }
 
     Get.put(
@@ -1862,9 +1915,93 @@ void main() {
     expect(find.text('Image Spacing: 8px'), findsOneWidget);
     expectReadableScrollablePreview(
       viewportKey: 'merge-preview-horizontal-scroll',
-      shouldOverflowHorizontally: true,
+      shouldOverflowHorizontally: false,
       shouldOverflowVertically: true,
     );
+
+    Get.find<MergeController>().selectedImages.assignAll(const [
+      LocalImageFile(
+        path: 'first.png',
+        name: 'first.png',
+        sizeBytes: 1200,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+      LocalImageFile(
+        path: 'second.png',
+        name: 'second.png',
+        sizeBytes: 2400,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+      LocalImageFile(
+        path: 'third.png',
+        name: 'third.png',
+        sizeBytes: 3600,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+    ]);
+    await tester.pump();
+    expectVisiblePreviewTiles(
+      viewportKey: 'merge-preview-horizontal-scroll',
+      visibleTileKeys: const [
+        'merge-preview-tile-first.png',
+        'merge-preview-tile-second.png',
+      ],
+      overflowTileKey: 'merge-preview-tile-third.png',
+      horizontal: true,
+    );
+
+    Get.find<MergeController>().selectedImages.assignAll(const [
+      LocalImageFile(
+        path: 'first.png',
+        name: 'first.png',
+        sizeBytes: 1200,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+      LocalImageFile(
+        path: 'second.png',
+        name: 'second.png',
+        sizeBytes: 2400,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+      LocalImageFile(
+        path: 'third.png',
+        name: 'third.png',
+        sizeBytes: 3600,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+      LocalImageFile(
+        path: 'fourth.png',
+        name: 'fourth.png',
+        sizeBytes: 4800,
+        mimeType: 'image/png',
+        width: 800,
+        height: 600,
+      ),
+    ]);
+    await tester.pump();
+    expectVisiblePreviewTiles(
+      viewportKey: 'merge-preview-horizontal-scroll',
+      visibleTileKeys: const [
+        'merge-preview-tile-first.png',
+        'merge-preview-tile-second.png',
+        'merge-preview-tile-third.png',
+      ],
+      overflowTileKey: 'merge-preview-tile-fourth.png',
+      horizontal: true,
+    );
+
     final spacingSlider = find.byType(Slider);
     expect(spacingSlider, findsOneWidget);
     expect(tester.getSize(spacingSlider).height, greaterThanOrEqualTo(48));
@@ -1887,10 +2024,15 @@ void main() {
       find.byKey(const ValueKey('merge-preview-vertical-scroll')),
       findsOneWidget,
     );
-    expectReadableScrollablePreview(
+    expectVisiblePreviewTiles(
       viewportKey: 'merge-preview-vertical-scroll',
-      shouldOverflowHorizontally: false,
-      shouldOverflowVertically: true,
+      visibleTileKeys: const [
+        'merge-preview-tile-first.png',
+        'merge-preview-tile-second.png',
+        'merge-preview-tile-third.png',
+      ],
+      overflowTileKey: 'merge-preview-tile-fourth.png',
+      horizontal: false,
     );
 
     await tester.tap(find.text('Horizontal'));
@@ -1905,10 +2047,15 @@ void main() {
       find.byKey(const ValueKey('merge-preview-vertical-scroll')),
       findsNothing,
     );
-    expectReadableScrollablePreview(
+    expectVisiblePreviewTiles(
       viewportKey: 'merge-preview-horizontal-scroll',
-      shouldOverflowHorizontally: true,
-      shouldOverflowVertically: true,
+      visibleTileKeys: const [
+        'merge-preview-tile-first.png',
+        'merge-preview-tile-second.png',
+        'merge-preview-tile-third.png',
+      ],
+      overflowTileKey: 'merge-preview-tile-fourth.png',
+      horizontal: true,
     );
 
     await database.close();
