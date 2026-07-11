@@ -126,6 +126,7 @@ class _MergePreviewLayout extends StatelessWidget {
   final double borderWidth;
   final Color borderColor;
   final double cornerRadius;
+  static const double _minimumReadableScale = 0.5;
 
   @override
   Widget build(BuildContext context) {
@@ -182,26 +183,18 @@ class _MergePreviewLayout extends StatelessWidget {
           ),
         )
         .toList(growable: false);
-    return SingleChildScrollView(
+    final scaledContentWidth = contentWidth * previewScale;
+    final scaledContentHeight = contentHeight * previewScale;
+    return _ScrollablePreview(
       key: const ValueKey('merge-preview-horizontal-scroll'),
-      scrollDirection: Axis.horizontal,
-      physics: const ClampingScrollPhysics(),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minWidth: viewportWidth,
-          minHeight: viewportHeight,
-        ),
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: _withSpacing(
-              tiles,
-              isHorizontal: true,
-              scale: previewScale,
-            ),
-          ),
-        ),
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
+      contentWidth: scaledContentWidth,
+      contentHeight: scaledContentHeight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: _withSpacing(tiles, isHorizontal: true, scale: previewScale),
       ),
     );
   }
@@ -234,25 +227,18 @@ class _MergePreviewLayout extends StatelessWidget {
           ),
         )
         .toList(growable: false);
-    return SingleChildScrollView(
+    final scaledContentWidth = contentWidth * previewScale;
+    final scaledContentHeight = contentHeight * previewScale;
+    return _ScrollablePreview(
       key: const ValueKey('merge-preview-vertical-scroll'),
-      physics: const ClampingScrollPhysics(),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minWidth: viewportWidth,
-          minHeight: viewportHeight,
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: _withSpacing(
-              tiles,
-              isHorizontal: false,
-              scale: previewScale,
-            ),
-          ),
-        ),
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
+      contentWidth: scaledContentWidth,
+      contentHeight: scaledContentHeight,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: _withSpacing(tiles, isHorizontal: false, scale: previewScale),
       ),
     );
   }
@@ -324,10 +310,11 @@ class _MergePreviewLayout extends StatelessWidget {
     if (contentWidth <= 0 || contentHeight <= 0) {
       return 1;
     }
-    return math
-        .min(viewportWidth / contentWidth, viewportHeight / contentHeight)
-        .clamp(0.01, double.infinity)
-        .toDouble();
+    final fitScale = math.min(
+      viewportWidth / contentWidth,
+      viewportHeight / contentHeight,
+    );
+    return math.min(1.0, math.max(fitScale, _minimumReadableScale));
   }
 
   List<Widget> _withSpacing(
@@ -348,6 +335,43 @@ class _MergePreviewLayout extends StatelessWidget {
       spaced.add(children[index]);
     }
     return spaced;
+  }
+}
+
+class _ScrollablePreview extends StatelessWidget {
+  const _ScrollablePreview({
+    super.key,
+    required this.viewportWidth,
+    required this.viewportHeight,
+    required this.contentWidth,
+    required this.contentHeight,
+    required this.child,
+  });
+
+  final double viewportWidth;
+  final double viewportHeight;
+  final double contentWidth;
+  final double contentHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final canvasWidth = math.max(viewportWidth, contentWidth);
+    final canvasHeight = math.max(viewportHeight, contentHeight);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const ClampingScrollPhysics(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        physics: const ClampingScrollPhysics(),
+        child: SizedBox(
+          width: canvasWidth,
+          height: canvasHeight,
+          child: Center(child: child),
+        ),
+      ),
+    );
   }
 }
 

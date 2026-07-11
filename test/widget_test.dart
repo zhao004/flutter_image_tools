@@ -1761,8 +1761,12 @@ void main() {
   testWidgets('显示英文图片拼接页面', (WidgetTester tester) async {
     // 直接注入控制器依赖，仅验证选图、布局和首屏参数文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
-    void expectPreviewTilesInside(String viewportKey) {
-      // 用几何断言覆盖整体缩放策略，避免横向或纵向拼接结果默认超出预览区域。
+    void expectReadableScrollablePreview({
+      required String viewportKey,
+      required bool shouldOverflowHorizontally,
+      required bool shouldOverflowVertically,
+    }) {
+      // 用几何断言覆盖适度缩放策略：预览保持可读尺寸，超出视口时交给滚动查看。
       final viewport = tester.getRect(find.byKey(ValueKey(viewportKey)));
       final firstTile = tester.getRect(
         find.byKey(const ValueKey('merge-preview-tile-first.png')),
@@ -1771,13 +1775,21 @@ void main() {
         find.byKey(const ValueKey('merge-preview-tile-second.png')),
       );
       const tolerance = 1.0;
+      final content = firstTile.expandToInclude(secondTile);
 
-      for (final tile in [firstTile, secondTile]) {
-        expect(tile.left, greaterThanOrEqualTo(viewport.left - tolerance));
-        expect(tile.top, greaterThanOrEqualTo(viewport.top - tolerance));
-        expect(tile.right, lessThanOrEqualTo(viewport.right + tolerance));
-        expect(tile.bottom, lessThanOrEqualTo(viewport.bottom + tolerance));
+      if (shouldOverflowHorizontally) {
+        expect(content.width, greaterThan(viewport.width + tolerance));
+      } else {
+        expect(content.width, lessThanOrEqualTo(viewport.width + tolerance));
       }
+      if (shouldOverflowVertically) {
+        expect(content.height, greaterThan(viewport.height + tolerance));
+      } else {
+        expect(content.height, lessThanOrEqualTo(viewport.height + tolerance));
+      }
+
+      expect(firstTile.height, greaterThan(100));
+      expect(secondTile.height, greaterThan(100));
     }
 
     Get.put(
@@ -1848,7 +1860,11 @@ void main() {
     expect(find.text('Grid'), findsNothing);
     expect(find.text('Long Image'), findsNothing);
     expect(find.text('Image Spacing: 8px'), findsOneWidget);
-    expectPreviewTilesInside('merge-preview-horizontal-scroll');
+    expectReadableScrollablePreview(
+      viewportKey: 'merge-preview-horizontal-scroll',
+      shouldOverflowHorizontally: true,
+      shouldOverflowVertically: true,
+    );
     final spacingSlider = find.byType(Slider);
     expect(spacingSlider, findsOneWidget);
     expect(tester.getSize(spacingSlider).height, greaterThanOrEqualTo(48));
@@ -1871,7 +1887,11 @@ void main() {
       find.byKey(const ValueKey('merge-preview-vertical-scroll')),
       findsOneWidget,
     );
-    expectPreviewTilesInside('merge-preview-vertical-scroll');
+    expectReadableScrollablePreview(
+      viewportKey: 'merge-preview-vertical-scroll',
+      shouldOverflowHorizontally: false,
+      shouldOverflowVertically: true,
+    );
 
     await tester.tap(find.text('Horizontal'));
     await tester.pumpAndSettle();
@@ -1885,7 +1905,11 @@ void main() {
       find.byKey(const ValueKey('merge-preview-vertical-scroll')),
       findsNothing,
     );
-    expectPreviewTilesInside('merge-preview-horizontal-scroll');
+    expectReadableScrollablePreview(
+      viewportKey: 'merge-preview-horizontal-scroll',
+      shouldOverflowHorizontally: true,
+      shouldOverflowVertically: true,
+    );
 
     await database.close();
     Get.reset();
