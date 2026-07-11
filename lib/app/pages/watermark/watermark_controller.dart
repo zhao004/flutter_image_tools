@@ -52,18 +52,6 @@ enum WatermarkPosition {
   final String value;
 }
 
-enum WatermarkColor {
-  white(labelKey: 'watermark.color.white', value: '#FFFFFF'),
-  black(labelKey: 'watermark.color.black', value: '#000000'),
-  red(labelKey: 'watermark.color.red', value: '#E53935'),
-  yellow(labelKey: 'watermark.color.yellow', value: '#FDD835');
-
-  const WatermarkColor({required this.labelKey, required this.value});
-
-  final String labelKey;
-  final String value;
-}
-
 /// 文字水印控制器，管理选图、水印文字、位置、颜色、字号和透明度。
 ///
 /// 异常策略：文本长度、字号和透明度在 Dart 侧校验，原生端负责最终绘制和
@@ -88,14 +76,22 @@ class WatermarkController extends GetxController {
   final tasks = <WatermarkTask>[].obs;
   final processedCount = 0.obs;
   final position = WatermarkPosition.bottomRight.obs;
-  final color = WatermarkColor.white.obs;
+  final color = Colors.white.obs;
   final fontSize = 36.obs;
   final opacity = 70.obs;
   final isBusy = false.obs;
+  final textRevision = 0.obs;
   final textController = TextEditingController(text: 'ImageToolKit');
 
   @override
+  void onInit() {
+    super.onInit();
+    textController.addListener(_notifyTextPreviewChanged);
+  }
+
+  @override
   void onClose() {
+    textController.removeListener(_notifyTextPreviewChanged);
     textController.dispose();
     super.onClose();
   }
@@ -150,8 +146,8 @@ class WatermarkController extends GetxController {
     position.value = value;
   }
 
-  void setColor(WatermarkColor value) {
-    color.value = value;
+  void setColor(Color value) {
+    color.value = value.withValues(alpha: 1);
   }
 
   void updateFontSize(double value) {
@@ -160,6 +156,19 @@ class WatermarkController extends GetxController {
 
   void updateOpacity(double value) {
     opacity.value = value.round().clamp(10, 100);
+  }
+
+  bool validateWatermarkText() {
+    final text = textController.text.trim();
+    if (text.isEmpty) {
+      _showError('watermark.error.textRequired'.tr);
+      return false;
+    }
+    if (text.length > 80) {
+      _showError('watermark.error.textTooLong'.trParams({'max': '80'}));
+      return false;
+    }
+    return true;
   }
 
   Future<void> addWatermark() async {
@@ -177,12 +186,7 @@ class WatermarkController extends GetxController {
       return;
     }
     final text = textController.text.trim();
-    if (text.isEmpty) {
-      _showError('watermark.error.textRequired'.tr);
-      return;
-    }
-    if (text.length > 80) {
-      _showError('watermark.error.textTooLong'.trParams({'max': '80'}));
+    if (!validateWatermarkText()) {
       return;
     }
 
@@ -201,7 +205,7 @@ class WatermarkController extends GetxController {
             position: position.value.value,
             fontSize: fontSize.value,
             opacity: opacity.value,
-            color: color.value.value,
+            color: colorHex,
           );
           result.value = watermarked;
           tasks[index] = tasks[index].copyWith(
@@ -265,8 +269,14 @@ class WatermarkController extends GetxController {
       'position': position.value.value,
       'fontSize': fontSize.value,
       'opacity': opacity.value,
-      'color': color.value.value,
+      'color': colorHex,
     };
+  }
+
+  /// 将 Flutter 颜色收敛为原生绘制层需要的 #RRGGBB，透明度由独立参数控制。
+  String get colorHex {
+    final rgb = color.value.toARGB32() & 0x00FFFFFF;
+    return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
 
   String formatBytes(int bytes) {
@@ -301,5 +311,10 @@ class WatermarkController extends GetxController {
 
   void _showError(String message) {
     showLatestSnackbar('watermark.error.title'.tr, message);
+  }
+
+  void _notifyTextPreviewChanged() {
+    // 文本控制器不是 Rx；单独维护版本号，确保预览层可响应输入变化。
+    textRevision.value++;
   }
 }

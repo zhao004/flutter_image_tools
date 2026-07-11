@@ -2214,17 +2214,24 @@ void main() {
     expect(find.text('Position'), findsOneWidget);
     expect(find.text('Style'), findsOneWidget);
     expect(find.text('Watermark Text'), findsWidgets);
+    expect(find.text('Confirm'), findsNothing);
     expect(find.text('Bottom Right'), findsNothing);
     expect(find.text('White'), findsNothing);
+    expect(find.text('#FFFFFF'), findsNothing);
     expect(find.text('Font Size: 36px'), findsNothing);
     expect(find.text('Opacity: 70%'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'Checked Text');
+    await tester.pump();
+
+    expect(find.text('Checked Text'), findsWidgets);
 
     await tester.tap(find.text('Position'));
     await tester.pumpAndSettle();
 
     expect(find.text('Bottom Right'), findsOneWidget);
     expect(find.text('Tile'), findsOneWidget);
-    controller.position.value = WatermarkPosition.tile;
+    controller.setPosition(WatermarkPosition.tile);
     await tester.pump();
     expect(
       find.byKey(const ValueKey('text-watermark-tile-layer')),
@@ -2234,10 +2241,48 @@ void main() {
     await tester.tap(find.text('Style'));
     await tester.pumpAndSettle();
 
-    expect(find.text('White'), findsOneWidget);
+    expect(find.text('White'), findsNothing);
+    expect(find.text('#FFFFFF'), findsOneWidget);
     expect(find.text('Font Size: 36px'), findsOneWidget);
     expect(find.text('Opacity: 70%'), findsOneWidget);
     expect(find.text('Watermark Settings'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('watermark-color-picker-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select Watermark Color'), findsOneWidget);
+    expect(find.byType(flex_color_picker.ColorPicker), findsOneWidget);
+    Navigator.of(tester.element(find.byType(AlertDialog))).pop();
+    await tester.pumpAndSettle();
+
+    controller.setColor(const Color(0xFF123456));
+    await tester.pump();
+    expect(find.text('#123456'), findsOneWidget);
+
+    final sliders = find.byType(Slider);
+    expect(sliders, findsNWidgets(2));
+    tester.widget<Slider>(sliders.at(0)).onChanged?.call(48);
+    await tester.pump();
+
+    expect(controller.fontSize.value, 48);
+    expect(find.text('Font Size: 48px'), findsOneWidget);
+
+    tester.widget<Slider>(sliders.at(1)).onChanged?.call(40);
+    await tester.pump();
+
+    expect(controller.opacity.value, 40);
+    expect(find.text('Opacity: 40%'), findsOneWidget);
+
+    final watermarkText = tester
+        .widgetList<Text>(find.text('Checked Text'))
+        .firstWhere((text) => text.style?.fontWeight == FontWeight.w700);
+    expect(watermarkText.style?.fontSize, 48);
+    expect(
+      watermarkText.style?.color,
+      const Color(0xFF123456).withValues(alpha: 0.4),
+    );
 
     await database.close();
     Get.reset();
