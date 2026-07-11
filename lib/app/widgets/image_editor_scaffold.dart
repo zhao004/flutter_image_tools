@@ -52,6 +52,36 @@ class ToolSubItem {
   final IconData icon;
 }
 
+/// 图片编辑底部一级工具栏视觉配置。
+///
+/// 设计意图：默认值保持既有紧凑样式；具体页面可按自身场景放大触控区、
+/// 调整首屏露出数量，而不影响其它共用编辑器页面。
+class EditorPrimaryToolStyle {
+  const EditorPrimaryToolStyle({
+    this.toolbarHeight = _EditorVisualTokens.primaryToolbarHeight,
+    this.itemWidth = 80,
+    this.iconContainerWidth = 40,
+    this.iconContainerHeight = 32,
+    this.iconSize = 24,
+    this.iconBorderRadius = 16,
+    this.labelSpacing = 4,
+    this.horizontalPadding = 0,
+    this.itemGap = 0,
+    this.alignment = MainAxisAlignment.center,
+  });
+
+  final double toolbarHeight;
+  final double itemWidth;
+  final double iconContainerWidth;
+  final double iconContainerHeight;
+  final double iconSize;
+  final double iconBorderRadius;
+  final double labelSpacing;
+  final double horizontalPadding;
+  final double itemGap;
+  final MainAxisAlignment alignment;
+}
+
 /// 图片编辑页通用工作台。
 ///
 /// 构建设计：顶部集中放置辅助操作和主导出动作，中间使用沉浸式深色画布，
@@ -577,6 +607,7 @@ class EditorDynamicToolPanel extends StatefulWidget {
     this.showPanelHeader = true,
     this.compactPanel = false,
     this.stackCompactPanel = false,
+    this.primaryToolStyle = const EditorPrimaryToolStyle(),
   });
 
   final List<ToolCategory> categories;
@@ -592,6 +623,7 @@ class EditorDynamicToolPanel extends StatefulWidget {
   final bool showPanelHeader;
   final bool compactPanel;
   final bool stackCompactPanel;
+  final EditorPrimaryToolStyle primaryToolStyle;
 
   @override
   State<EditorDynamicToolPanel> createState() => _EditorDynamicToolPanelState();
@@ -639,12 +671,13 @@ class _EditorDynamicToolPanelState extends State<EditorDynamicToolPanel> {
     final compactPanelHeight = widget.stackCompactPanel
         ? stackedCompactHeight
         : compactSubPanelHeight;
+    final primaryToolStyle = widget.primaryToolStyle;
     final double compactToolbarHeight = shouldShowSubPanel
-        ? _EditorVisualTokens.primaryToolbarHeight + 8.0 + compactPanelHeight
-        : _EditorVisualTokens.primaryToolbarHeight;
+        ? primaryToolStyle.toolbarHeight + 8.0 + compactPanelHeight
+        : primaryToolStyle.toolbarHeight;
     final primaryTools = SizedBox(
       key: const ValueKey('editor-primary-tool-tabs'),
-      height: _EditorVisualTokens.primaryToolbarHeight,
+      height: primaryToolStyle.toolbarHeight,
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
@@ -652,23 +685,31 @@ class _EditorDynamicToolPanelState extends State<EditorDynamicToolPanel> {
             scrollDirection: Axis.horizontal,
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: widget.categories
-                    .map(
-                      (item) => _PrimaryToolButton(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: primaryToolStyle.horizontalPadding,
+                ),
+                child: Row(
+                  mainAxisAlignment: primaryToolStyle.alignment,
+                  children: [
+                    for (final item in widget.categories) ...[
+                      _PrimaryToolButton(
                         key: ValueKey('editor-primary-tool-${item.id}'),
                         category: item,
                         selected:
                             !_isPanelCollapsed &&
                             item.id == widget.activeCategoryId,
+                        style: primaryToolStyle,
                         onTap: () => _handleCategoryTap(
                           item,
                           hasSubPanelContent: hasSubPanelContent,
                         ),
                       ),
-                    )
-                    .toList(growable: false),
+                      if (item != widget.categories.last)
+                        SizedBox(width: primaryToolStyle.itemGap),
+                    ],
+                  ],
+                ),
               ),
             ),
           );
@@ -688,7 +729,7 @@ class _EditorDynamicToolPanelState extends State<EditorDynamicToolPanel> {
                 key: const ValueKey('editor-compact-tool-panel'),
                 left: 0,
                 right: 0,
-                bottom: _EditorVisualTokens.primaryToolbarHeight + 8,
+                bottom: primaryToolStyle.toolbarHeight + 8,
                 child: _DynamicToolSubPanel(
                   title: widget.activePanelTitle ?? activeCategory?.name,
                   maxHeight: effectiveMaxPanelHeight,
@@ -1041,11 +1082,13 @@ class _PrimaryToolButton extends StatelessWidget {
     super.key,
     required this.category,
     required this.selected,
+    required this.style,
     required this.onTap,
   });
 
   final ToolCategory category;
   final bool selected;
+  final EditorPrimaryToolStyle style;
   final VoidCallback onTap;
 
   @override
@@ -1065,26 +1108,32 @@ class _PrimaryToolButton extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             child: SizedBox(
-              width: 80,
-              height: _EditorVisualTokens.primaryToolbarHeight,
+              width: style.itemWidth,
+              height: style.toolbarHeight,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOutCubic,
-                    width: 40,
-                    height: 32,
+                    width: style.iconContainerWidth,
+                    height: style.iconContainerHeight,
                     decoration: BoxDecoration(
                       color: selected
                           ? colorScheme.secondaryContainer
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                        style.iconBorderRadius,
+                      ),
                     ),
                     alignment: Alignment.center,
-                    child: Icon(category.icon, size: 24, color: foreground),
+                    child: Icon(
+                      category.icon,
+                      size: style.iconSize,
+                      color: foreground,
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: style.labelSpacing),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Text(

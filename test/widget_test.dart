@@ -1044,6 +1044,20 @@ void main() {
       find.byKey(const ValueKey('editor-primary-tool-tabs')),
     );
     expect(primaryTabsRect.top - toolbarRect.top, lessThanOrEqualTo(12));
+    expect(primaryTabsRect.height, 92);
+    final annotateRect = tester.getRect(
+      find.byKey(const ValueKey('editor-primary-tool-markup')),
+    );
+    final mosaicRect = tester.getRect(
+      find.byKey(const ValueKey('editor-primary-tool-mosaic')),
+    );
+    final cropRect = tester.getRect(
+      find.byKey(const ValueKey('editor-primary-tool-crop')),
+    );
+    expect(annotateRect.width, 104);
+    expect(mosaicRect.left - annotateRect.right, 2);
+    expect(cropRect.left, lessThan(primaryTabsRect.right));
+    expect(cropRect.right, greaterThan(primaryTabsRect.right));
     await tester.tap(find.text('Text'));
     await tester.pumpAndSettle();
 

@@ -803,6 +803,20 @@ class _ImageAdjustmentPreview extends StatelessWidget {
 class _AnnotationBottomToolPanel extends StatelessWidget {
   const _AnnotationBottomToolPanel({required this.controller});
 
+  static const EditorPrimaryToolStyle _previewToolbarStyle =
+      EditorPrimaryToolStyle(
+        toolbarHeight: 92,
+        itemWidth: 104,
+        iconContainerWidth: 52,
+        iconContainerHeight: 42,
+        iconSize: 28,
+        iconBorderRadius: 20,
+        labelSpacing: 6,
+        horizontalPadding: 12,
+        itemGap: 2,
+        alignment: MainAxisAlignment.start,
+      );
+
   final AnnotationController controller;
 
   @override
@@ -822,6 +836,7 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
         showPanelHeader: false,
         compactPanel: true,
         stackCompactPanel: _shouldStackPropertyPanel(activeCategoryId),
+        primaryToolStyle: _previewToolbarStyle,
       );
     });
   }
