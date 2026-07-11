@@ -371,7 +371,7 @@ class _EditorPreviewStage extends StatelessWidget {
             ? constraints.maxHeight
             : 560.0;
         final topInset = showPreviewInfo ? 76.0 : 20.0;
-        final bottomInset = resultSummary == null ? 20.0 : 72.0;
+        final bottomInset = 20.0;
         final contentHeight = math.max(
           0.0,
           availableHeight - topInset - bottomInset,
@@ -426,22 +426,6 @@ class _EditorPreviewStage extends StatelessWidget {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: _EditorImageInfoOverlay(image: image, meta: meta),
-                  ),
-                ),
-              ),
-            if (resultSummary != null)
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 12,
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 620),
-                    child: _EditorCanvasOverlaySurface(
-                      key: const ValueKey('editor-result-overlay'),
-                      child: resultSummary!,
-                    ),
                   ),
                 ),
               ),

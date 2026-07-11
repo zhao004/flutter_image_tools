@@ -421,18 +421,20 @@ class _WatermarkStylePanel extends StatelessWidget {
               enabled: !controller.isBusy.value,
               onChanged: controller.updateOpacity,
             ),
-            const SizedBox(width: 16),
-            _WatermarkSlider(
-              label: 'watermark.config.spacing'.trParams({
-                'spacing': '${controller.spacing.value}',
-              }),
-              value: controller.spacing.value.toDouble(),
-              min: 8,
-              max: 160,
-              divisions: 38,
-              enabled: !controller.isBusy.value,
-              onChanged: controller.updateSpacing,
-            ),
+            if (controller.position.value == WatermarkPosition.tile) ...[
+              const SizedBox(width: 16),
+              _WatermarkSlider(
+                label: 'watermark.config.spacing'.trParams({
+                  'spacing': '${controller.spacing.value}',
+                }),
+                value: controller.spacing.value.toDouble(),
+                min: 8,
+                max: 160,
+                divisions: 38,
+                enabled: !controller.isBusy.value,
+                onChanged: controller.updateSpacing,
+              ),
+            ],
             if (controller.tasks.isNotEmpty) ...[
               const SizedBox(width: 16),
               _WatermarkProgressIndicator(controller: controller),

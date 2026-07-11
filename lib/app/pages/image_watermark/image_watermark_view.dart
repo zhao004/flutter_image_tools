@@ -363,18 +363,20 @@ class _ImageWatermarkStylePanel extends StatelessWidget {
               enabled: !controller.isBusy.value,
               onChanged: controller.updateScale,
             ),
-            const SizedBox(width: 16),
-            _ImageWatermarkSlider(
-              label: 'imageWatermark.config.spacing'.trParams({
-                'spacing': '${controller.spacing.value}',
-              }),
-              value: controller.spacing.value.toDouble(),
-              min: 8,
-              max: 160,
-              divisions: 38,
-              enabled: !controller.isBusy.value,
-              onChanged: controller.updateSpacing,
-            ),
+            if (controller.position.value == ImageWatermarkPosition.tile) ...[
+              const SizedBox(width: 16),
+              _ImageWatermarkSlider(
+                label: 'imageWatermark.config.spacing'.trParams({
+                  'spacing': '${controller.spacing.value}',
+                }),
+                value: controller.spacing.value.toDouble(),
+                min: 8,
+                max: 160,
+                divisions: 38,
+                enabled: !controller.isBusy.value,
+                onChanged: controller.updateSpacing,
+              ),
+            ],
             const SizedBox(width: 16),
             _ImageWatermarkSlider(
               label: 'imageWatermark.config.rotation'.trParams({

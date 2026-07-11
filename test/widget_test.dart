@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' show Tristate;
 
 import 'package:drift/native.dart';
@@ -70,6 +71,8 @@ import 'package:flutter_image_tools/main.dart';
 import 'package:image/image.dart' as img;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   testWidgets('显示首页内容', (WidgetTester tester) async {
     // 通过根组件启动应用，覆盖路由绑定和默认页面渲染路径。
     await tester.pumpWidget(
@@ -500,11 +503,11 @@ void main() {
       find.byKey(const ValueKey('editor-image-info-overlay')),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('editor-result-overlay')), findsOneWidget);
+    expect(find.byKey(const ValueKey('editor-result-overlay')), findsNothing);
     expect(find.byKey(const ValueKey('editor-canvas')), findsOneWidget);
     expect(find.text('preview.png'), findsOneWidget);
     expect(find.text('Bottom Toolbar'), findsOneWidget);
-    expect(find.text('Result Summary'), findsOneWidget);
+    expect(find.text('Result Summary'), findsNothing);
   });
 
   testWidgets('统一编辑器窄屏图标导出按钮不溢出', (WidgetTester tester) async {
@@ -1339,6 +1342,83 @@ void main() {
     final pixel = result.getPixel(1, 1);
     expect(pixel.r, equals(pixel.g));
     expect(pixel.g, equals(pixel.b));
+  });
+
+  test('文字和图片水印导出会写入可见像素', () async {
+    // 使用可控临时目录和相册保存回调，验证导出文件本身已经包含水印效果。
+    final tempDir = await Directory.systemTemp.createTemp(
+      'flutter_image_tools_watermark_test_',
+    );
+    final savedPaths = <String>[];
+    final channel = LocalImageChannel(
+      temporaryDirectoryProvider: () async => tempDir,
+      gallerySaver: (imagePath, {album}) async {
+        savedPaths.add(imagePath);
+      },
+    );
+
+    try {
+      final sourceImage = img.Image(width: 220, height: 140)
+        ..clear(img.ColorRgba8(255, 255, 255, 255));
+      final sourceFile = File('${tempDir.path}\\source.png')
+        ..writeAsBytesSync(img.encodePng(sourceImage), flush: true);
+      final source = LocalImageFile(
+        path: sourceFile.path,
+        name: 'source.png',
+        sizeBytes: sourceFile.lengthSync(),
+        mimeType: 'image/png',
+        width: sourceImage.width,
+        height: sourceImage.height,
+      );
+
+      final textResult = await channel.addTextWatermark(
+        source: source,
+        text: '中文水印',
+        position: 'center',
+        fontSize: 32,
+        opacity: 100,
+        spacing: 48,
+        color: '#FF0000',
+      );
+      final textOutput = img.decodeImage(
+        await File(textResult.outputPath).readAsBytes(),
+      );
+      expect(textOutput, isNotNull);
+      expect(_changedPixelCount(sourceImage, textOutput!), greaterThan(0));
+
+      final watermarkImage = img.Image(width: 48, height: 32)
+        ..clear(img.ColorRgba8(0, 0, 255, 255));
+      final watermarkFile = File('${tempDir.path}\\watermark.png')
+        ..writeAsBytesSync(img.encodePng(watermarkImage), flush: true);
+      final watermark = LocalImageFile(
+        path: watermarkFile.path,
+        name: 'watermark.png',
+        sizeBytes: watermarkFile.lengthSync(),
+        mimeType: 'image/png',
+        width: watermarkImage.width,
+        height: watermarkImage.height,
+      );
+
+      final imageResult = await channel.addImageWatermark(
+        source: source,
+        watermark: watermark,
+        position: 'bottomRight',
+        opacity: 80,
+        scalePercent: 25,
+        spacing: 64,
+        rotationDegrees: 0,
+      );
+      final imageOutput = img.decodeImage(
+        await File(imageResult.outputPath).readAsBytes(),
+      );
+      expect(imageOutput, isNotNull);
+      expect(_changedPixelCount(sourceImage, imageOutput!), greaterThan(0));
+      expect(savedPaths, hasLength(2));
+    } finally {
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    }
   });
 
   test('箭头缩放与方向调整职责分离', () async {
@@ -2231,12 +2311,6 @@ void main() {
 
     expect(find.text('Bottom Right'), findsOneWidget);
     expect(find.text('Tile'), findsOneWidget);
-    controller.setPosition(WatermarkPosition.tile);
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey('text-watermark-tile-layer')),
-      findsOneWidget,
-    );
 
     await tester.tap(find.text('Style'));
     await tester.pumpAndSettle();
@@ -2245,8 +2319,16 @@ void main() {
     expect(find.text('#FFFFFF'), findsOneWidget);
     expect(find.text('Font Size: 36px'), findsOneWidget);
     expect(find.text('Opacity: 70%'), findsOneWidget);
-    expect(find.text('Spacing: 28px'), findsOneWidget);
+    expect(find.text('Spacing: 28px'), findsNothing);
     expect(find.text('Watermark Settings'), findsNothing);
+
+    controller.setPosition(WatermarkPosition.tile);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('text-watermark-tile-layer')),
+      findsOneWidget,
+    );
+    expect(find.text('Spacing: 28px'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const ValueKey('watermark-color-picker-button')),
@@ -2358,12 +2440,12 @@ void main() {
 
     expect(find.text('Opacity: 70%'), findsOneWidget);
     expect(find.text('Scale: 25%'), findsOneWidget);
-    expect(find.text('Spacing: 56px'), findsOneWidget);
+    expect(find.text('Spacing: 56px'), findsNothing);
     expect(find.text('Rotation: 0°'), findsOneWidget);
     expect(find.text('Watermark Settings'), findsNothing);
 
     final styleSliders = find.byType(Slider);
-    expect(styleSliders, findsNWidgets(4));
+    expect(styleSliders, findsNWidgets(3));
     tester.widget<Slider>(styleSliders.at(0)).onChanged?.call(40);
     await tester.pump();
     expect(controller.opacity.value, 40);
@@ -2374,7 +2456,13 @@ void main() {
     expect(controller.scalePercent.value, 50);
     expect(find.text('Scale: 50%'), findsOneWidget);
 
-    tester.widget<Slider>(styleSliders.at(2)).onChanged?.call(88);
+    controller.setPosition(ImageWatermarkPosition.tile);
+    await tester.pump();
+    expect(find.text('Spacing: 56px'), findsOneWidget);
+
+    final tileStyleSliders = find.byType(Slider);
+    expect(tileStyleSliders, findsNWidgets(4));
+    tester.widget<Slider>(tileStyleSliders.at(2)).onChanged?.call(88);
     await tester.pump();
     expect(controller.spacing.value, 88);
     expect(find.text('Spacing: 88px'), findsOneWidget);
@@ -2603,4 +2691,23 @@ Future<void> _closeRegisteredAppDatabase() async {
     await Get.find<AppDatabase>().close();
   }
   Get.reset();
+}
+
+int _changedPixelCount(img.Image before, img.Image after) {
+  final width = before.width < after.width ? before.width : after.width;
+  final height = before.height < after.height ? before.height : after.height;
+  var changed = 0;
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      final beforePixel = before.getPixel(x, y);
+      final afterPixel = after.getPixel(x, y);
+      if (beforePixel.r != afterPixel.r ||
+          beforePixel.g != afterPixel.g ||
+          beforePixel.b != afterPixel.b ||
+          beforePixel.a != afterPixel.a) {
+        changed += 1;
+      }
+    }
+  }
+  return changed;
 }

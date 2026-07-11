@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+import 'package:flutter/painting.dart' as painting;
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:gal/gal.dart';
@@ -34,14 +36,28 @@ import '../models/watermarked_image_file.dart';
 import '../utils/platform_path.dart';
 import 'gif_processing_service.dart';
 
+/// 相册保存回调，用于测试时绕过真实系统相册权限。
+typedef GallerySaveCallback =
+    Future<void> Function(String imagePath, {String? album});
+
+/// 临时目录提供器，用于测试时把导出文件写入可控目录。
+typedef TemporaryDirectoryProvider = Future<Directory> Function();
+
 /// 本地图片能力服务，封装选图、相册保存和图片处理。
 ///
 /// 设计意图：常用图片能力使用 Flutter 插件和 Dart 侧图像处理，减少平台通道
 /// 依赖；GIF 使用后台 isolate 处理，PDF、EXIF 和扫码等能力保留原生通道。
 class LocalImageChannel {
-  LocalImageChannel({MethodChannel? channel, ImagePicker? imagePicker})
-    : _channel = channel ?? const MethodChannel(_channelName),
-      _imagePicker = imagePicker ?? ImagePicker();
+  LocalImageChannel({
+    MethodChannel? channel,
+    ImagePicker? imagePicker,
+    GallerySaveCallback? gallerySaver,
+    TemporaryDirectoryProvider? temporaryDirectoryProvider,
+  }) : _channel = channel ?? const MethodChannel(_channelName),
+       _imagePicker = imagePicker ?? ImagePicker(),
+       _gallerySaver = gallerySaver,
+       _temporaryDirectoryProvider =
+           temporaryDirectoryProvider ?? getTemporaryDirectory;
 
   static const String _channelName = 'image_toolkit/local_image';
   static const int maxResizeDimension = 10000;
@@ -88,6 +104,8 @@ class LocalImageChannel {
 
   final MethodChannel _channel;
   final ImagePicker _imagePicker;
+  final GallerySaveCallback? _gallerySaver;
+  final TemporaryDirectoryProvider _temporaryDirectoryProvider;
 
   Future<LocalImageFile?> pickSingleImage() async {
     try {
@@ -146,6 +164,10 @@ class LocalImageChannel {
       final targetAlbum = album?.trim().isNotEmpty == true
           ? album!.trim()
           : _defaultAlbum;
+      if (_gallerySaver != null) {
+        await _gallerySaver(normalizedPath, album: targetAlbum);
+        return;
+      }
       final hasAccess = await Gal.hasAccess(toAlbum: true);
       final granted = hasAccess || await Gal.requestAccess(toAlbum: true);
       if (!granted) {
@@ -681,30 +703,26 @@ class LocalImageChannel {
 
     try {
       final decoded = await _readImage(source.path);
-      final font = _fontForSize(fontSize);
-      final watermarkColor = _imageColorFromHex(color, opacity: opacity);
+      final textLayer = await _createTextWatermarkLayer(
+        text: normalizedText,
+        fontSize: fontSize,
+        opacity: opacity,
+        color: color,
+        maxWidth: decoded.width,
+      );
       if (normalizedPosition == 'tile') {
-        _drawTiledTextWatermark(
-          decoded,
-          normalizedText,
-          font,
-          watermarkColor,
-          spacing,
-        );
+        _drawTiledTextWatermark(decoded, textLayer, spacing);
       } else {
         final positionOffset = _watermarkTextPosition(
           image: decoded,
-          text: normalizedText,
-          font: font,
+          overlay: textLayer,
           position: normalizedPosition,
         );
-        img.drawString(
+        img.compositeImage(
           decoded,
-          normalizedText,
-          font: font,
-          x: positionOffset.x,
-          y: positionOffset.y,
-          color: watermarkColor,
+          textLayer,
+          dstX: positionOffset.x,
+          dstY: positionOffset.y,
         );
       }
       final output = await _writeEncodedImage(
@@ -1572,7 +1590,7 @@ class LocalImageChannel {
   }
 
   Future<Directory> _createOutputDirectory(String prefix) async {
-    final root = await getTemporaryDirectory();
+    final root = await _temporaryDirectoryProvider();
     final directory = Directory(
       PlatformPath.join(root.path, 'image_tools_$prefix'),
     );
@@ -1690,42 +1708,29 @@ class LocalImageChannel {
     return _ImageRect(left: left, top: top, width: size, height: size);
   }
 
-  img.BitmapFont _fontForSize(int fontSize) {
-    if (fontSize >= 40) {
-      return img.arial48;
-    }
-    if (fontSize >= 22) {
-      return img.arial24;
-    }
-    return img.arial14;
-  }
-
   _ImagePoint _watermarkTextPosition({
     required img.Image image,
-    required String text,
-    required img.BitmapFont font,
+    required img.Image overlay,
     required String position,
   }) {
     const margin = 24;
-    final textWidth = _estimatedTextWidth(text, font);
-    final textHeight = _estimatedTextHeight(text, font);
     return switch (position) {
       'topleft' => const _ImagePoint(margin, margin),
       'topright' => _ImagePoint(
-        math.max(margin, image.width - textWidth - margin),
+        math.max(margin, image.width - overlay.width - margin),
         margin,
       ),
       'bottomleft' => _ImagePoint(
         margin,
-        math.max(margin, image.height - textHeight - margin),
+        math.max(margin, image.height - overlay.height - margin),
       ),
       'bottomright' => _ImagePoint(
-        math.max(margin, image.width - textWidth - margin),
-        math.max(margin, image.height - textHeight - margin),
+        math.max(margin, image.width - overlay.width - margin),
+        math.max(margin, image.height - overlay.height - margin),
       ),
       _ => _ImagePoint(
-        math.max(0, (image.width - textWidth) ~/ 2),
-        math.max(0, (image.height - textHeight) ~/ 2),
+        math.max(0, (image.width - overlay.width) ~/ 2),
+        math.max(0, (image.height - overlay.height) ~/ 2),
       ),
     };
   }
@@ -1775,18 +1780,53 @@ class LocalImageChannel {
     );
   }
 
+  Future<img.Image> _createTextWatermarkLayer({
+    required String text,
+    required int fontSize,
+    required int opacity,
+    required String color,
+    required int maxWidth,
+  }) async {
+    final painter = painting.TextPainter(
+      text: painting.TextSpan(
+        text: text,
+        style: painting.TextStyle(
+          color: _uiColorFromHex(color, opacity: opacity),
+          fontSize: fontSize.toDouble(),
+          fontWeight: painting.FontWeight.w700,
+        ),
+      ),
+      textAlign: painting.TextAlign.center,
+      textDirection: ui.TextDirection.ltr,
+    )..layout(maxWidth: math.max(1, maxWidth).toDouble());
+    final width = math.max(1, painter.width.ceil());
+    final height = math.max(1, painter.height.ceil());
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    painter.paint(canvas, ui.Offset.zero);
+    final picture = recorder.endRecording();
+    final rendered = await picture.toImage(width, height);
+    final byteData = await rendered.toByteData(format: ui.ImageByteFormat.png);
+    picture.dispose();
+    rendered.dispose();
+    if (byteData == null) {
+      throw const AppException('文字水印渲染失败，请重试');
+    }
+    final layer = img.decodePng(byteData.buffer.asUint8List());
+    if (layer == null || layer.width <= 0 || layer.height <= 0) {
+      throw const AppException('文字水印渲染结果异常，请重试');
+    }
+    return layer;
+  }
+
   void _drawTiledTextWatermark(
     img.Image image,
-    String text,
-    img.BitmapFont font,
-    img.Color color,
+    img.Image overlay,
     int spacing,
   ) {
-    final textWidth = math.max(1, _estimatedTextWidth(text, font));
-    final textHeight = math.max(1, _estimatedTextHeight(text, font));
     final safeSpacing = spacing.clamp(8, 160);
-    final stepX = textWidth + safeSpacing;
-    final stepY = textHeight + safeSpacing;
+    final stepX = overlay.width + safeSpacing;
+    final stepY = overlay.height + safeSpacing;
     final layerSize =
         math
             .sqrt(image.width * image.width + image.height * image.height)
@@ -1798,14 +1838,7 @@ class LocalImageChannel {
     for (var y = 0; y < layer.height + stepY; y += stepY) {
       final rowOffset = row.isOdd ? stepX ~/ 2 : 0;
       for (var x = -stepX; x < layer.width + stepX; x += stepX) {
-        img.drawString(
-          layer,
-          text,
-          font: font,
-          x: x + rowOffset,
-          y: y,
-          color: color,
-        );
+        img.compositeImage(layer, overlay, dstX: x + rowOffset, dstY: y);
       }
       row += 1;
     }
@@ -1893,29 +1926,16 @@ class LocalImageChannel {
     }
   }
 
-  img.Color _imageColorFromHex(String value, {required int opacity}) {
+  ui.Color _uiColorFromHex(String value, {required int opacity}) {
     final normalized = _normalizeHexColor(value) ?? '#FFFFFF';
     final rgb = int.parse(normalized.substring(1), radix: 16);
     final alpha = (opacity.clamp(0, 100) * 255 / 100).round().clamp(0, 255);
-    return img.ColorRgba8(
+    return ui.Color.fromARGB(
+      alpha,
       (rgb >> 16) & 0xFF,
       (rgb >> 8) & 0xFF,
       rgb & 0xFF,
-      alpha,
     );
-  }
-
-  int _estimatedTextWidth(String text, img.BitmapFont font) {
-    var width = 0;
-    for (final codeUnit in text.codeUnits) {
-      width += font.characters[codeUnit]?.xAdvance ?? font.base ~/ 2;
-    }
-    return width;
-  }
-
-  int _estimatedTextHeight(String text, img.BitmapFont font) {
-    final lineCount = math.max(1, text.split(RegExp(r'[\n\r]')).length);
-    return math.max(1, font.base * lineCount);
   }
 
   String _mimeTypeForPath(String filePath) {
