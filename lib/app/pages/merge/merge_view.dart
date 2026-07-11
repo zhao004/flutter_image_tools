@@ -158,12 +158,27 @@ class _MergePreviewLayout extends StatelessWidget {
     required double viewportWidth,
     required double viewportHeight,
   }) {
-    final tiles = images
+    final tileSpecs = _horizontalTileSpecs();
+    final contentWidth =
+        tileSpecs.fold<double>(0, (sum, tile) => sum + tile.width) +
+        spacing * (tileSpecs.length - 1);
+    final contentHeight = tileSpecs.fold<double>(
+      0,
+      (height, tile) => math.max(height, tile.height),
+    );
+    final previewScale = _fitScale(
+      contentWidth: contentWidth,
+      contentHeight: contentHeight,
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
+    );
+    final tiles = tileSpecs
         .map(
-          (image) => SizedBox(
-            width: viewportHeight * _aspectRatio(image),
-            height: viewportHeight,
-            child: _tile(image),
+          (tile) => SizedBox(
+            key: ValueKey('merge-preview-tile-${tile.image.path}'),
+            width: tile.width * previewScale,
+            height: tile.height * previewScale,
+            child: _tile(tile.image),
           ),
         )
         .toList(growable: false);
@@ -172,11 +187,20 @@ class _MergePreviewLayout extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       physics: const ClampingScrollPhysics(),
       child: ConstrainedBox(
-        constraints: BoxConstraints(minWidth: viewportWidth),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: _withSpacing(tiles, isHorizontal: true),
+        constraints: BoxConstraints(
+          minWidth: viewportWidth,
+          minHeight: viewportHeight,
+        ),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: _withSpacing(
+              tiles,
+              isHorizontal: true,
+              scale: previewScale,
+            ),
+          ),
         ),
       ),
     );
@@ -186,12 +210,27 @@ class _MergePreviewLayout extends StatelessWidget {
     required double viewportWidth,
     required double viewportHeight,
   }) {
-    final tiles = images
+    final tileSpecs = _verticalTileSpecs();
+    final contentWidth = tileSpecs.fold<double>(
+      0,
+      (width, tile) => math.max(width, tile.width),
+    );
+    final contentHeight =
+        tileSpecs.fold<double>(0, (sum, tile) => sum + tile.height) +
+        spacing * (tileSpecs.length - 1);
+    final previewScale = _fitScale(
+      contentWidth: contentWidth,
+      contentHeight: contentHeight,
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
+    );
+    final tiles = tileSpecs
         .map(
-          (image) => SizedBox(
-            width: viewportWidth,
-            height: viewportWidth / _aspectRatio(image),
-            child: _tile(image),
+          (tile) => SizedBox(
+            key: ValueKey('merge-preview-tile-${tile.image.path}'),
+            width: tile.width * previewScale,
+            height: tile.height * previewScale,
+            child: _tile(tile.image),
           ),
         )
         .toList(growable: false);
@@ -199,11 +238,20 @@ class _MergePreviewLayout extends StatelessWidget {
       key: const ValueKey('merge-preview-vertical-scroll'),
       physics: const ClampingScrollPhysics(),
       child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: viewportHeight),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: _withSpacing(tiles, isHorizontal: false),
+        constraints: BoxConstraints(
+          minWidth: viewportWidth,
+          minHeight: viewportHeight,
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: _withSpacing(
+              tiles,
+              isHorizontal: false,
+              scale: previewScale,
+            ),
+          ),
         ),
       ),
     );
@@ -225,17 +273,75 @@ class _MergePreviewLayout extends StatelessWidget {
     return (image.width / image.height).clamp(0.05, 20);
   }
 
+  List<_PreviewTileSpec> _horizontalTileSpecs() {
+    final targetHeight = images
+        .map(_sourceHeight)
+        .fold<double>(1, (height, value) => math.max(height, value));
+    return images
+        .map(
+          (image) => _PreviewTileSpec(
+            image: image,
+            width: targetHeight * _aspectRatio(image),
+            height: targetHeight,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<_PreviewTileSpec> _verticalTileSpecs() {
+    final targetWidth = images
+        .map(_sourceWidth)
+        .fold<double>(1, (width, value) => math.max(width, value));
+    return images
+        .map(
+          (image) => _PreviewTileSpec(
+            image: image,
+            width: targetWidth,
+            height: targetWidth / _aspectRatio(image),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  double _sourceWidth(LocalImageFile image) {
+    return image.hasValidDimensions && image.width > 0
+        ? image.width.toDouble()
+        : 1;
+  }
+
+  double _sourceHeight(LocalImageFile image) {
+    return image.hasValidDimensions && image.height > 0
+        ? image.height.toDouble()
+        : 1;
+  }
+
+  double _fitScale({
+    required double contentWidth,
+    required double contentHeight,
+    required double viewportWidth,
+    required double viewportHeight,
+  }) {
+    if (contentWidth <= 0 || contentHeight <= 0) {
+      return 1;
+    }
+    return math
+        .min(viewportWidth / contentWidth, viewportHeight / contentHeight)
+        .clamp(0.01, double.infinity)
+        .toDouble();
+  }
+
   List<Widget> _withSpacing(
     List<Widget> children, {
     required bool isHorizontal,
+    required double scale,
   }) {
     final spaced = <Widget>[];
     for (var index = 0; index < children.length; index++) {
       if (index > 0) {
         spaced.add(
           SizedBox(
-            width: isHorizontal ? spacing : 0,
-            height: isHorizontal ? 0 : spacing,
+            width: isHorizontal ? spacing * scale : 0,
+            height: isHorizontal ? 0 : spacing * scale,
           ),
         );
       }
@@ -243,6 +349,18 @@ class _MergePreviewLayout extends StatelessWidget {
     }
     return spaced;
   }
+}
+
+class _PreviewTileSpec {
+  const _PreviewTileSpec({
+    required this.image,
+    required this.width,
+    required this.height,
+  });
+
+  final LocalImageFile image;
+  final double width;
+  final double height;
 }
 
 class _PreviewImageTile extends StatelessWidget {
@@ -265,7 +383,7 @@ class _PreviewImageTile extends StatelessWidget {
     final child = file.existsSync()
         ? Image.file(
             file,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
               return EditorImageLoadError(imageName: image.name);
             },

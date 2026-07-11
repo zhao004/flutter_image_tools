@@ -1761,6 +1761,25 @@ void main() {
   testWidgets('显示英文图片拼接页面', (WidgetTester tester) async {
     // 直接注入控制器依赖，仅验证选图、布局和首屏参数文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
+    void expectPreviewTilesInside(String viewportKey) {
+      // 用几何断言覆盖整体缩放策略，避免横向或纵向拼接结果默认超出预览区域。
+      final viewport = tester.getRect(find.byKey(ValueKey(viewportKey)));
+      final firstTile = tester.getRect(
+        find.byKey(const ValueKey('merge-preview-tile-first.png')),
+      );
+      final secondTile = tester.getRect(
+        find.byKey(const ValueKey('merge-preview-tile-second.png')),
+      );
+      const tolerance = 1.0;
+
+      for (final tile in [firstTile, secondTile]) {
+        expect(tile.left, greaterThanOrEqualTo(viewport.left - tolerance));
+        expect(tile.top, greaterThanOrEqualTo(viewport.top - tolerance));
+        expect(tile.right, lessThanOrEqualTo(viewport.right + tolerance));
+        expect(tile.bottom, lessThanOrEqualTo(viewport.bottom + tolerance));
+      }
+    }
+
     Get.put(
       MergeController(
         imageChannel: LocalImageChannel(),
@@ -1806,8 +1825,8 @@ void main() {
         name: 'second.png',
         sizeBytes: 2400,
         mimeType: 'image/png',
-        width: 800,
-        height: 600,
+        width: 400,
+        height: 1200,
       ),
     ]);
     await tester.pump();
@@ -1829,6 +1848,7 @@ void main() {
     expect(find.text('Grid'), findsNothing);
     expect(find.text('Long Image'), findsNothing);
     expect(find.text('Image Spacing: 8px'), findsOneWidget);
+    expectPreviewTilesInside('merge-preview-horizontal-scroll');
     final spacingSlider = find.byType(Slider);
     expect(spacingSlider, findsOneWidget);
     expect(tester.getSize(spacingSlider).height, greaterThanOrEqualTo(48));
@@ -1851,6 +1871,7 @@ void main() {
       find.byKey(const ValueKey('merge-preview-vertical-scroll')),
       findsOneWidget,
     );
+    expectPreviewTilesInside('merge-preview-vertical-scroll');
 
     await tester.tap(find.text('Horizontal'));
     await tester.pumpAndSettle();
@@ -1864,6 +1885,7 @@ void main() {
       find.byKey(const ValueKey('merge-preview-vertical-scroll')),
       findsNothing,
     );
+    expectPreviewTilesInside('merge-preview-horizontal-scroll');
 
     await database.close();
     Get.reset();
