@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
@@ -688,7 +689,6 @@ class MainActivity : FlutterActivity() {
         val scaleMode = (call.argument<String>("scaleMode") ?: mergeScaleModeFor(mode)).lowercase()
         val backgroundColorText = call.argument<String>("backgroundColor") ?: "#FFFFFF"
         val borderWidth = call.argument<Int>("borderWidth") ?: 0
-        val borderColorText = call.argument<String>("borderColor") ?: "#000000"
         val cornerRadius = call.argument<Int>("cornerRadius") ?: 0
         if (paths.size < 2 || paths.size > 20) {
             result.error("invalid_args", "拼接图片数量必须在 2 到 20 张之间", null)
@@ -711,12 +711,6 @@ class MainActivity : FlutterActivity() {
             result.error("invalid_args", "背景颜色格式无效", null)
             return
         }
-        val borderColor = parseHexColor(borderColorText)
-        if (borderColor == null) {
-            result.error("invalid_args", "边框颜色格式无效", null)
-            return
-        }
-
         val bitmaps = mutableListOf<Bitmap>()
         try {
             for (path in paths) {
@@ -740,18 +734,15 @@ class MainActivity : FlutterActivity() {
                 bitmaps.add(bitmap)
             }
 
-            val scaledBitmaps = scaleBitmapsForMerge(bitmaps, scaleMode)
-            val layout = calculateMergeLayout(scaledBitmaps, mode, spacing)
+            val layout = calculateMergeLayout(bitmaps, mode, spacing, borderWidth)
             if (layout.width <= 0 || layout.height <= 0) {
                 result.error("invalid_args", "拼接输出尺寸无效", null)
-                recycleGeneratedBitmaps(scaledBitmaps, bitmaps)
                 bitmaps.forEach { it.recycle() }
                 return
             }
             val pixelCount = layout.width.toLong() * layout.height.toLong()
             if (layout.width > 20000 || layout.height > 20000 || pixelCount > 36000000L) {
                 result.error("invalid_args", "拼接输出过大，请减少图片数量或尺寸", null)
-                recycleGeneratedBitmaps(scaledBitmaps, bitmaps)
                 bitmaps.forEach { it.recycle() }
                 return
             }
@@ -763,47 +754,26 @@ class MainActivity : FlutterActivity() {
             )
             val canvas = Canvas(mergedBitmap)
             canvas.drawColor(backgroundColor)
-            for (index in scaledBitmaps.indices) {
-                val bitmap = scaledBitmaps[index]
+            for (index in bitmaps.indices) {
+                val bitmap = bitmaps[index]
                 val position = layout.positions[index]
                 val imageRect = RectF(
                     position.x.toFloat(),
                     position.y.toFloat(),
-                    (position.x + bitmap.width).toFloat(),
-                    (position.y + bitmap.height).toFloat(),
+                    (position.x + position.width).toFloat(),
+                    (position.y + position.height).toFloat(),
                 )
+                val sourceRect = cropRectForMerge(bitmap, position.width, position.height)
                 if (cornerRadius > 0) {
                     val radius = cornerRadius.toFloat()
-                        .coerceAtMost(bitmap.width / 2f)
-                        .coerceAtMost(bitmap.height / 2f)
+                        .coerceAtMost(position.width / 2f)
+                        .coerceAtMost(position.height / 2f)
                     val saveCount = canvas.save()
                     canvas.clipRoundRectCompat(imageRect, radius)
-                    canvas.drawBitmap(bitmap, position.x.toFloat(), position.y.toFloat(), null)
+                    canvas.drawBitmap(bitmap, sourceRect, imageRect, null)
                     canvas.restoreToCount(saveCount)
                 } else {
-                    canvas.drawBitmap(bitmap, position.x.toFloat(), position.y.toFloat(), null)
-                }
-                if (borderWidth > 0) {
-                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = borderColor
-                        style = Paint.Style.STROKE
-                        strokeWidth = borderWidth.toFloat()
-                    }
-                    val halfStroke = borderWidth / 2f
-                    val borderRect = RectF(
-                        position.x + halfStroke,
-                        position.y + halfStroke,
-                        position.x + bitmap.width - halfStroke,
-                        position.y + bitmap.height - halfStroke,
-                    )
-                    if (cornerRadius > 0) {
-                        val radius = (cornerRadius - halfStroke).coerceAtLeast(0f)
-                            .coerceAtMost(borderRect.width() / 2f)
-                            .coerceAtMost(borderRect.height() / 2f)
-                        canvas.drawRoundRect(borderRect, radius, radius, paint)
-                    } else {
-                        canvas.drawRect(borderRect, paint)
-                    }
+                    canvas.drawBitmap(bitmap, sourceRect, imageRect, null)
                 }
             }
 
@@ -827,7 +797,6 @@ class MainActivity : FlutterActivity() {
                         "scaleMode" to scaleMode,
                         "backgroundColor" to backgroundColorText.uppercase(),
                         "borderWidth" to borderWidth,
-                        "borderColor" to borderColorText.uppercase(),
                         "cornerRadius" to cornerRadius,
                     ),
                 )
@@ -835,7 +804,6 @@ class MainActivity : FlutterActivity() {
                 result.error("export_failed", error.message, null)
             } finally {
                 mergedBitmap.recycle()
-                recycleGeneratedBitmaps(scaledBitmaps, bitmaps)
                 bitmaps.forEach { it.recycle() }
             }
         } catch (error: Exception) {
@@ -1750,10 +1718,11 @@ class MainActivity : FlutterActivity() {
         bitmaps: List<Bitmap>,
         mode: String,
         spacing: Int,
+        borderWidth: Int,
     ): MergeLayout {
         return when (mode) {
-            "vertical" -> calculateVerticalLayout(bitmaps, spacing)
-            else -> calculateHorizontalLayout(bitmaps, spacing)
+            "vertical" -> calculateVerticalLayout(bitmaps, spacing, borderWidth)
+            else -> calculateHorizontalLayout(bitmaps, spacing, borderWidth)
         }
     }
 
@@ -1761,53 +1730,46 @@ class MainActivity : FlutterActivity() {
         return if (mode == "vertical") "same_width" else "same_height"
     }
 
-    private fun scaleBitmapsForMerge(bitmaps: List<Bitmap>, scaleMode: String): List<Bitmap> {
-        val targetWidth = bitmaps.maxOf { it.width }.coerceAtLeast(1)
-        val targetHeight = bitmaps.maxOf { it.height }.coerceAtLeast(1)
-        return bitmaps.map { bitmap ->
-            val scale = when (scaleMode) {
-                "same_width" -> targetWidth.toDouble() / bitmap.width
-                "same_height" -> targetHeight.toDouble() / bitmap.height
-                else -> 1.0
-            }
-            val outputWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
-            val outputHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
-            if (outputWidth == bitmap.width && outputHeight == bitmap.height) {
-                bitmap
-            } else {
-                Bitmap.createScaledBitmap(bitmap, outputWidth, outputHeight, true)
-            }
-        }
-    }
-
-    private fun recycleGeneratedBitmaps(bitmaps: List<Bitmap>, originalBitmaps: List<Bitmap>) {
-        bitmaps
-            .filterIndexed { index, bitmap -> index >= originalBitmaps.size || bitmap !== originalBitmaps[index] }
-            .forEach { it.recycle() }
-    }
-
-    private fun calculateHorizontalLayout(bitmaps: List<Bitmap>, spacing: Int): MergeLayout {
-        val width = bitmaps.sumOf { it.width } + spacing * (bitmaps.size - 1)
-        val height = bitmaps.maxOf { it.height }
+    private fun calculateHorizontalLayout(
+        bitmaps: List<Bitmap>,
+        spacing: Int,
+        borderWidth: Int,
+    ): MergeLayout {
+        val frameHeight = bitmaps.minOf { it.height }.coerceAtLeast(1)
+        val width = bitmaps.sumOf { it.width } + spacing * (bitmaps.size - 1) + borderWidth * 2
+        val height = frameHeight + borderWidth * 2
         val positions = mutableListOf<BitmapPosition>()
-        var x = 0
+        var x = borderWidth
         for (bitmap in bitmaps) {
-            positions.add(BitmapPosition(x, (height - bitmap.height) / 2))
+            positions.add(BitmapPosition(x, borderWidth, bitmap.width, frameHeight))
             x += bitmap.width + spacing
         }
         return MergeLayout(width = width, height = height, positions = positions)
     }
 
-    private fun calculateVerticalLayout(bitmaps: List<Bitmap>, spacing: Int): MergeLayout {
-        val width = bitmaps.maxOf { it.width }
-        val height = bitmaps.sumOf { it.height } + spacing * (bitmaps.size - 1)
+    private fun calculateVerticalLayout(
+        bitmaps: List<Bitmap>,
+        spacing: Int,
+        borderWidth: Int,
+    ): MergeLayout {
+        val frameWidth = bitmaps.minOf { it.width }.coerceAtLeast(1)
+        val width = frameWidth + borderWidth * 2
+        val height = bitmaps.sumOf { it.height } + spacing * (bitmaps.size - 1) + borderWidth * 2
         val positions = mutableListOf<BitmapPosition>()
-        var y = 0
+        var y = borderWidth
         for (bitmap in bitmaps) {
-            positions.add(BitmapPosition((width - bitmap.width) / 2, y))
+            positions.add(BitmapPosition(borderWidth, y, frameWidth, bitmap.height))
             y += bitmap.height + spacing
         }
         return MergeLayout(width = width, height = height, positions = positions)
+    }
+
+    private fun cropRectForMerge(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): Rect {
+        val cropWidth = targetWidth.coerceAtMost(bitmap.width).coerceAtLeast(1)
+        val cropHeight = targetHeight.coerceAtMost(bitmap.height).coerceAtLeast(1)
+        val left = ((bitmap.width - cropWidth) / 2).coerceAtLeast(0)
+        val top = ((bitmap.height - cropHeight) / 2).coerceAtLeast(0)
+        return Rect(left, top, left + cropWidth, top + cropHeight)
     }
 
     private fun parseWatermarkColor(color: String, opacity: Int): Int {
@@ -2528,7 +2490,12 @@ class MainActivity : FlutterActivity() {
             return bytes.toByteArray()
         }
     }
-    private data class BitmapPosition(val x: Int, val y: Int)
+    private data class BitmapPosition(
+        val x: Int,
+        val y: Int,
+        val width: Int,
+        val height: Int,
+    )
     private data class MergeLayout(
         val width: Int,
         val height: Int,

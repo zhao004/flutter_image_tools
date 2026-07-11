@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../utils/latest_snackbar.dart';
@@ -43,18 +44,6 @@ enum MergeBackgroundColor {
   final String value;
 }
 
-enum MergeBorderColor {
-  black(labelKey: 'merge.color.black', value: '#000000'),
-  white(labelKey: 'merge.color.white', value: '#FFFFFF'),
-  gray(labelKey: 'merge.color.gray', value: '#808080'),
-  red(labelKey: 'merge.color.red', value: '#D32F2F');
-
-  const MergeBorderColor({required this.labelKey, required this.value});
-
-  final String labelKey;
-  final String value;
-}
-
 enum MergeToolbarTab {
   layout(labelKey: 'merge.tool.layout'),
   border(labelKey: 'merge.tool.border'),
@@ -87,7 +76,7 @@ class MergeController extends GetxController {
   final result = Rxn<MergedImageFile>();
   final mode = MergeMode.horizontal.obs;
   final backgroundColor = MergeBackgroundColor.white.obs;
-  final borderColor = MergeBorderColor.black.obs;
+  final customBackgroundColor = '#FFFFFF'.obs;
   final spacing = 8.obs;
   final borderWidth = 0.obs;
   final cornerRadius = 0.obs;
@@ -129,10 +118,13 @@ class MergeController extends GetxController {
 
   void setBackgroundColor(MergeBackgroundColor value) {
     backgroundColor.value = value;
+    customBackgroundColor.value = value.value;
   }
 
-  void setBorderColor(MergeBorderColor value) {
-    borderColor.value = value;
+  void setCustomBackgroundColor(Color value) {
+    final rgb = value.toARGB32() & 0x00FFFFFF;
+    customBackgroundColor.value =
+        '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
 
   void setToolbarTab(MergeToolbarTab value) {
@@ -187,9 +179,8 @@ class MergeController extends GetxController {
         sources: selectedImages.toList(growable: false),
         mode: mode.value.value,
         spacing: spacing.value,
-        backgroundColor: backgroundColor.value.value,
+        backgroundColor: customBackgroundColor.value,
         borderWidth: borderWidth.value,
-        borderColor: borderColor.value.value,
         cornerRadius: cornerRadius.value,
         scaleMode: mode.value.scaleModeValue,
       );
@@ -202,9 +193,8 @@ class MergeController extends GetxController {
           'mode': mode.value.value,
           'count': selectedImages.length,
           'spacing': spacing.value,
-          'backgroundColor': backgroundColor.value.value,
+          'backgroundColor': customBackgroundColor.value,
           'borderWidth': borderWidth.value,
-          'borderColor': borderColor.value.value,
           'cornerRadius': cornerRadius.value,
           'scaleMode': mode.value.scaleModeValue,
         },
@@ -218,9 +208,8 @@ class MergeController extends GetxController {
           'mode': mode.value.value,
           'count': selectedImages.length,
           'spacing': spacing.value,
-          'backgroundColor': backgroundColor.value.value,
+          'backgroundColor': customBackgroundColor.value,
           'borderWidth': borderWidth.value,
-          'borderColor': borderColor.value.value,
           'cornerRadius': cornerRadius.value,
           'scaleMode': mode.value.scaleModeValue,
         },

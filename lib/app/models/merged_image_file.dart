@@ -14,7 +14,6 @@ class MergedImageFile {
     required this.mode,
     required this.backgroundColor,
     required this.borderWidth,
-    required this.borderColor,
     required this.cornerRadius,
     required this.scaleMode,
   });
@@ -27,7 +26,6 @@ class MergedImageFile {
   final String mode;
   final String backgroundColor;
   final int borderWidth;
-  final String borderColor;
   final int cornerRadius;
   final String scaleMode;
 
@@ -36,7 +34,6 @@ class MergedImageFile {
     required String mode,
     required String backgroundColor,
     required int borderWidth,
-    required String borderColor,
     required int cornerRadius,
     required String scaleMode,
     required Map<Object?, Object?> map,
@@ -50,7 +47,6 @@ class MergedImageFile {
       mode: map['mode'] as String? ?? mode,
       backgroundColor: map['backgroundColor'] as String? ?? backgroundColor,
       borderWidth: map['borderWidth'] as int? ?? borderWidth,
-      borderColor: map['borderColor'] as String? ?? borderColor,
       cornerRadius: map['cornerRadius'] as int? ?? cornerRadius,
       scaleMode: map['scaleMode'] as String? ?? scaleMode,
     );

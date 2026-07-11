@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -66,11 +67,10 @@ class _MergePreview extends StatelessWidget {
     return Obx(() {
       final images = controller.selectedImages.toList(growable: false);
       final backgroundColor = _parseColor(
-        controller.backgroundColor.value.value,
+        controller.customBackgroundColor.value,
       );
       final spacing = controller.spacing.value.toDouble();
       final borderWidth = controller.borderWidth.value.toDouble();
-      final borderColor = _parseColor(controller.borderColor.value.value);
       final cornerRadius = controller.cornerRadius.value.toDouble();
       final mode = controller.mode.value;
 
@@ -82,26 +82,16 @@ class _MergePreview extends StatelessWidget {
           final previewHeight = constraints.maxHeight.isFinite
               ? math.max(1.0, math.min(constraints.maxHeight, 560)).toDouble()
               : 560.0;
-          final shortestSide = math.min(previewWidth, previewHeight);
-          final previewPadding = math
-              .min(math.max(spacing, 6), shortestSide * 0.2)
-              .toDouble();
           return SizedBox(
             width: previewWidth,
             height: previewHeight,
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: backgroundColor),
-              child: Padding(
-                padding: EdgeInsets.all(previewPadding),
-                child: _MergePreviewLayout(
-                  images: images,
-                  mode: mode,
-                  spacing: spacing,
-                  borderWidth: borderWidth,
-                  borderColor: borderColor,
-                  cornerRadius: cornerRadius,
-                ),
-              ),
+            child: _MergePreviewLayout(
+              images: images,
+              mode: mode,
+              spacing: spacing,
+              borderWidth: borderWidth,
+              backgroundColor: backgroundColor,
+              cornerRadius: cornerRadius,
             ),
           );
         },
@@ -116,7 +106,7 @@ class _MergePreviewLayout extends StatelessWidget {
     required this.mode,
     required this.spacing,
     required this.borderWidth,
-    required this.borderColor,
+    required this.backgroundColor,
     required this.cornerRadius,
   });
 
@@ -124,7 +114,7 @@ class _MergePreviewLayout extends StatelessWidget {
   final MergeMode mode;
   final double spacing;
   final double borderWidth;
-  final Color borderColor;
+  final Color backgroundColor;
   final double cornerRadius;
 
   @override
@@ -160,12 +150,10 @@ class _MergePreviewLayout extends StatelessWidget {
   }) {
     final tileSpecs = _horizontalTileSpecs();
     final contentWidth =
-        tileSpecs.fold<double>(0, (sum, tile) => sum + tile.width) +
-        spacing * (tileSpecs.length - 1);
-    final contentHeight = tileSpecs.fold<double>(
-      0,
-      (height, tile) => math.max(height, tile.height),
-    );
+        tileSpecs.fold<double>(0, (sum, tile) => sum + tile.frameWidth) +
+        spacing * (tileSpecs.length - 1) +
+        borderWidth * 2;
+    final contentHeight = tileSpecs.first.frameHeight + borderWidth * 2;
     final previewScale = _fitScale(
       visibleContentExtent: _horizontalVisibleWidth(tileSpecs),
       viewportExtent: viewportWidth,
@@ -175,9 +163,9 @@ class _MergePreviewLayout extends StatelessWidget {
         .map(
           (tile) => SizedBox(
             key: ValueKey('merge-preview-tile-${tile.image.path}'),
-            width: tile.width * previewScale,
-            height: tile.height * previewScale,
-            child: _tile(tile.image),
+            width: tile.frameWidth * previewScale,
+            height: tile.frameHeight * previewScale,
+            child: _tile(tile, previewScale),
           ),
         )
         .toList(growable: false);
@@ -189,10 +177,17 @@ class _MergePreviewLayout extends StatelessWidget {
       viewportHeight: viewportHeight,
       contentWidth: scaledContentWidth,
       contentHeight: scaledContentHeight,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: _withSpacing(tiles, isHorizontal: true, scale: previewScale),
+      child: _contentFrame(
+        scale: previewScale,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: _withSpacing(
+            tiles,
+            isHorizontal: true,
+            scale: previewScale,
+          ),
+        ),
       ),
     );
   }
@@ -202,13 +197,11 @@ class _MergePreviewLayout extends StatelessWidget {
     required double viewportHeight,
   }) {
     final tileSpecs = _verticalTileSpecs();
-    final contentWidth = tileSpecs.fold<double>(
-      0,
-      (width, tile) => math.max(width, tile.width),
-    );
+    final contentWidth = tileSpecs.first.frameWidth + borderWidth * 2;
     final contentHeight =
-        tileSpecs.fold<double>(0, (sum, tile) => sum + tile.height) +
-        spacing * (tileSpecs.length - 1);
+        tileSpecs.fold<double>(0, (sum, tile) => sum + tile.frameHeight) +
+        spacing * (tileSpecs.length - 1) +
+        borderWidth * 2;
     final previewScale = _fitScale(
       visibleContentExtent: _verticalVisibleHeight(tileSpecs),
       viewportExtent: viewportHeight,
@@ -218,9 +211,9 @@ class _MergePreviewLayout extends StatelessWidget {
         .map(
           (tile) => SizedBox(
             key: ValueKey('merge-preview-tile-${tile.image.path}'),
-            width: tile.width * previewScale,
-            height: tile.height * previewScale,
-            child: _tile(tile.image),
+            width: tile.frameWidth * previewScale,
+            height: tile.frameHeight * previewScale,
+            child: _tile(tile, previewScale),
           ),
         )
         .toList(growable: false);
@@ -232,55 +225,61 @@ class _MergePreviewLayout extends StatelessWidget {
       viewportHeight: viewportHeight,
       contentWidth: scaledContentWidth,
       contentHeight: scaledContentHeight,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: _withSpacing(tiles, isHorizontal: false, scale: previewScale),
+      child: _contentFrame(
+        scale: previewScale,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: _withSpacing(
+            tiles,
+            isHorizontal: false,
+            scale: previewScale,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _tile(LocalImageFile image) {
-    return _PreviewImageTile(
-      image: image,
-      borderWidth: borderWidth,
-      borderColor: borderColor,
-      cornerRadius: cornerRadius,
+  Widget _contentFrame({required double scale, required Widget child}) {
+    final scaledBorderWidth = borderWidth * scale;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(cornerRadius * scale),
+      ),
+      child: Padding(padding: EdgeInsets.all(scaledBorderWidth), child: child),
     );
   }
 
-  double _aspectRatio(LocalImageFile image) {
-    if (!image.hasValidDimensions || image.height <= 0) {
-      return 1;
-    }
-    return (image.width / image.height).clamp(0.05, 20);
+  Widget _tile(_PreviewTileSpec tile, double previewScale) {
+    return _PreviewImageTile(
+      tile: tile,
+      backgroundColor: backgroundColor,
+      cornerRadius: cornerRadius * previewScale,
+    );
   }
 
   List<_PreviewTileSpec> _horizontalTileSpecs() {
-    final targetHeight = images
-        .map(_sourceHeight)
-        .fold<double>(1, (height, value) => math.max(height, value));
+    final frameHeight = images.map(_sourceHeight).reduce(math.min);
     return images
         .map(
           (image) => _PreviewTileSpec(
             image: image,
-            width: targetHeight * _aspectRatio(image),
-            height: targetHeight,
+            frameWidth: _sourceWidth(image),
+            frameHeight: frameHeight,
           ),
         )
         .toList(growable: false);
   }
 
   List<_PreviewTileSpec> _verticalTileSpecs() {
-    final targetWidth = images
-        .map(_sourceWidth)
-        .fold<double>(1, (width, value) => math.max(width, value));
+    final frameWidth = images.map(_sourceWidth).reduce(math.min);
     return images
         .map(
           (image) => _PreviewTileSpec(
             image: image,
-            width: targetWidth,
-            height: targetWidth / _aspectRatio(image),
+            frameWidth: frameWidth,
+            frameHeight: _sourceHeight(image),
           ),
         )
         .toList(growable: false);
@@ -324,7 +323,7 @@ class _MergePreviewLayout extends StatelessWidget {
     final visibleTiles = tileSpecs
         .take(_visibleTileCount)
         .toList(growable: false);
-    return visibleTiles.fold<double>(0, (sum, tile) => sum + tile.width) +
+    return visibleTiles.fold<double>(0, (sum, tile) => sum + tile.frameWidth) +
         spacing * math.max(0, visibleTiles.length - 1);
   }
 
@@ -332,7 +331,7 @@ class _MergePreviewLayout extends StatelessWidget {
     final visibleTiles = tileSpecs
         .take(_visibleTileCount)
         .toList(growable: false);
-    return visibleTiles.fold<double>(0, (sum, tile) => sum + tile.height) +
+    return visibleTiles.fold<double>(0, (sum, tile) => sum + tile.frameHeight) +
         spacing * math.max(0, visibleTiles.length - 1);
   }
 
@@ -397,36 +396,37 @@ class _ScrollablePreview extends StatelessWidget {
 class _PreviewTileSpec {
   const _PreviewTileSpec({
     required this.image,
-    required this.width,
-    required this.height,
+    required this.frameWidth,
+    required this.frameHeight,
   });
 
   final LocalImageFile image;
-  final double width;
-  final double height;
+  final double frameWidth;
+  final double frameHeight;
 }
 
 class _PreviewImageTile extends StatelessWidget {
   const _PreviewImageTile({
-    required this.image,
-    required this.borderWidth,
-    required this.borderColor,
+    required this.tile,
+    required this.backgroundColor,
     required this.cornerRadius,
   });
 
-  final LocalImageFile image;
-  final double borderWidth;
-  final Color borderColor;
+  final _PreviewTileSpec tile;
+  final Color backgroundColor;
   final double cornerRadius;
 
   @override
   Widget build(BuildContext context) {
+    final image = tile.image;
     final file = File(image.path);
     final radius = BorderRadius.circular(cornerRadius.clamp(0, 48));
     final child = file.existsSync()
         ? Image.file(
             file,
-            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+            fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
               return EditorImageLoadError(imageName: image.name);
             },
@@ -434,10 +434,7 @@ class _PreviewImageTile extends StatelessWidget {
         : EditorImageLoadError(imageName: image.name);
 
     return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: borderColor, width: borderWidth),
-        borderRadius: radius,
-      ),
+      decoration: BoxDecoration(color: backgroundColor, borderRadius: radius),
       child: ClipRRect(borderRadius: radius, child: child),
     );
   }
@@ -476,9 +473,9 @@ class _MergeBottomToolPanel extends StatelessWidget {
           selectedTab: selectedTab,
         ),
         maxPanelHeight: switch (selectedTab) {
-          MergeToolbarTab.layout => 156,
+          MergeToolbarTab.layout => 84,
           MergeToolbarTab.border => 236,
-          MergeToolbarTab.background => 112,
+          MergeToolbarTab.background => 152,
           MergeToolbarTab.order => 220,
         },
         showPanelHeader: false,
@@ -540,20 +537,6 @@ class _LayoutToolPanel extends StatelessWidget {
                   : (selection) => controller.setMode(selection.first),
             ),
           ),
-          const SizedBox(height: 8),
-          _LabeledSlider(
-            icon: Icons.space_bar,
-            label: 'merge.layout.spacing'.trParams({
-              'value': controller.spacing.value.toString(),
-            }),
-            value: controller.spacing.value.toDouble(),
-            min: 0,
-            max: 100,
-            divisions: 20,
-            onChanged: controller.isBusy.value
-                ? null
-                : controller.updateSpacing,
-          ),
         ],
       ),
     );
@@ -599,14 +582,18 @@ class _BorderToolPanel extends StatelessWidget {
                 : controller.updateBorderWidth,
           ),
           const SizedBox(height: 8),
-          _ColorChoiceSection<MergeBorderColor>(
-            title: 'merge.layout.borderColor'.tr,
-            values: MergeBorderColor.values,
-            selected: controller.borderColor.value,
-            enabled: !controller.isBusy.value,
-            labelFor: (value) => value.labelKey.tr,
-            colorFor: (value) => _parseColor(value.value),
-            onSelected: controller.setBorderColor,
+          _LabeledSlider(
+            icon: Icons.space_bar,
+            label: 'merge.layout.spacing'.trParams({
+              'value': controller.spacing.value.toString(),
+            }),
+            value: controller.spacing.value.toDouble(),
+            min: 0,
+            max: 100,
+            divisions: 20,
+            onChanged: controller.isBusy.value
+                ? null
+                : controller.updateSpacing,
           ),
         ],
       ),
@@ -622,17 +609,92 @@ class _BackgroundToolPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(
-      () => _ColorChoiceSection<MergeBackgroundColor>(
-        title: 'merge.layout.backgroundColor'.tr,
-        values: MergeBackgroundColor.values,
-        selected: controller.backgroundColor.value,
-        enabled: !controller.isBusy.value,
-        labelFor: (value) => value.labelKey.tr,
-        colorFor: (value) => _parseColor(value.value),
-        onSelected: controller.setBackgroundColor,
+      () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _BackgroundColorPickerButton(controller: controller),
+          const SizedBox(height: 8),
+          _ColorChoiceSection<MergeBackgroundColor>(
+            title: 'merge.layout.backgroundColor'.tr,
+            values: MergeBackgroundColor.values,
+            selected: controller.backgroundColor.value,
+            enabled: !controller.isBusy.value,
+            labelFor: (value) => value.labelKey.tr,
+            colorFor: (value) => _parseColor(value.value),
+            onSelected: controller.setBackgroundColor,
+          ),
+        ],
       ),
     );
   }
+}
+
+class _BackgroundColorPickerButton extends StatelessWidget {
+  const _BackgroundColorPickerButton({required this.controller});
+
+  final MergeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final color = _parseColor(controller.customBackgroundColor.value);
+      return OutlinedButton.icon(
+        key: const ValueKey('merge-background-color-picker-button'),
+        onPressed: controller.isBusy.value
+            ? null
+            : () => _showBackgroundColorPicker(context, controller),
+        icon: DecoratedBox(
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+          child: const SizedBox(width: 18, height: 18),
+        ),
+        label: Text(controller.customBackgroundColor.value),
+      );
+    });
+  }
+}
+
+Future<void> _showBackgroundColorPicker(
+  BuildContext context,
+  MergeController controller,
+) async {
+  final selectedColor = await showColorPickerDialog(
+    context,
+    _parseColor(controller.customBackgroundColor.value),
+    title: Text('merge.layout.backgroundColor'.tr),
+    pickersEnabled: const <ColorPickerType, bool>{
+      ColorPickerType.both: false,
+      ColorPickerType.primary: true,
+      ColorPickerType.accent: true,
+      ColorPickerType.bw: true,
+      ColorPickerType.custom: false,
+      ColorPickerType.wheel: true,
+    },
+    enableOpacity: false,
+    showColorCode: true,
+    wheelDiameter: 190,
+    copyPasteBehavior: const ColorPickerCopyPasteBehavior(
+      copyButton: true,
+      pasteButton: true,
+      copyFormat: ColorPickerCopyFormat.numHexRRGGBB,
+      parseShortHexCode: true,
+    ),
+    actionButtons: ColorPickerActionButtons(
+      dialogOkButtonLabel: 'common.confirm'.tr,
+      dialogCancelButtonLabel: 'common.cancel'.tr,
+      dialogOkButtonType: ColorPickerActionButtonType.filled,
+    ),
+  );
+
+  if (!context.mounted) {
+    return;
+  }
+  controller.setCustomBackgroundColor(selectedColor.withValues(alpha: 1));
 }
 
 class _OrderToolPanel extends StatelessWidget {

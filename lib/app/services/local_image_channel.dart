@@ -572,7 +572,6 @@ class LocalImageChannel {
     required int spacing,
     required String backgroundColor,
     required int borderWidth,
-    required String borderColor,
     required int cornerRadius,
     required String scaleMode,
   }) async {
@@ -603,10 +602,6 @@ class LocalImageChannel {
     if (normalizedBackgroundColor == null) {
       throw const AppException('背景颜色必须是 #RRGGBB 格式');
     }
-    final normalizedBorderColor = _normalizeHexColor(borderColor);
-    if (normalizedBorderColor == null) {
-      throw const AppException('边框颜色必须是 #RRGGBB 格式');
-    }
     final paths = sources.map((image) => image.path.trim()).toList();
     if (paths.any((path) => path.isEmpty)) {
       throw const AppException('图片路径为空，无法拼接');
@@ -620,7 +615,6 @@ class LocalImageChannel {
             'spacing': spacing,
             'backgroundColor': normalizedBackgroundColor,
             'borderWidth': borderWidth,
-            'borderColor': normalizedBorderColor,
             'cornerRadius': cornerRadius,
             'scaleMode': normalizedScaleMode,
           });
@@ -632,7 +626,6 @@ class LocalImageChannel {
         mode: normalizedMode,
         backgroundColor: normalizedBackgroundColor,
         borderWidth: borderWidth,
-        borderColor: normalizedBorderColor,
         cornerRadius: cornerRadius,
         scaleMode: normalizedScaleMode,
         map: result,

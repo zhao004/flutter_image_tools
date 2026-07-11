@@ -20,7 +20,6 @@ void main() {
         mode: 'horizontal',
         backgroundColor: '#FFFFFF',
         borderWidth: 0,
-        borderColor: '#000000',
         cornerRadius: 0,
         scaleMode: 'same_height',
         map: const <Object?, Object?>{
@@ -31,7 +30,6 @@ void main() {
           'mode': 'horizontal',
           'backgroundColor': '#333333',
           'borderWidth': 4,
-          'borderColor': '#FFFFFF',
           'cornerRadius': 24,
           'scaleMode': 'same_height',
         },
@@ -45,7 +43,6 @@ void main() {
       expect(merged.mode, 'horizontal');
       expect(merged.backgroundColor, '#333333');
       expect(merged.borderWidth, 4);
-      expect(merged.borderColor, '#FFFFFF');
       expect(merged.cornerRadius, 24);
       expect(merged.scaleMode, 'same_height');
       expect(() => merged.sources.add(source), throwsUnsupportedError);
@@ -66,7 +63,6 @@ void main() {
         mode: 'horizontal',
         backgroundColor: '#F2F2F2',
         borderWidth: 2,
-        borderColor: '#808080',
         cornerRadius: 12,
         scaleMode: 'same_width',
         map: const <Object?, Object?>{'outputPath': '/tmp/merged.jpg'},
@@ -75,7 +71,6 @@ void main() {
       expect(merged.mode, 'horizontal');
       expect(merged.backgroundColor, '#F2F2F2');
       expect(merged.borderWidth, 2);
-      expect(merged.borderColor, '#808080');
       expect(merged.cornerRadius, 12);
       expect(merged.scaleMode, 'same_width');
     });
@@ -95,7 +90,6 @@ void main() {
         mode: 'vertical',
         backgroundColor: '#FFFFFF',
         borderWidth: 0,
-        borderColor: '#000000',
         cornerRadius: 0,
         scaleMode: 'same_width',
         map: const <Object?, Object?>{

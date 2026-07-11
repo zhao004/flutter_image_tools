@@ -2096,12 +2096,73 @@ void main() {
     );
     expect(find.text('Grid'), findsNothing);
     expect(find.text('Long Image'), findsNothing);
-    expect(find.text('Image Spacing: 8px'), findsOneWidget);
+    expect(find.text('Image Spacing: 8px'), findsNothing);
+    expect(find.text('Border Color'), findsNothing);
     expectReadableScrollablePreview(
       viewportKey: 'merge-preview-horizontal-scroll',
       shouldOverflowHorizontally: false,
       shouldOverflowVertically: true,
     );
+    final firstInitialTile = tester.getRect(
+      find.byKey(const ValueKey('merge-preview-tile-first.png')),
+    );
+    final secondInitialTile = tester.getRect(
+      find.byKey(const ValueKey('merge-preview-tile-second.png')),
+    );
+    expect(
+      (firstInitialTile.height - secondInitialTile.height).abs(),
+      lessThanOrEqualTo(1),
+    );
+
+    await tester.tap(find.text('Border'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Corner Radius: 0px'), findsOneWidget);
+    expect(find.text('Border Width: 0px'), findsOneWidget);
+    expect(find.text('Image Spacing: 8px'), findsOneWidget);
+    expect(find.text('Border Color'), findsNothing);
+
+    final borderSliders = find.byType(Slider);
+    expect(borderSliders, findsNWidgets(3));
+    expect(
+      tester.getSize(borderSliders.at(2)).height,
+      greaterThanOrEqualTo(48),
+    );
+
+    tester.widget<Slider>(borderSliders.at(2)).onChanged?.call(100);
+    await tester.pump();
+
+    expect(Get.find<MergeController>().spacing.value, 100);
+    expect(find.text('Image Spacing: 100px'), findsOneWidget);
+
+    await tester.tap(find.text('Background'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('merge-background-color-picker-button')),
+      findsOneWidget,
+    );
+    expect(find.text('#FFFFFF'), findsOneWidget);
+    expect(find.text('Background Color'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('merge-background-color-picker-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(flex_color_picker.ColorPicker), findsOneWidget);
+    Navigator.of(tester.element(find.byType(AlertDialog))).pop();
+    await tester.pumpAndSettle();
+
+    Get.find<MergeController>().setCustomBackgroundColor(
+      const Color(0xFF123456),
+    );
+    await tester.pump();
+
+    expect(find.text('#123456'), findsOneWidget);
+
+    await tester.tap(find.text('Layout'));
+    await tester.pumpAndSettle();
 
     Get.find<MergeController>().selectedImages.assignAll(const [
       LocalImageFile(
@@ -2185,16 +2246,6 @@ void main() {
       overflowTileKey: 'merge-preview-tile-fourth.png',
       horizontal: true,
     );
-
-    final spacingSlider = find.byType(Slider);
-    expect(spacingSlider, findsOneWidget);
-    expect(tester.getSize(spacingSlider).height, greaterThanOrEqualTo(48));
-
-    await tester.drag(spacingSlider, const Offset(800, 0));
-    await tester.pump();
-
-    expect(Get.find<MergeController>().spacing.value, 100);
-    expect(find.text('Image Spacing: 100px'), findsOneWidget);
 
     await tester.tap(find.text('Vertical'));
     await tester.pumpAndSettle();
