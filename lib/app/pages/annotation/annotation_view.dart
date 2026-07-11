@@ -805,13 +805,13 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
 
   static const EditorPrimaryToolStyle _previewToolbarStyle =
       EditorPrimaryToolStyle(
-        toolbarHeight: 92,
+        toolbarHeight: 84,
         itemWidth: 104,
         iconContainerWidth: 52,
-        iconContainerHeight: 42,
-        iconSize: 28,
-        iconBorderRadius: 20,
-        labelSpacing: 6,
+        iconContainerHeight: 36,
+        iconSize: 26,
+        iconBorderRadius: 18,
+        labelSpacing: 4,
         horizontalPadding: 12,
         itemGap: 2,
         alignment: MainAxisAlignment.start,
@@ -1183,12 +1183,6 @@ class _FullAnnotationPropertyPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        IconButton(
-          tooltip: 'annotation.action.closePanel'.tr,
-          visualDensity: VisualDensity.compact,
-          onPressed: controller.closePropertyPanel,
-          icon: const Icon(Icons.close),
-        ),
         Obx(() {
           final activeCategoryId = _activePropertyCategoryId(controller);
           if (activeCategoryId == 'markup') {
@@ -1232,12 +1226,6 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            tooltip: 'annotation.action.closePanel'.tr,
-            visualDensity: VisualDensity.compact,
-            onPressed: controller.closePropertyPanel,
-            icon: const Icon(Icons.close),
-          ),
           OutlinedButton.icon(
             onPressed: () => _showAnnotationColorPicker(context, controller),
             icon: _ColorSwatch(color: controller.color.value),
@@ -2043,6 +2031,14 @@ class _ObjectControlOverlay extends StatelessWidget {
       if (geometry == null) {
         return const SizedBox.shrink();
       }
+      Offset canvasPointFromGlobal(Offset globalPosition) {
+        final renderObject = context.findRenderObject();
+        if (renderObject is! RenderBox || !renderObject.hasSize) {
+          return globalPosition;
+        }
+        return renderObject.globalToLocal(globalPosition);
+      }
+
       return Stack(
         children: [
           for (final handle in geometry.shapeScaleHandles)
@@ -2053,11 +2049,7 @@ class _ObjectControlOverlay extends StatelessWidget {
                 onPanUpdate: (details) =>
                     controller.resizeSelectedShapeFromCorner(
                       corner: handle.corner,
-                      point: _canvasPointFromHandle(
-                        center: handle.center,
-                        size: _dragDotSize,
-                        localPosition: details.localPosition,
-                      ),
+                      point: canvasPointFromGlobal(details.globalPosition),
                     ),
               ),
             ),
@@ -2067,11 +2059,7 @@ class _ObjectControlOverlay extends StatelessWidget {
               size: _controlSize,
               child: _RotationHandle(
                 onPanUpdate: (details) => controller.rotateSelectedShapeTo(
-                  _canvasPointFromHandle(
-                    center: geometry.rotateHandle!,
-                    size: _controlSize,
-                    localPosition: details.localPosition,
-                  ),
+                  canvasPointFromGlobal(details.globalPosition),
                 ),
               ),
             ),
@@ -2083,11 +2071,7 @@ class _ObjectControlOverlay extends StatelessWidget {
                 onPanUpdate: (details) =>
                     controller.updateSelectedArrowScaleHandle(
                       isHead: false,
-                      point: _canvasPointFromHandle(
-                        center: geometry.arrowStart!,
-                        size: _dragDotSize,
-                        localPosition: details.localPosition,
-                      ),
+                      point: canvasPointFromGlobal(details.globalPosition),
                     ),
               ),
             ),
@@ -2099,11 +2083,7 @@ class _ObjectControlOverlay extends StatelessWidget {
                 onPanUpdate: (details) =>
                     controller.updateSelectedArrowScaleHandle(
                       isHead: true,
-                      point: _canvasPointFromHandle(
-                        center: geometry.arrowEnd!,
-                        size: _dragDotSize,
-                        localPosition: details.localPosition,
-                      ),
+                      point: canvasPointFromGlobal(details.globalPosition),
                     ),
               ),
             ),
@@ -2113,26 +2093,13 @@ class _ObjectControlOverlay extends StatelessWidget {
               size: _controlSize,
               child: _ArrowDirectionHandle(
                 onPanUpdate: (details) => controller.rotateSelectedArrowTo(
-                  _canvasPointFromHandle(
-                    center: geometry.arrowDirectionHandle!,
-                    size: _controlSize,
-                    localPosition: details.localPosition,
-                  ),
+                  canvasPointFromGlobal(details.globalPosition),
                 ),
               ),
             ),
         ],
       );
     });
-  }
-
-  Offset _canvasPointFromHandle({
-    required Offset center,
-    required double size,
-    required Offset localPosition,
-  }) {
-    final origin = Offset(center.dx - size / 2, center.dy - size / 2);
-    return origin + localPosition;
   }
 }
 

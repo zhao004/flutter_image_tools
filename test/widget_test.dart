@@ -1044,7 +1044,7 @@ void main() {
       find.byKey(const ValueKey('editor-primary-tool-tabs')),
     );
     expect(primaryTabsRect.top - toolbarRect.top, lessThanOrEqualTo(12));
-    expect(primaryTabsRect.height, 92);
+    expect(primaryTabsRect.height, 84);
     final annotateRect = tester.getRect(
       find.byKey(const ValueKey('editor-primary-tool-markup')),
     );
@@ -1167,15 +1167,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Annotation Style'), findsNothing);
-    expect(find.byTooltip('Close Property Panel'), findsOneWidget);
+    expect(find.byTooltip('Close Property Panel'), findsNothing);
     expect(find.text('#123456'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Close Property Panel'));
+    await tester.tap(find.text('Annotate'));
     await tester.pumpAndSettle();
 
-    expect(controller.mode.value, AnnotationMode.select);
+    expect(controller.mode.value, AnnotationMode.brush);
     expect(find.text('Annotation Style'), findsNothing);
     expect(find.text('#123456'), findsNothing);
     expect(find.text('Stroke: 12 px'), findsNothing);
@@ -1193,7 +1193,7 @@ void main() {
     expect(find.text('Annotation Style'), findsNothing);
     expect(find.text('Freehand'), findsWidgets);
     expect(find.text('Rectangle Mosaic'), findsWidgets);
-    expect(find.byTooltip('Close Property Panel'), findsOneWidget);
+    expect(find.byTooltip('Close Property Panel'), findsNothing);
     expect(find.text('#123456'), findsOneWidget);
     expect(find.text('Stroke: 12 px'), findsOneWidget);
 
@@ -1519,6 +1519,96 @@ void main() {
       controller.strokes[1].points.last,
     );
     expect(resizedCircleMosaic.width, resizedCircleMosaic.height);
+
+    await database.close();
+    Get.reset();
+  });
+
+  testWidgets('图片标注控制点拖动会缩放形状和箭头', (WidgetTester tester) async {
+    // 复现真实手势路径：控制点收到的是全局坐标，必须换算回画布坐标后再交给控制器。
+    final database = AppDatabase(NativeDatabase.memory());
+    final controller = Get.put(
+      AnnotationController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const AnnotationView(),
+      ),
+    );
+    await tester.pump();
+
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'annotation_preview.png',
+      name: 'annotation_preview.png',
+      sizeBytes: 1200,
+      mimeType: 'image/png',
+      width: 1200,
+      height: 800,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final painterBox =
+        controller.painterController.painterKey.currentContext!
+                .findRenderObject()
+            as RenderBox;
+
+    Future<void> dragShapeBottomRight(Offset delta) async {
+      final geometry = controller.selectedControlGeometry!;
+      final handle = geometry.shapeScaleHandles.singleWhere(
+        (value) => value.corner == AnnotationShapeScaleCorner.bottomRight,
+      );
+      await tester.dragFrom(painterBox.localToGlobal(handle.center), delta);
+      await tester.pump();
+    }
+
+    controller.addShapeLayer(EditableLayerType.rectangle);
+    await tester.pump();
+    final initialRectangle =
+        controller.selectedObject.value as RectangleDrawable;
+    await dragShapeBottomRight(const Offset(48, 32));
+    final resizedRectangle =
+        controller.selectedObject.value as RectangleDrawable;
+    expect(
+      resizedRectangle.size.width,
+      greaterThan(initialRectangle.size.width),
+    );
+    expect(
+      resizedRectangle.size.height,
+      greaterThan(initialRectangle.size.height),
+    );
+
+    controller.addShapeLayer(EditableLayerType.circle);
+    await tester.pump();
+    final initialCircle = controller.selectedObject.value as OvalDrawable;
+    await dragShapeBottomRight(const Offset(42, 18));
+    final resizedCircle = controller.selectedObject.value as OvalDrawable;
+    expect(resizedCircle.size.width, greaterThan(initialCircle.size.width));
+    expect(resizedCircle.size.width, resizedCircle.size.height);
+
+    controller.addShapeLayer(EditableLayerType.arrow);
+    await tester.pump();
+    final initialArrow =
+        controller.selectedObject.value as EditableArrowDrawable;
+    final arrowEnd = controller.selectedControlGeometry!.arrowEnd!;
+    await tester.dragFrom(
+      painterBox.localToGlobal(arrowEnd),
+      const Offset(64, 0),
+    );
+    await tester.pump();
+    final resizedArrow =
+        controller.selectedObject.value as EditableArrowDrawable;
+    expect(resizedArrow.length, greaterThan(initialArrow.length));
+    expect(resizedArrow.rotationAngle, initialArrow.rotationAngle);
 
     await database.close();
     Get.reset();
