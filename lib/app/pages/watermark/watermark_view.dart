@@ -88,6 +88,7 @@ class _TextWatermarkOverlay extends StatelessWidget {
             key: const ValueKey('text-watermark-tile-layer'),
             text: text,
             watermark: watermark,
+            spacing: controller.spacing.value.toDouble(),
           ),
         );
       }
@@ -125,14 +126,16 @@ class _DiagonalTextWatermarkTile extends StatelessWidget {
     super.key,
     required this.text,
     required this.watermark,
+    required this.spacing,
   });
 
   static const double _tileRotationRadians = -math.pi / 6;
-  static const double _horizontalGap = 28;
-  static const double _verticalGap = 22;
+  static const double _minimumTileGap = 8;
+  static const double _baseTileHeight = 48;
 
   final String text;
   final Widget watermark;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -149,8 +152,9 @@ class _DiagonalTextWatermarkTile extends StatelessWidget {
             96.0,
             text.characters.length * 20,
           );
-          final tileWidth = estimatedTextWidth + _horizontalGap;
-          final tileHeight = 48.0 + _verticalGap;
+          final safeSpacing = spacing.clamp(_minimumTileGap, 160.0);
+          final tileWidth = estimatedTextWidth + safeSpacing;
+          final tileHeight = _baseTileHeight + safeSpacing;
           final expandedWidth = safeWidth + safeHeight;
           final expandedHeight = safeWidth + safeHeight;
           final columnCount = (expandedWidth / tileWidth).ceil() + 4;
@@ -419,6 +423,18 @@ class _WatermarkStylePanel extends StatelessWidget {
               divisions: 18,
               enabled: !controller.isBusy.value,
               onChanged: controller.updateOpacity,
+            ),
+            const SizedBox(width: 16),
+            _WatermarkSlider(
+              label: 'watermark.config.spacing'.trParams({
+                'spacing': '${controller.spacing.value}',
+              }),
+              value: controller.spacing.value.toDouble(),
+              min: 8,
+              max: 160,
+              divisions: 38,
+              enabled: !controller.isBusy.value,
+              onChanged: controller.updateSpacing,
             ),
             if (controller.tasks.isNotEmpty) ...[
               const SizedBox(width: 16),

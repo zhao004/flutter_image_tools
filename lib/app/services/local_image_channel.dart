@@ -644,6 +644,7 @@ class LocalImageChannel {
     required String position,
     required int fontSize,
     required int opacity,
+    required int spacing,
     required String color,
   }) async {
     if (source.path.trim().isEmpty) {
@@ -674,13 +675,22 @@ class LocalImageChannel {
     if (opacity < 10 || opacity > 100) {
       throw const AppException('透明度必须在 10 到 100 之间');
     }
+    if (spacing < 8 || spacing > 160) {
+      throw const AppException('水印间距必须在 8 到 160 之间');
+    }
 
     try {
       final decoded = await _readImage(source.path);
       final font = _fontForSize(fontSize);
       final watermarkColor = _imageColorFromHex(color, opacity: opacity);
       if (normalizedPosition == 'tile') {
-        _drawTiledTextWatermark(decoded, normalizedText, font, watermarkColor);
+        _drawTiledTextWatermark(
+          decoded,
+          normalizedText,
+          font,
+          watermarkColor,
+          spacing,
+        );
       } else {
         final positionOffset = _watermarkTextPosition(
           image: decoded,
@@ -1743,11 +1753,13 @@ class LocalImageChannel {
     String text,
     img.BitmapFont font,
     img.Color color,
+    int spacing,
   ) {
     final textWidth = math.max(1, _estimatedTextWidth(text, font));
     final textHeight = math.max(1, _estimatedTextHeight(text, font));
-    final stepX = textWidth + 96;
-    final stepY = textHeight + 72;
+    final safeSpacing = spacing.clamp(8, 160);
+    final stepX = textWidth + safeSpacing;
+    final stepY = textHeight + safeSpacing;
     final layerSize =
         math
             .sqrt(image.width * image.width + image.height * image.height)

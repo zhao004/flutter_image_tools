@@ -79,6 +79,7 @@ class WatermarkController extends GetxController {
   final color = Colors.white.obs;
   final fontSize = 36.obs;
   final opacity = 70.obs;
+  final spacing = 28.obs;
   final isBusy = false.obs;
   final textRevision = 0.obs;
   final textController = TextEditingController(text: 'ImageToolKit');
@@ -158,6 +159,10 @@ class WatermarkController extends GetxController {
     opacity.value = value.round().clamp(10, 100);
   }
 
+  void updateSpacing(double value) {
+    spacing.value = value.round().clamp(8, 160);
+  }
+
   bool validateWatermarkText() {
     final text = textController.text.trim();
     if (text.isEmpty) {
@@ -205,6 +210,7 @@ class WatermarkController extends GetxController {
             position: position.value.value,
             fontSize: fontSize.value,
             opacity: opacity.value,
+            spacing: spacing.value,
             color: colorHex,
           );
           result.value = watermarked;
@@ -269,6 +275,7 @@ class WatermarkController extends GetxController {
       'position': position.value.value,
       'fontSize': fontSize.value,
       'opacity': opacity.value,
+      'spacing': spacing.value,
       'color': colorHex,
     };
   }

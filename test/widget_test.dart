@@ -2245,6 +2245,7 @@ void main() {
     expect(find.text('#FFFFFF'), findsOneWidget);
     expect(find.text('Font Size: 36px'), findsOneWidget);
     expect(find.text('Opacity: 70%'), findsOneWidget);
+    expect(find.text('Spacing: 28px'), findsOneWidget);
     expect(find.text('Watermark Settings'), findsNothing);
 
     await tester.tap(
@@ -2262,7 +2263,7 @@ void main() {
     expect(find.text('#123456'), findsOneWidget);
 
     final sliders = find.byType(Slider);
-    expect(sliders, findsNWidgets(2));
+    expect(sliders, findsNWidgets(3));
     tester.widget<Slider>(sliders.at(0)).onChanged?.call(48);
     await tester.pump();
 
@@ -2274,6 +2275,12 @@ void main() {
 
     expect(controller.opacity.value, 40);
     expect(find.text('Opacity: 40%'), findsOneWidget);
+
+    tester.widget<Slider>(sliders.at(2)).onChanged?.call(64);
+    await tester.pump();
+
+    expect(controller.spacing.value, 64);
+    expect(find.text('Spacing: 64px'), findsOneWidget);
 
     final watermarkText = tester
         .widgetList<Text>(find.text('Checked Text'))
