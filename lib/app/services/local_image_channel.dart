@@ -1746,23 +1746,72 @@ class LocalImageChannel {
   ) {
     final textWidth = math.max(1, _estimatedTextWidth(text, font));
     final textHeight = math.max(1, _estimatedTextHeight(text, font));
-    final stepX = textWidth + 80;
-    final stepY = textHeight + 60;
-    for (var y = 24; y < image.height; y += stepY) {
-      for (var x = 24; x < image.width; x += stepX) {
-        img.drawString(image, text, font: font, x: x, y: y, color: color);
+    final stepX = textWidth + 96;
+    final stepY = textHeight + 72;
+    final layerSize =
+        math
+            .sqrt(image.width * image.width + image.height * image.height)
+            .ceil() +
+        math.max(stepX, stepY) * 2;
+    final layer = img.Image(width: layerSize, height: layerSize, numChannels: 4)
+      ..clear(img.ColorRgba8(0, 0, 0, 0));
+    var row = 0;
+    for (var y = 0; y < layer.height + stepY; y += stepY) {
+      final rowOffset = row.isOdd ? stepX ~/ 2 : 0;
+      for (var x = -stepX; x < layer.width + stepX; x += stepX) {
+        img.drawString(
+          layer,
+          text,
+          font: font,
+          x: x + rowOffset,
+          y: y,
+          color: color,
+        );
       }
+      row += 1;
     }
+    final rotatedLayer = img.copyRotate(
+      layer,
+      angle: -30,
+      interpolation: img.Interpolation.linear,
+    );
+    img.compositeImage(
+      image,
+      rotatedLayer,
+      dstX: (image.width - rotatedLayer.width) ~/ 2,
+      dstY: (image.height - rotatedLayer.height) ~/ 2,
+    );
   }
 
   void _drawTiledImageWatermark(img.Image image, img.Image overlay) {
-    final stepX = overlay.width + 60;
-    final stepY = overlay.height + 60;
-    for (var y = 24; y < image.height; y += stepY) {
-      for (var x = 24; x < image.width; x += stepX) {
-        img.compositeImage(image, overlay, dstX: x, dstY: y);
+    final stepX = overlay.width + 72;
+    final stepY = overlay.height + 72;
+    final layerSize =
+        math
+            .sqrt(image.width * image.width + image.height * image.height)
+            .ceil() +
+        math.max(stepX, stepY) * 2;
+    final layer = img.Image(width: layerSize, height: layerSize, numChannels: 4)
+      ..clear(img.ColorRgba8(0, 0, 0, 0));
+    var row = 0;
+    for (var y = 0; y < layer.height + stepY; y += stepY) {
+      final rowOffset = row.isOdd ? stepX ~/ 2 : 0;
+      for (var x = -stepX; x < layer.width + stepX; x += stepX) {
+        img.compositeImage(layer, overlay, dstX: x + rowOffset, dstY: y);
       }
+      row += 1;
     }
+    final rotatedLayer = img.copyRotate(
+      layer,
+      angle: -30,
+      interpolation: img.Interpolation.linear,
+    );
+    img.compositeImage(
+      image,
+      rotatedLayer,
+      dstX: (image.width - rotatedLayer.width) ~/ 2,
+      dstY: (image.height - rotatedLayer.height) ~/ 2,
+    );
   }
 
   void _applyOpacity(img.Image image, int opacity) {

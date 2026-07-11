@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -6,7 +8,7 @@ import 'watermark_controller.dart';
 
 /// 文字水印编辑页：选择图片后在画布中实时预览文字、位置、颜色和透明度。
 ///
-/// 设计意图：水印参数集中在底部工具栏，预览层只做轻量叠加展示；导出仍
+/// 设计意图：水印参数按内容、位置、样式分组放入底部工具栏，预览层只做轻量叠加展示；导出仍
 /// 使用控制器的原生合成逻辑，保证文件处理、历史记录和异常提示一致。
 class WatermarkView extends GetView<WatermarkController> {
   const WatermarkView({super.key});
@@ -79,10 +81,10 @@ class _TextWatermarkOverlay extends StatelessWidget {
     );
     if (controller.position.value == WatermarkPosition.tile) {
       return IgnorePointer(
-        child: Wrap(
-          spacing: 40,
-          runSpacing: 28,
-          children: List.generate(24, (_) => watermark),
+        child: _DiagonalTextWatermarkTile(
+          key: const ValueKey('text-watermark-tile-layer'),
+          text: text,
+          watermark: watermark,
         ),
       );
     }
@@ -127,32 +129,140 @@ class _TextWatermarkOverlay extends StatelessWidget {
   }
 }
 
-class _WatermarkBottomToolPanel extends StatelessWidget {
+class _DiagonalTextWatermarkTile extends StatelessWidget {
+  const _DiagonalTextWatermarkTile({
+    super.key,
+    required this.text,
+    required this.watermark,
+  });
+
+  static const double _tileRotationRadians = -math.pi / 6;
+  static const double _horizontalGap = 72;
+  static const double _verticalGap = 52;
+
+  final String text;
+  final Widget watermark;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final safeWidth = constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : MediaQuery.sizeOf(context).width;
+          final safeHeight = constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : MediaQuery.sizeOf(context).height;
+          final estimatedTextWidth = math.max(
+            96.0,
+            text.characters.length * 20,
+          );
+          final tileWidth = estimatedTextWidth + _horizontalGap;
+          final tileHeight = 64.0 + _verticalGap;
+          final expandedWidth = safeWidth + safeHeight;
+          final expandedHeight = safeWidth + safeHeight;
+          final columnCount = (expandedWidth / tileWidth).ceil() + 4;
+          final rowCount = (expandedHeight / tileHeight).ceil() + 4;
+          final originLeft = (expandedWidth - columnCount * tileWidth) / 2;
+          final originTop = (expandedHeight - rowCount * tileHeight) / 2;
+
+          return Transform.rotate(
+            angle: _tileRotationRadians,
+            child: OverflowBox(
+              minWidth: expandedWidth,
+              maxWidth: expandedWidth,
+              minHeight: expandedHeight,
+              maxHeight: expandedHeight,
+              child: SizedBox(
+                width: expandedWidth,
+                height: expandedHeight,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
+                      for (
+                        var columnIndex = 0;
+                        columnIndex < columnCount;
+                        columnIndex++
+                      )
+                        Positioned(
+                          left:
+                              originLeft +
+                              columnIndex * tileWidth +
+                              (rowIndex.isOdd ? tileWidth / 2 : 0),
+                          top: originTop + rowIndex * tileHeight,
+                          width: tileWidth,
+                          height: tileHeight,
+                          child: Center(child: watermark),
+                        ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WatermarkBottomToolPanel extends StatefulWidget {
   const _WatermarkBottomToolPanel({required this.controller});
 
   final WatermarkController controller;
 
   @override
+  State<_WatermarkBottomToolPanel> createState() =>
+      _WatermarkBottomToolPanelState();
+}
+
+class _WatermarkBottomToolPanelState extends State<_WatermarkBottomToolPanel> {
+  String _activeCategoryId = 'content';
+
+  @override
   Widget build(BuildContext context) {
+    final categories = [
+      ToolCategory(
+        id: 'content',
+        name: 'watermark.group.content'.tr,
+        icon: Icons.text_fields_outlined,
+      ),
+      ToolCategory(
+        id: 'position',
+        name: 'watermark.group.position'.tr,
+        icon: Icons.open_with_outlined,
+      ),
+      ToolCategory(
+        id: 'style',
+        name: 'watermark.group.style'.tr,
+        icon: Icons.tune_outlined,
+      ),
+    ];
     return EditorDynamicToolPanel(
-      categories: [
-        ToolCategory(
-          id: 'watermark',
-          name: 'watermark.config.text'.tr,
-          icon: Icons.text_fields_outlined,
-        ),
-      ],
-      activeCategoryId: 'watermark',
-      onCategorySelected: (_) {},
-      activePanel: _WatermarkPropertyPanel(controller: controller),
-      maxPanelHeight: 96,
+      categories: categories,
+      activeCategoryId: _activeCategoryId,
+      onCategorySelected: (category) {
+        FocusScope.of(context).unfocus();
+        setState(() => _activeCategoryId = category.id);
+      },
+      activePanel: _panelForCategory(_activeCategoryId),
+      maxPanelHeight: 128,
       showPanelHeader: false,
     );
   }
+
+  Widget _panelForCategory(String categoryId) {
+    return switch (categoryId) {
+      'position' => _WatermarkPositionPanel(controller: widget.controller),
+      'style' => _WatermarkStylePanel(controller: widget.controller),
+      _ => _WatermarkContentPanel(controller: widget.controller),
+    };
+  }
 }
 
-class _WatermarkPropertyPanel extends StatelessWidget {
-  const _WatermarkPropertyPanel({required this.controller});
+class _WatermarkContentPanel extends StatelessWidget {
+  const _WatermarkContentPanel({required this.controller});
 
   final WatermarkController controller;
 
@@ -164,7 +274,7 @@ class _WatermarkPropertyPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 180,
+            width: 240,
             child: TextField(
               controller: controller.textController,
               enabled: !controller.isBusy.value,
@@ -178,15 +288,48 @@ class _WatermarkPropertyPanel extends StatelessWidget {
               onChanged: (_) => controller.fontSize.refresh(),
             ),
           ),
-          const SizedBox(width: 10),
-          EditorOptionWrap<WatermarkPosition>(
-            values: WatermarkPosition.values,
-            selected: controller.position.value,
-            labelFor: (value) => value.labelKey.tr,
-            enabled: !controller.isBusy.value,
-            onSelected: controller.setPosition,
-          ),
-          const SizedBox(width: 10),
+          if (controller.tasks.isNotEmpty) ...[
+            const SizedBox(width: 16),
+            _WatermarkProgressIndicator(controller: controller),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WatermarkPositionPanel extends StatelessWidget {
+  const _WatermarkPositionPanel({required this.controller});
+
+  final WatermarkController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: EditorOptionWrap<WatermarkPosition>(
+        values: WatermarkPosition.values,
+        selected: controller.position.value,
+        labelFor: (value) => value.labelKey.tr,
+        enabled: !controller.isBusy.value,
+        onSelected: controller.setPosition,
+      ),
+    );
+  }
+}
+
+class _WatermarkStylePanel extends StatelessWidget {
+  const _WatermarkStylePanel({required this.controller});
+
+  final WatermarkController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
           EditorOptionWrap<WatermarkColor>(
             values: WatermarkColor.values,
             selected: controller.color.value,
@@ -194,8 +337,8 @@ class _WatermarkPropertyPanel extends StatelessWidget {
             enabled: !controller.isBusy.value,
             onSelected: controller.setColor,
           ),
-          const SizedBox(width: 10),
-          _CompactSlider(
+          const SizedBox(width: 16),
+          _WatermarkSlider(
             label: 'watermark.config.fontSize'.trParams({
               'size': '${controller.fontSize.value}',
             }),
@@ -206,8 +349,8 @@ class _WatermarkPropertyPanel extends StatelessWidget {
             enabled: !controller.isBusy.value,
             onChanged: controller.updateFontSize,
           ),
-          const SizedBox(width: 10),
-          _CompactSlider(
+          const SizedBox(width: 16),
+          _WatermarkSlider(
             label: 'watermark.config.opacity'.trParams({
               'opacity': '${controller.opacity.value}',
             }),
@@ -219,25 +362,8 @@ class _WatermarkPropertyPanel extends StatelessWidget {
             onChanged: controller.updateOpacity,
           ),
           if (controller.tasks.isNotEmpty) ...[
-            const SizedBox(width: 10),
-            SizedBox(
-              width: 160,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LinearProgressIndicator(value: controller.progress),
-                  const SizedBox(height: 4),
-                  Text(
-                    'watermark.progress.processed'.trParams({
-                      'processed': '${controller.processedCount.value}',
-                      'total': '${controller.selectedImages.length}',
-                    }),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(width: 16),
+            _WatermarkProgressIndicator(controller: controller),
           ],
         ],
       ),
@@ -245,8 +371,36 @@ class _WatermarkPropertyPanel extends StatelessWidget {
   }
 }
 
-class _CompactSlider extends StatelessWidget {
-  const _CompactSlider({
+class _WatermarkProgressIndicator extends StatelessWidget {
+  const _WatermarkProgressIndicator({required this.controller});
+
+  final WatermarkController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 180,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LinearProgressIndicator(value: controller.progress),
+          const SizedBox(height: 4),
+          Text(
+            'watermark.progress.processed'.trParams({
+              'processed': '${controller.processedCount.value}',
+              'total': '${controller.selectedImages.length}',
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WatermarkSlider extends StatelessWidget {
+  const _WatermarkSlider({
     required this.label,
     required this.value,
     required this.min,
@@ -267,26 +421,23 @@ class _CompactSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 180,
-      child: Row(
+      width: 220,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 72,
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-          Expanded(
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: enabled ? onChanged : null,
-            ),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: enabled ? onChanged : null,
           ),
         ],
       ),

@@ -2210,8 +2210,30 @@ void main() {
     controller.selectedImages.assignAll([controller.selectedImage.value!]);
     await tester.pump();
 
+    expect(find.text('Content'), findsOneWidget);
+    expect(find.text('Position'), findsOneWidget);
+    expect(find.text('Style'), findsOneWidget);
     expect(find.text('Watermark Text'), findsWidgets);
+    expect(find.text('Bottom Right'), findsNothing);
+    expect(find.text('White'), findsNothing);
+    expect(find.text('Font Size: 36px'), findsNothing);
+    expect(find.text('Opacity: 70%'), findsNothing);
+
+    await tester.tap(find.text('Position'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Bottom Right'), findsOneWidget);
+    expect(find.text('Tile'), findsOneWidget);
+    controller.position.value = WatermarkPosition.tile;
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('text-watermark-tile-layer')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Style'));
+    await tester.pumpAndSettle();
+
     expect(find.text('White'), findsOneWidget);
     expect(find.text('Font Size: 36px'), findsOneWidget);
     expect(find.text('Opacity: 70%'), findsOneWidget);
@@ -2262,8 +2284,24 @@ void main() {
     controller.selectedImages.assignAll([controller.selectedImage.value!]);
     await tester.pump();
 
+    expect(find.text('Watermark'), findsOneWidget);
+    expect(find.text('Position'), findsOneWidget);
+    expect(find.text('Style'), findsOneWidget);
     expect(find.text('Select Watermark'), findsOneWidget);
+    expect(find.text('Bottom Right'), findsNothing);
+    expect(find.text('Opacity: 70%'), findsNothing);
+    expect(find.text('Scale: 25%'), findsNothing);
+    expect(find.text('Rotation: 0°'), findsNothing);
+
+    await tester.tap(find.text('Position'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Bottom Right'), findsOneWidget);
+    expect(find.text('Tile'), findsOneWidget);
+
+    await tester.tap(find.text('Style'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Opacity: 70%'), findsOneWidget);
     expect(find.text('Scale: 25%'), findsOneWidget);
     expect(find.text('Rotation: 0°'), findsOneWidget);
@@ -2281,7 +2319,12 @@ void main() {
       width: 128,
       height: 128,
     );
+    controller.position.value = ImageWatermarkPosition.tile;
     await tester.pump();
+    expect(
+      find.byKey(const ValueKey('image-watermark-tile-layer')),
+      findsOneWidget,
+    );
 
     final enabledExportButton = tester.widget<IconButton>(
       find.byKey(const ValueKey('editor-export-action')),

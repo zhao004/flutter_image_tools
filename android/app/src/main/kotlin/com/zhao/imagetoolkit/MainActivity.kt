@@ -31,6 +31,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import java.util.LinkedHashMap
 import java.util.UUID
 
@@ -2005,19 +2006,27 @@ class MainActivity : FlutterActivity() {
     ) {
         val line = text.replace('\n', ' ')
         val textWidth = paint.measureText(line).coerceAtLeast(fontSize.toFloat())
-        val stepX = (textWidth * 1.6f).coerceAtLeast(180f)
-        val stepY = (fontSize * 3.2f).coerceAtLeast(120f)
-        var y = fontSize.toFloat()
+        val stepX = (textWidth + fontSize * 2.4f).coerceAtLeast(180f)
+        val stepY = (fontSize * 3.4f).coerceAtLeast(128f)
+        val diagonal = sqrt(width.toDouble() * width + height.toDouble() * height).toFloat()
+        val startX = -diagonal
+        val endX = width + diagonal
+        val startY = -diagonal
+        val endY = height + diagonal
+        canvas.save()
+        canvas.rotate(-30f, width / 2f, height / 2f)
+        var y = startY
         var row = 0
-        while (y < height + stepY) {
-            var x = if (row % 2 == 0) fontSize.toFloat() else stepX / 2f
-            while (x < width + stepX) {
+        while (y < endY) {
+            var x = startX + if (row % 2 == 0) 0f else stepX / 2f
+            while (x < endX) {
                 canvas.drawText(line, x, y, paint)
                 x += stepX
             }
             row += 1
             y += stepY
         }
+        canvas.restore()
     }
 
     private fun scaleWatermarkBitmap(
@@ -2074,19 +2083,27 @@ class MainActivity : FlutterActivity() {
         width: Int,
         height: Int,
     ) {
-        val stepX = (watermark.width * 1.6f).coerceAtLeast(80f)
-        val stepY = (watermark.height * 1.6f).coerceAtLeast(80f)
-        var y = 0f
+        val stepX = (watermark.width * 1.6f).coerceAtLeast(96f)
+        val stepY = (watermark.height * 1.6f).coerceAtLeast(96f)
+        val diagonal = sqrt(width.toDouble() * width + height.toDouble() * height).toFloat()
+        val startX = -diagonal
+        val endX = width + diagonal
+        val startY = -diagonal
+        val endY = height + diagonal
+        canvas.save()
+        canvas.rotate(-30f, width / 2f, height / 2f)
+        var y = startY
         var row = 0
-        while (y < height + stepY) {
-            var x = if (row % 2 == 0) 0f else stepX / 2f
-            while (x < width + stepX) {
+        while (y < endY) {
+            var x = startX + if (row % 2 == 0) 0f else stepX / 2f
+            while (x < endX) {
                 canvas.drawBitmap(watermark, x, y, paint)
                 x += stepX
             }
             row += 1
             y += stepY
         }
+        canvas.restore()
     }
 
     private fun applyBitmapFilter(bitmap: Bitmap, filter: String): Bitmap {
