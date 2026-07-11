@@ -583,9 +583,9 @@ class _EditorBottomToolbarSurface extends StatelessWidget {
 ///
 /// 设计意图：用固定高度一级菜单承载工具入口，选中工具后在同一区域上方
 /// 渲染对应属性面板；二级工具使用可选横向列表承载，避免每个页面重复维护
-/// TabBar、属性面板和底部按钮三套布局。异常策略：组件不保存业务状态，所有
-/// 选中、关闭、确认行为都交回页面控制器处理，避免通用层产生隐式状态。
-class EditorDynamicToolPanel extends StatelessWidget {
+/// TabBar、属性面板和底部按钮三套布局。异常策略：组件只保存当前导航的
+/// 临时收起状态，业务选中、关闭、确认行为仍交回页面控制器处理。
+class EditorDynamicToolPanel extends StatefulWidget {
   const EditorDynamicToolPanel({
     super.key,
     required this.categories,
@@ -618,6 +618,23 @@ class EditorDynamicToolPanel extends StatelessWidget {
   final bool stackCompactPanel;
 
   @override
+  State<EditorDynamicToolPanel> createState() => _EditorDynamicToolPanelState();
+}
+
+class _EditorDynamicToolPanelState extends State<EditorDynamicToolPanel> {
+  bool _isPanelCollapsed = false;
+
+  @override
+  void didUpdateWidget(covariant EditorDynamicToolPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeCategoryId != widget.activeCategoryId ||
+        !_hasCollapsibleSubPanel) {
+      // 切换导航或内容消失时恢复展开，避免新工具首次进入时继承旧折叠态。
+      _isPanelCollapsed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final viewportSize = MediaQuery.sizeOf(context);
     final isLandscape = viewportSize.width > viewportSize.height;
@@ -626,13 +643,15 @@ class EditorDynamicToolPanel extends StatelessWidget {
       (viewportSize.height - kToolbarHeight) * (isLandscape ? 0.28 : 0.36),
     );
     final effectiveMaxPanelHeight = math.min(
-      maxPanelHeight,
+      widget.maxPanelHeight,
       responsivePanelLimit,
     );
     final activeCategory = _activeCategory;
     final hasActiveSubItems = activeCategory?.subItems.isNotEmpty ?? false;
-    final hasActivePanel = activePanel != null && activePanel is! SizedBox;
-    final shouldShowSubPanel = activePanel != null || hasActiveSubItems;
+    final hasActivePanel =
+        widget.activePanel != null && widget.activePanel is! SizedBox;
+    final hasSubPanelContent = widget.activePanel != null || hasActiveSubItems;
+    final shouldShowSubPanel = hasSubPanelContent && !_isPanelCollapsed;
     final compactSubPanelHeight = effectiveMaxPanelHeight
         .clamp(48, 64)
         .toDouble();
@@ -641,7 +660,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
     final double stackedCompactHeight =
         (compactLayerCount * compactSubPanelHeight).toDouble() +
         (compactLayerCount > 1 ? 8.0 : 0.0);
-    final compactPanelHeight = stackCompactPanel
+    final compactPanelHeight = widget.stackCompactPanel
         ? stackedCompactHeight
         : compactSubPanelHeight;
     final double compactToolbarHeight = shouldShowSubPanel
@@ -659,12 +678,15 @@ class EditorDynamicToolPanel extends StatelessWidget {
               constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: categories
+                children: widget.categories
                     .map(
                       (item) => _PrimaryToolButton(
                         category: item,
-                        selected: item.id == activeCategoryId,
-                        onTap: () => onCategorySelected(item),
+                        selected: item.id == widget.activeCategoryId,
+                        onTap: () => _handleCategoryTap(
+                          item,
+                          hasSubPanelContent: hasSubPanelContent,
+                        ),
                       ),
                     )
                     .toList(growable: false),
@@ -674,7 +696,7 @@ class EditorDynamicToolPanel extends StatelessWidget {
         },
       ),
     );
-    if (compactPanel) {
+    if (widget.compactPanel) {
       return SizedBox(
         height: compactToolbarHeight,
         child: Stack(
@@ -689,17 +711,17 @@ class EditorDynamicToolPanel extends StatelessWidget {
                 right: 0,
                 bottom: _EditorVisualTokens.primaryToolbarHeight + 8,
                 child: _DynamicToolSubPanel(
-                  title: activePanelTitle ?? activeCategory?.name,
+                  title: widget.activePanelTitle ?? activeCategory?.name,
                   maxHeight: effectiveMaxPanelHeight,
                   subItems: activeCategory?.subItems ?? const <ToolSubItem>[],
-                  activeSubItemId: activeSubItemId,
-                  onSubItemSelected: onSubItemSelected,
-                  onClosePanel: onClosePanel,
-                  onConfirmPanel: onConfirmPanel,
-                  showHeader: showPanelHeader,
-                  compact: compactPanel,
-                  stackCompactPanel: stackCompactPanel,
-                  child: activePanel ?? const SizedBox.shrink(),
+                  activeSubItemId: widget.activeSubItemId,
+                  onSubItemSelected: widget.onSubItemSelected,
+                  onClosePanel: widget.onClosePanel,
+                  onConfirmPanel: widget.onConfirmPanel,
+                  showHeader: widget.showPanelHeader,
+                  compact: widget.compactPanel,
+                  stackCompactPanel: widget.stackCompactPanel,
+                  child: widget.activePanel ?? const SizedBox.shrink(),
                 ),
               ),
           ],
@@ -712,17 +734,17 @@ class EditorDynamicToolPanel extends StatelessWidget {
         if (shouldShowSubPanel) ...[
           _ToolParameterSurface(
             child: _DynamicToolSubPanel(
-              title: activePanelTitle ?? activeCategory?.name,
+              title: widget.activePanelTitle ?? activeCategory?.name,
               maxHeight: effectiveMaxPanelHeight,
               subItems: activeCategory?.subItems ?? const <ToolSubItem>[],
-              activeSubItemId: activeSubItemId,
-              onSubItemSelected: onSubItemSelected,
-              onClosePanel: onClosePanel,
-              onConfirmPanel: onConfirmPanel,
-              showHeader: showPanelHeader,
-              compact: compactPanel,
-              stackCompactPanel: stackCompactPanel,
-              child: activePanel ?? const SizedBox.shrink(),
+              activeSubItemId: widget.activeSubItemId,
+              onSubItemSelected: widget.onSubItemSelected,
+              onClosePanel: widget.onClosePanel,
+              onConfirmPanel: widget.onConfirmPanel,
+              showHeader: widget.showPanelHeader,
+              compact: widget.compactPanel,
+              stackCompactPanel: widget.stackCompactPanel,
+              child: widget.activePanel ?? const SizedBox.shrink(),
             ),
           ),
         ],
@@ -732,12 +754,36 @@ class EditorDynamicToolPanel extends StatelessWidget {
   }
 
   ToolCategory? get _activeCategory {
-    for (final category in categories) {
-      if (category.id == activeCategoryId) {
+    for (final category in widget.categories) {
+      if (category.id == widget.activeCategoryId) {
         return category;
       }
     }
     return null;
+  }
+
+  bool get _hasCollapsibleSubPanel {
+    final activeCategory = _activeCategory;
+    return widget.activePanel != null ||
+        (activeCategory?.subItems.isNotEmpty ?? false);
+  }
+
+  void _handleCategoryTap(
+    ToolCategory category, {
+    required bool hasSubPanelContent,
+  }) {
+    if (category.id == widget.activeCategoryId) {
+      if (!hasSubPanelContent) {
+        widget.onCategorySelected(category);
+        return;
+      }
+      setState(() => _isPanelCollapsed = !_isPanelCollapsed);
+      return;
+    }
+    if (_isPanelCollapsed) {
+      setState(() => _isPanelCollapsed = false);
+    }
+    widget.onCategorySelected(category);
   }
 }
 

@@ -617,6 +617,81 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('点击已选一级导航可收起并切换属性设置面板', (WidgetTester tester) async {
+    // 同一导航负责折叠/恢复当前属性面板，切换到其他导航时立即展开新面板。
+    var activeCategoryId = 'draw';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return EditorDynamicToolPanel(
+                  categories: const [
+                    ToolCategory(
+                      id: 'draw',
+                      name: 'Draw',
+                      icon: Icons.draw_outlined,
+                    ),
+                    ToolCategory(
+                      id: 'erase',
+                      name: 'Erase',
+                      icon: Icons.cleaning_services_outlined,
+                    ),
+                  ],
+                  activeCategoryId: activeCategoryId,
+                  onCategorySelected: (category) {
+                    setState(() => activeCategoryId = category.id);
+                  },
+                  activePanel: Text(
+                    activeCategoryId == 'draw'
+                        ? 'Draw Settings'
+                        : 'Erase Settings',
+                  ),
+                  showPanelHeader: false,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Draw Settings'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('editor-tool-parameter-surface')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Draw'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Draw Settings'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('editor-tool-parameter-surface')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Erase'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Erase Settings'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('editor-tool-parameter-surface')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Erase'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Erase'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Erase Settings'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('紧凑堆叠参数面板位于一级工具栏上方', (WidgetTester tester) async {
     // 堆叠面板必须完整占用自身高度，并与固定一级工具栏保留间距。
     await tester.pumpWidget(
