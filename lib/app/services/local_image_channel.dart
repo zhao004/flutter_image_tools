@@ -770,10 +770,15 @@ class LocalImageChannel {
     try {
       final baseImage = await _readImage(source.path);
       final rawWatermark = await _readImage(watermark.path);
+      final scaledSize = _scaledWatermarkSize(
+        source: baseImage,
+        watermark: rawWatermark,
+        scalePercent: scalePercent,
+      );
       var overlay = img.copyResize(
         rawWatermark,
-        width: math.max(1, rawWatermark.width * scalePercent ~/ 100),
-        height: math.max(1, rawWatermark.height * scalePercent ~/ 100),
+        width: scaledSize.x,
+        height: scaledSize.y,
         interpolation: img.Interpolation.linear,
       );
       if (rotationDegrees != 0) {
@@ -1750,6 +1755,24 @@ class LocalImageChannel {
         math.max(0, (image.height - overlay.height) ~/ 2),
       ),
     };
+  }
+
+  _ImagePoint _scaledWatermarkSize({
+    required img.Image source,
+    required img.Image watermark,
+    required int scalePercent,
+  }) {
+    final maxWidth = math.max(1, source.width * scalePercent ~/ 100);
+    final maxHeight = math.max(1, source.height * scalePercent ~/ 100);
+    final ratio = math.min(
+      maxWidth / math.max(1, watermark.width),
+      maxHeight / math.max(1, watermark.height),
+    );
+    final safeRatio = math.min(1.0, math.max(ratio, 0.0));
+    return _ImagePoint(
+      math.max(1, (watermark.width * safeRatio).round()),
+      math.max(1, (watermark.height * safeRatio).round()),
+    );
   }
 
   void _drawTiledTextWatermark(

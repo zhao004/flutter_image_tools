@@ -217,6 +217,13 @@ class ImageWatermarkController extends GetxController {
             'count': successCount.toString(),
           }),
         );
+      } else if (selectedImages.length == 1) {
+        final errorMessage = tasks.first.errorMessage?.trim();
+        _showError(
+          errorMessage?.isNotEmpty == true
+              ? errorMessage!
+              : 'imageWatermark.error.exportFailed'.tr,
+        );
       } else {
         showLatestSnackbar(
           'imageWatermark.batch.success.title'.tr,

@@ -526,6 +526,7 @@ class AppTranslations extends Translations {
       'imageWatermark.error.recentFileFailed': '记录最近文件失败，请重试',
       'imageWatermark.error.pickSourceFirst': '请先选择底图',
       'imageWatermark.error.pickWatermarkFirst': '请先选择水印图片',
+      'imageWatermark.error.exportFailed': '图片水印保存失败，请重试',
       'imageWatermark.dimension.unknown': '未知尺寸',
       'imageWatermark.featureName': '图片水印',
       'home.tool.filter.title': '图片滤镜',
@@ -1614,6 +1615,7 @@ class AppTranslations extends Translations {
       'imageWatermark.error.recentFileFailed': '記錄最近檔案失敗，請重試',
       'imageWatermark.error.pickSourceFirst': '請先選擇底圖',
       'imageWatermark.error.pickWatermarkFirst': '請先選擇浮水印圖片',
+      'imageWatermark.error.exportFailed': '圖片浮水印儲存失敗，請重試',
       'imageWatermark.dimension.unknown': '未知尺寸',
       'imageWatermark.featureName': '圖片浮水印',
       'home.tool.filter.title': '圖片濾鏡',
@@ -2767,6 +2769,8 @@ class AppTranslations extends Translations {
       'imageWatermark.error.pickSourceFirst': 'Select a base image first',
       'imageWatermark.error.pickWatermarkFirst':
           'Select a watermark image first',
+      'imageWatermark.error.exportFailed':
+          'Image watermark save failed. Please try again',
       'imageWatermark.dimension.unknown': 'Unknown dimensions',
       'imageWatermark.featureName': 'Image Watermark',
       'home.tool.filter.title': 'Image Filters',
