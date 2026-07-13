@@ -78,22 +78,20 @@ Map<String, Object?> _addTextWatermarkTask(Map<String, Object?> arguments) {
     final outputPath = arguments['outputPath'] as String;
     final position = arguments['position'] as String;
     final spacing = arguments['spacing'] as int;
-    final image = _decodeStaticImage(sourcePath);
-    final overlay = img.decodePng(textLayerPng);
-    if (overlay == null || overlay.width <= 0 || overlay.height <= 0) {
+    var image = _decodeStaticImage(sourcePath);
+    final decodedOverlay = img.decodePng(textLayerPng);
+    if (decodedOverlay == null ||
+        decodedOverlay.width <= 0 ||
+        decodedOverlay.height <= 0) {
       throw const _WatermarkTaskException('文字水印渲染结果异常，请重试');
     }
-
-    if (position == 'tile') {
-      _drawTiledWatermark(image, overlay, spacing);
-    } else {
-      final offset = _watermarkPosition(
-        image: image,
-        overlay: overlay,
-        position: position,
-      );
-      img.compositeImage(image, overlay, dstX: offset.x, dstY: offset.y);
-    }
+    final overlay = _toDirectColorImage(decodedOverlay);
+    image = _compositeWatermark(
+      image: image,
+      overlay: overlay,
+      position: position,
+      spacing: spacing,
+    );
 
     final output = _writePngOutput(outputPath, image);
     return <String, Object?>{
@@ -114,7 +112,7 @@ Map<String, Object?> _addImageWatermarkTask(Map<String, Object?> arguments) {
     final scalePercent = arguments['scalePercent'] as int;
     final spacing = arguments['spacing'] as int;
     final rotationDegrees = arguments['rotationDegrees'] as int;
-    final image = _decodeStaticImage(sourcePath);
+    var image = _decodeStaticImage(sourcePath);
     final rawWatermark = _decodeStaticImage(watermarkPath);
     final targetSize = WatermarkLayout.imageWatermarkOutputSize(
       sourceWidth: image.width.toDouble(),
@@ -136,18 +134,13 @@ Map<String, Object?> _addImageWatermarkTask(Map<String, Object?> arguments) {
         interpolation: img.Interpolation.linear,
       );
     }
-    _applyOpacity(overlay, opacity);
-
-    if (position == 'tile') {
-      _drawTiledWatermark(image, overlay, spacing);
-    } else {
-      final offset = _watermarkPosition(
-        image: image,
-        overlay: overlay,
-        position: position,
-      );
-      img.compositeImage(image, overlay, dstX: offset.x, dstY: offset.y);
-    }
+    overlay = _applyOpacity(overlay, opacity);
+    image = _compositeWatermark(
+      image: image,
+      overlay: overlay,
+      position: position,
+      spacing: spacing,
+    );
 
     final output = _writePngOutput(outputPath, image);
     return <String, Object?>{
@@ -169,7 +162,16 @@ img.Image _decodeStaticImage(String path) {
       WatermarkProcessingService.maxDecodedPixels) {
     throw const _WatermarkTaskException('图片尺寸过大，请先缩小后再处理');
   }
-  return img.Image.from(decoded, noAnimation: true);
+  final staticImage = img.Image.from(decoded, noAnimation: true);
+  return _toDirectColorImage(staticImage);
+}
+
+/// 将索引色图片展开为直接色彩，避免后续合成返回新对象或透明度修改落到索引数据。
+img.Image _toDirectColorImage(img.Image image) {
+  if (!image.hasPalette) {
+    return image;
+  }
+  return image.convert(numChannels: image.numChannels, noAnimation: true);
 }
 
 File _requireInputFile(String path) {
@@ -214,7 +216,24 @@ _WatermarkPoint _watermarkPosition({
   };
 }
 
-void _drawTiledWatermark(img.Image image, img.Image overlay, int spacing) {
+img.Image _compositeWatermark({
+  required img.Image image,
+  required img.Image overlay,
+  required String position,
+  required int spacing,
+}) {
+  if (position == 'tile') {
+    return _drawTiledWatermark(image, overlay, spacing);
+  }
+  final offset = _watermarkPosition(
+    image: image,
+    overlay: overlay,
+    position: position,
+  );
+  return img.compositeImage(image, overlay, dstX: offset.x, dstY: offset.y);
+}
+
+img.Image _drawTiledWatermark(img.Image image, img.Image overlay, int spacing) {
   final safeSpacing = spacing.clamp(8, 160);
   final stepX = overlay.width + safeSpacing;
   final stepY = overlay.height + safeSpacing;
@@ -223,13 +242,13 @@ void _drawTiledWatermark(img.Image image, img.Image overlay, int spacing) {
           .sqrt(image.width * image.width + image.height * image.height)
           .ceil() +
       math.max(stepX, stepY) * 2;
-  final layer = img.Image(width: layerSize, height: layerSize, numChannels: 4)
+  var layer = img.Image(width: layerSize, height: layerSize, numChannels: 4)
     ..clear(img.ColorRgba8(0, 0, 0, 0));
   var row = 0;
   for (var y = 0; y < layer.height + stepY; y += stepY) {
     final rowOffset = row.isOdd ? stepX ~/ 2 : 0;
     for (var x = -stepX; x < layer.width + stepX; x += stepX) {
-      img.compositeImage(layer, overlay, dstX: x + rowOffset, dstY: y);
+      layer = img.compositeImage(layer, overlay, dstX: x + rowOffset, dstY: y);
     }
     row += 1;
   }
@@ -238,19 +257,24 @@ void _drawTiledWatermark(img.Image image, img.Image overlay, int spacing) {
     angle: -30,
     interpolation: img.Interpolation.linear,
   );
-  img.compositeImage(
-    image,
+  // 旋转层大于底图时，负目标坐标不会自动选择中心区域，必须先裁出可见画布。
+  final visibleLayer = img.copyCrop(
     rotatedLayer,
-    dstX: (image.width - rotatedLayer.width) ~/ 2,
-    dstY: (image.height - rotatedLayer.height) ~/ 2,
+    x: math.max(0, (rotatedLayer.width - image.width) ~/ 2),
+    y: math.max(0, (rotatedLayer.height - image.height) ~/ 2),
+    width: math.min(image.width, rotatedLayer.width),
+    height: math.min(image.height, rotatedLayer.height),
   );
+  return img.compositeImage(image, visibleLayer);
 }
 
-void _applyOpacity(img.Image image, int opacity) {
+img.Image _applyOpacity(img.Image image, int opacity) {
+  final directImage = _toDirectColorImage(image);
   final alphaScale = opacity.clamp(0, 100) / 100;
-  for (final pixel in image) {
+  for (final pixel in directImage) {
     pixel.a = (pixel.a * alphaScale).round().clamp(0, 255);
   }
+  return directImage;
 }
 
 File _writePngOutput(String outputPath, img.Image image) {
