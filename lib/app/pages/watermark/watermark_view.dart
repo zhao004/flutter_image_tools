@@ -79,144 +79,149 @@ class _TextWatermarkOverlay extends StatelessWidget {
       final text = controller.textController.text.trim().isEmpty
           ? 'watermark.config.text'.tr
           : controller.textController.text.trim();
-      final watermark = Text(
-        text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: controller.color.value.withValues(
-            alpha: controller.opacity.value / 100,
-          ),
-          fontSize: _scaled(controller.fontSize.value),
-          fontWeight: FontWeight.w700,
-        ),
-      );
-      final previewSpacing = _scaled(controller.spacing.value);
-      final previewMargin = _scaled(WatermarkLayout.positionMarginPixels);
-      if (controller.position.value == WatermarkPosition.tile) {
-        return IgnorePointer(
-          child: _DiagonalTextWatermarkTile(
-            key: const ValueKey('text-watermark-tile-layer'),
-            text: text,
-            watermark: watermark,
-            spacing: previewSpacing,
-          ),
-        );
-      }
       return IgnorePointer(
-        child: Padding(
-          padding: EdgeInsets.all(previewMargin),
-          child: Align(
-            alignment: _alignmentFor(controller.position.value),
-            child: watermark,
+        child: CustomPaint(
+          key: ValueKey(
+            controller.position.value == WatermarkPosition.tile
+                ? 'text-watermark-tile-layer'
+                : 'text-watermark-preview-layer',
           ),
+          painter: TextWatermarkPreviewPainter(
+            text: text,
+            sourceSize: Size(image.width.toDouble(), image.height.toDouble()),
+            previewSize: previewSize,
+            position: controller.position.value,
+            color: controller.color.value,
+            fontSize: controller.fontSize.value,
+            opacity: controller.opacity.value,
+            spacing: controller.spacing.value,
+          ),
+          child: const SizedBox.expand(),
         ),
       );
     });
   }
-
-  Alignment _alignmentFor(WatermarkPosition position) {
-    switch (position) {
-      case WatermarkPosition.topLeft:
-        return Alignment.topLeft;
-      case WatermarkPosition.topRight:
-        return Alignment.topRight;
-      case WatermarkPosition.bottomLeft:
-        return Alignment.bottomLeft;
-      case WatermarkPosition.bottomRight:
-        return Alignment.bottomRight;
-      case WatermarkPosition.center:
-      case WatermarkPosition.tile:
-        return Alignment.center;
-    }
-  }
-
-  double _scaled(int outputPixels) {
-    return WatermarkLayout.outputPixelsToPreview(
-      outputPixels: outputPixels,
-      sourceWidth: image.width.toDouble(),
-      sourceHeight: image.height.toDouble(),
-      previewWidth: previewSize.width,
-      previewHeight: previewSize.height,
-    );
-  }
 }
 
-class _DiagonalTextWatermarkTile extends StatelessWidget {
-  const _DiagonalTextWatermarkTile({
-    super.key,
+/// 文字水印预览绘制器，直接在原图坐标系中复用导出位置和平铺参数后整体缩放。
+class TextWatermarkPreviewPainter extends CustomPainter {
+  TextWatermarkPreviewPainter({
     required this.text,
-    required this.watermark,
+    required this.sourceSize,
+    required this.previewSize,
+    required this.position,
+    required this.color,
+    required this.fontSize,
+    required this.opacity,
     required this.spacing,
   });
 
-  static const double _tileRotationRadians = -math.pi / 6;
-  static const double _minimumTileGap = 8;
-  static const double _baseTileHeight = 48;
-
   final String text;
-  final Widget watermark;
-  final double spacing;
+  final Size sourceSize;
+  final Size previewSize;
+  final WatermarkPosition position;
+  final Color color;
+  final int fontSize;
+  final int opacity;
+  final int spacing;
 
   @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final safeWidth = constraints.hasBoundedWidth
-              ? constraints.maxWidth
-              : MediaQuery.sizeOf(context).width;
-          final safeHeight = constraints.hasBoundedHeight
-              ? constraints.maxHeight
-              : MediaQuery.sizeOf(context).height;
-          final estimatedTextWidth = math.max(1.0, text.characters.length * 20);
-          final safeSpacing = spacing.clamp(_minimumTileGap, 160.0);
-          final tileWidth = estimatedTextWidth + safeSpacing;
-          final tileHeight = _baseTileHeight + safeSpacing;
-          final expandedWidth = safeWidth + safeHeight;
-          final expandedHeight = safeWidth + safeHeight;
-          final columnCount = (expandedWidth / tileWidth).ceil() + 4;
-          final rowCount = (expandedHeight / tileHeight).ceil() + 4;
-          final originLeft = (expandedWidth - columnCount * tileWidth) / 2;
-          final originTop = (expandedHeight - rowCount * tileHeight) / 2;
-
-          return Transform.rotate(
-            angle: _tileRotationRadians,
-            child: OverflowBox(
-              minWidth: expandedWidth,
-              maxWidth: expandedWidth,
-              minHeight: expandedHeight,
-              maxHeight: expandedHeight,
-              child: SizedBox(
-                width: expandedWidth,
-                height: expandedHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
-                      for (
-                        var columnIndex = 0;
-                        columnIndex < columnCount;
-                        columnIndex++
-                      )
-                        Positioned(
-                          left:
-                              originLeft +
-                              columnIndex * tileWidth +
-                              (rowIndex.isOdd ? tileWidth / 2 : 0),
-                          top: originTop + rowIndex * tileHeight,
-                          width: tileWidth,
-                          height: tileHeight,
-                          child: Center(child: watermark),
-                        ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+  void paint(Canvas canvas, Size size) {
+    final sourceWidth = math.max(1, sourceSize.width.round());
+    final sourceHeight = math.max(1, sourceSize.height.round());
+    final scale = WatermarkLayout.previewScale(
+      sourceWidth: sourceWidth.toDouble(),
+      sourceHeight: sourceHeight.toDouble(),
+      previewWidth: size.width,
+      previewHeight: size.height,
     );
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color.withAlpha((opacity.clamp(0, 100) * 255 / 100).round()),
+          fontSize: fontSize.toDouble(),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: sourceWidth.toDouble());
+    final overlayWidth = math.max(1, textPainter.width.ceil());
+    final overlayHeight = math.max(1, textPainter.height.ceil());
+    final origin = Offset(
+      (size.width - sourceWidth * scale) / 2,
+      (size.height - sourceHeight * scale) / 2,
+    );
+
+    canvas
+      ..save()
+      ..translate(origin.dx, origin.dy)
+      ..scale(scale);
+    if (position == WatermarkPosition.tile) {
+      _paintTiles(
+        canvas: canvas,
+        textPainter: textPainter,
+        sourceWidth: sourceWidth,
+        sourceHeight: sourceHeight,
+        overlayWidth: overlayWidth,
+        overlayHeight: overlayHeight,
+      );
+    } else {
+      final offset = WatermarkLayout.positionOffset(
+        sourceWidth: sourceWidth,
+        sourceHeight: sourceHeight,
+        overlayWidth: overlayWidth,
+        overlayHeight: overlayHeight,
+        position: position.value,
+      );
+      textPainter.paint(
+        canvas,
+        Offset(offset.x.toDouble(), offset.y.toDouble()),
+      );
+    }
+    canvas.restore();
+  }
+
+  void _paintTiles({
+    required Canvas canvas,
+    required TextPainter textPainter,
+    required int sourceWidth,
+    required int sourceHeight,
+    required int overlayWidth,
+    required int overlayHeight,
+  }) {
+    final tileLayout = WatermarkLayout.tileOutputLayout(
+      sourceWidth: sourceWidth,
+      sourceHeight: sourceHeight,
+      overlayWidth: overlayWidth,
+      overlayHeight: overlayHeight,
+      spacing: spacing,
+    );
+    canvas
+      ..save()
+      ..translate(sourceWidth / 2, sourceHeight / 2)
+      ..rotate(WatermarkLayout.tileRotationDegrees * math.pi / 180)
+      ..translate(-tileLayout.layerSize / 2, -tileLayout.layerSize / 2);
+    for (final offset in tileLayout.offsets) {
+      textPainter.paint(
+        canvas,
+        Offset(offset.x.toDouble(), offset.y.toDouble()),
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant TextWatermarkPreviewPainter oldDelegate) {
+    return text != oldDelegate.text ||
+        sourceSize != oldDelegate.sourceSize ||
+        previewSize != oldDelegate.previewSize ||
+        position != oldDelegate.position ||
+        color != oldDelegate.color ||
+        fontSize != oldDelegate.fontSize ||
+        opacity != oldDelegate.opacity ||
+        spacing != oldDelegate.spacing;
   }
 }
 

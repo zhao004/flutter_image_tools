@@ -189,33 +189,6 @@ File _requireInputFile(String path) {
   return file;
 }
 
-_WatermarkPoint _watermarkPosition({
-  required img.Image image,
-  required img.Image overlay,
-  required String position,
-}) {
-  const margin = WatermarkLayout.positionMarginPixels;
-  return switch (position) {
-    'topleft' => const _WatermarkPoint(margin, margin),
-    'topright' => _WatermarkPoint(
-      math.max(margin, image.width - overlay.width - margin),
-      margin,
-    ),
-    'bottomleft' => _WatermarkPoint(
-      margin,
-      math.max(margin, image.height - overlay.height - margin),
-    ),
-    'bottomright' => _WatermarkPoint(
-      math.max(margin, image.width - overlay.width - margin),
-      math.max(margin, image.height - overlay.height - margin),
-    ),
-    _ => _WatermarkPoint(
-      math.max(0, (image.width - overlay.width) ~/ 2),
-      math.max(0, (image.height - overlay.height) ~/ 2),
-    ),
-  };
-}
-
 img.Image _compositeWatermark({
   required img.Image image,
   required img.Image overlay,
@@ -225,36 +198,35 @@ img.Image _compositeWatermark({
   if (position == 'tile') {
     return _drawTiledWatermark(image, overlay, spacing);
   }
-  final offset = _watermarkPosition(
-    image: image,
-    overlay: overlay,
+  final offset = WatermarkLayout.positionOffset(
+    sourceWidth: image.width,
+    sourceHeight: image.height,
+    overlayWidth: overlay.width,
+    overlayHeight: overlay.height,
     position: position,
   );
   return img.compositeImage(image, overlay, dstX: offset.x, dstY: offset.y);
 }
 
 img.Image _drawTiledWatermark(img.Image image, img.Image overlay, int spacing) {
-  final safeSpacing = spacing.clamp(8, 160);
-  final stepX = overlay.width + safeSpacing;
-  final stepY = overlay.height + safeSpacing;
-  final layerSize =
-      math
-          .sqrt(image.width * image.width + image.height * image.height)
-          .ceil() +
-      math.max(stepX, stepY) * 2;
-  var layer = img.Image(width: layerSize, height: layerSize, numChannels: 4)
-    ..clear(img.ColorRgba8(0, 0, 0, 0));
-  var row = 0;
-  for (var y = 0; y < layer.height + stepY; y += stepY) {
-    final rowOffset = row.isOdd ? stepX ~/ 2 : 0;
-    for (var x = -stepX; x < layer.width + stepX; x += stepX) {
-      layer = img.compositeImage(layer, overlay, dstX: x + rowOffset, dstY: y);
-    }
-    row += 1;
+  final tileLayout = WatermarkLayout.tileOutputLayout(
+    sourceWidth: image.width,
+    sourceHeight: image.height,
+    overlayWidth: overlay.width,
+    overlayHeight: overlay.height,
+    spacing: spacing,
+  );
+  var layer = img.Image(
+    width: tileLayout.layerSize,
+    height: tileLayout.layerSize,
+    numChannels: 4,
+  )..clear(img.ColorRgba8(0, 0, 0, 0));
+  for (final offset in tileLayout.offsets) {
+    layer = img.compositeImage(layer, overlay, dstX: offset.x, dstY: offset.y);
   }
   final rotatedLayer = img.copyRotate(
     layer,
-    angle: -30,
+    angle: WatermarkLayout.tileRotationDegrees,
     interpolation: img.Interpolation.linear,
   );
   // 旋转层大于底图时，负目标坐标不会自动选择中心区域，必须先裁出可见画布。
@@ -299,13 +271,6 @@ Map<String, Object?> _guardWatermarkTask(
   } catch (_) {
     return <String, Object?>{'ok': false, 'message': '水印处理失败，请重试'};
   }
-}
-
-class _WatermarkPoint {
-  const _WatermarkPoint(this.x, this.y);
-
-  final int x;
-  final int y;
 }
 
 class _WatermarkTaskException implements Exception {

@@ -80,42 +80,23 @@ class _ImageWatermarkOverlay extends StatelessWidget {
       if (watermark == null) {
         return const SizedBox.shrink();
       }
-      final logo = Opacity(
-        opacity: controller.opacity.value / 100,
-        child: Transform.rotate(
-          angle: controller.rotationDegrees.value * math.pi / 180,
-          child: Image.file(
-            File(watermark.path),
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return EditorImageLoadError(imageName: watermark.name);
-            },
-          ),
-        ),
-      );
-      final previewWatermarkSize = WatermarkLayout.imageWatermarkPreviewSize(
+      final outputSize = WatermarkLayout.imageWatermarkOutputSize(
         sourceWidth: image.width.toDouble(),
         sourceHeight: image.height.toDouble(),
         watermarkWidth: watermark.width.toDouble(),
         watermarkHeight: watermark.height.toDouble(),
-        previewWidth: previewSize.width,
-        previewHeight: previewSize.height,
         scalePercent: controller.scalePercent.value,
       );
-      final constrainedLogo = SizedBox(
-        width: previewWatermarkSize.width,
-        height: previewWatermarkSize.height,
-        child: logo,
+      final roundedOutputSize = WatermarkSize(
+        width: outputSize.roundedWidth.toDouble(),
+        height: outputSize.roundedHeight.toDouble(),
       );
-      final previewSpacing = WatermarkLayout.outputPixelsToPreview(
-        outputPixels: controller.spacing.value,
-        sourceWidth: image.width.toDouble(),
-        sourceHeight: image.height.toDouble(),
-        previewWidth: previewSize.width,
-        previewHeight: previewSize.height,
+      final transformedOutputSize = WatermarkLayout.rotatedOutputSize(
+        width: roundedOutputSize.width,
+        height: roundedOutputSize.height,
+        rotationDegrees: controller.rotationDegrees.value,
       );
-      final previewMargin = WatermarkLayout.outputPixelsToPreview(
-        outputPixels: WatermarkLayout.positionMarginPixels,
+      final previewScale = WatermarkLayout.previewScale(
         sourceWidth: image.width.toDouble(),
         sourceHeight: image.height.toDouble(),
         previewWidth: previewSize.width,
@@ -123,113 +104,177 @@ class _ImageWatermarkOverlay extends StatelessWidget {
       );
       if (controller.position.value == ImageWatermarkPosition.tile) {
         return IgnorePointer(
-          child: _DiagonalImageWatermarkTile(
+          child: _ImageWatermarkTilePreview(
             key: const ValueKey('image-watermark-tile-layer'),
-            watermark: constrainedLogo,
-            tileSize: previewWatermarkSize.width,
-            spacing: previewSpacing,
+            source: image,
+            watermark: watermark,
+            outputSize: roundedOutputSize,
+            transformedOutputSize: transformedOutputSize,
+            previewScale: previewScale,
+            opacity: controller.opacity.value,
+            spacing: controller.spacing.value,
+            rotationDegrees: controller.rotationDegrees.value,
           ),
         );
       }
+      final offset = WatermarkLayout.positionOffset(
+        sourceWidth: image.width,
+        sourceHeight: image.height,
+        overlayWidth: transformedOutputSize.roundedWidth,
+        overlayHeight: transformedOutputSize.roundedHeight,
+        position: controller.position.value.value,
+      );
+      final renderedWidth = image.width * previewScale;
+      final renderedHeight = image.height * previewScale;
+      final originLeft = (previewSize.width - renderedWidth) / 2;
+      final originTop = (previewSize.height - renderedHeight) / 2;
       return IgnorePointer(
-        child: Padding(
-          padding: EdgeInsets.all(previewMargin),
-          child: Align(
-            alignment: _alignmentFor(controller.position.value),
-            child: constrainedLogo,
-          ),
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Positioned(
+              left: originLeft + offset.x * previewScale,
+              top: originTop + offset.y * previewScale,
+              child: _RotatedImageWatermark(
+                key: const ValueKey('image-watermark-transformed-layer'),
+                watermark: watermark,
+                outputSize: roundedOutputSize,
+                transformedOutputSize: transformedOutputSize,
+                previewScale: previewScale,
+                opacity: controller.opacity.value,
+                rotationDegrees: controller.rotationDegrees.value,
+              ),
+            ),
+          ],
         ),
       );
     });
   }
-
-  Alignment _alignmentFor(ImageWatermarkPosition position) {
-    switch (position) {
-      case ImageWatermarkPosition.topLeft:
-        return Alignment.topLeft;
-      case ImageWatermarkPosition.topRight:
-        return Alignment.topRight;
-      case ImageWatermarkPosition.bottomLeft:
-        return Alignment.bottomLeft;
-      case ImageWatermarkPosition.bottomRight:
-        return Alignment.bottomRight;
-      case ImageWatermarkPosition.center:
-      case ImageWatermarkPosition.tile:
-        return Alignment.center;
-    }
-  }
 }
 
-class _DiagonalImageWatermarkTile extends StatelessWidget {
-  const _DiagonalImageWatermarkTile({
+/// 按导出像素包围盒承载旋转水印，避免 Transform 只旋转绘制而不改变布局尺寸。
+class _RotatedImageWatermark extends StatelessWidget {
+  const _RotatedImageWatermark({
     super.key,
     required this.watermark,
-    required this.tileSize,
-    required this.spacing,
+    required this.outputSize,
+    required this.transformedOutputSize,
+    required this.previewScale,
+    required this.opacity,
+    required this.rotationDegrees,
   });
 
-  static const double _tileRotationRadians = -math.pi / 6;
-  static const double _minimumTileGap = 8;
-
-  final Widget watermark;
-  final double tileSize;
-  final double spacing;
+  final LocalImageFile watermark;
+  final WatermarkSize outputSize;
+  final WatermarkSize transformedOutputSize;
+  final double previewScale;
+  final int opacity;
+  final int rotationDegrees;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final safeWidth = constraints.hasBoundedWidth
-              ? constraints.maxWidth
-              : MediaQuery.sizeOf(context).width;
-          final safeHeight = constraints.hasBoundedHeight
-              ? constraints.maxHeight
-              : MediaQuery.sizeOf(context).height;
-          final safeSpacing = spacing.clamp(_minimumTileGap, 160.0);
-          final stride = tileSize + safeSpacing;
-          final expandedWidth = safeWidth + safeHeight;
-          final expandedHeight = safeWidth + safeHeight;
-          final columnCount = (expandedWidth / stride).ceil() + 4;
-          final rowCount = (expandedHeight / stride).ceil() + 4;
-          final originLeft = (expandedWidth - columnCount * stride) / 2;
-          final originTop = (expandedHeight - rowCount * stride) / 2;
-
-          return Transform.rotate(
-            angle: _tileRotationRadians,
-            child: OverflowBox(
-              minWidth: expandedWidth,
-              maxWidth: expandedWidth,
-              minHeight: expandedHeight,
-              maxHeight: expandedHeight,
-              child: SizedBox(
-                width: expandedWidth,
-                height: expandedHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
-                      for (
-                        var columnIndex = 0;
-                        columnIndex < columnCount;
-                        columnIndex++
-                      )
-                        Positioned(
-                          left:
-                              originLeft +
-                              columnIndex * stride +
-                              (rowIndex.isOdd ? stride / 2 : 0),
-                          top: originTop + rowIndex * stride,
-                          width: stride,
-                          height: stride,
-                          child: Center(child: watermark),
-                        ),
-                  ],
-                ),
+    final outputWidth = outputSize.width * previewScale;
+    final outputHeight = outputSize.height * previewScale;
+    return Opacity(
+      opacity: opacity.clamp(0, 100) / 100,
+      child: SizedBox(
+        width: transformedOutputSize.width * previewScale,
+        height: transformedOutputSize.height * previewScale,
+        child: OverflowBox(
+          minWidth: outputWidth,
+          maxWidth: outputWidth,
+          minHeight: outputHeight,
+          maxHeight: outputHeight,
+          child: Transform.rotate(
+            angle: rotationDegrees * math.pi / 180,
+            child: SizedBox(
+              width: outputWidth,
+              height: outputHeight,
+              child: Image.file(
+                File(watermark.path),
+                fit: BoxFit.fill,
+                errorBuilder: (context, error, stackTrace) {
+                  return EditorImageLoadError(imageName: watermark.name);
+                },
               ),
             ),
-          );
-        },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 图片平铺预览直接复用导出层的画布尺寸、横纵步长和交错坐标。
+class _ImageWatermarkTilePreview extends StatelessWidget {
+  const _ImageWatermarkTilePreview({
+    super.key,
+    required this.source,
+    required this.watermark,
+    required this.outputSize,
+    required this.transformedOutputSize,
+    required this.previewScale,
+    required this.opacity,
+    required this.spacing,
+    required this.rotationDegrees,
+  });
+
+  final LocalImageFile source;
+  final LocalImageFile watermark;
+  final WatermarkSize outputSize;
+  final WatermarkSize transformedOutputSize;
+  final double previewScale;
+  final int opacity;
+  final int spacing;
+  final int rotationDegrees;
+
+  @override
+  Widget build(BuildContext context) {
+    final tileLayout = WatermarkLayout.tileOutputLayout(
+      sourceWidth: source.width,
+      sourceHeight: source.height,
+      overlayWidth: transformedOutputSize.roundedWidth,
+      overlayHeight: transformedOutputSize.roundedHeight,
+      spacing: spacing,
+    );
+    final previewLayerSize = tileLayout.layerSize * previewScale;
+    final previewOverlayWidth = transformedOutputSize.width * previewScale;
+    final previewOverlayHeight = transformedOutputSize.height * previewScale;
+    return ClipRect(
+      child: Center(
+        child: Transform.rotate(
+          angle: WatermarkLayout.tileRotationDegrees * math.pi / 180,
+          child: OverflowBox(
+            minWidth: previewLayerSize,
+            maxWidth: previewLayerSize,
+            minHeight: previewLayerSize,
+            maxHeight: previewLayerSize,
+            child: SizedBox(
+              width: previewLayerSize,
+              height: previewLayerSize,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (final offset in tileLayout.offsets)
+                    Positioned(
+                      left: offset.x * previewScale,
+                      top: offset.y * previewScale,
+                      width: previewOverlayWidth,
+                      height: previewOverlayHeight,
+                      child: _RotatedImageWatermark(
+                        watermark: watermark,
+                        outputSize: outputSize,
+                        transformedOutputSize: transformedOutputSize,
+                        previewScale: previewScale,
+                        opacity: opacity,
+                        rotationDegrees: rotationDegrees,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

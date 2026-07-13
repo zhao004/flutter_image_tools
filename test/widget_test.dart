@@ -2432,26 +2432,16 @@ void main() {
     expect(controller.spacing.value, 64);
     expect(find.text('Spacing: 64px'), findsOneWidget);
 
-    final watermarkText = tester
-        .widgetList<Text>(find.text('Checked Text'))
-        .firstWhere((text) => text.style?.fontWeight == FontWeight.w700);
-    final textPreviewSize = tester.getSize(find.byType(EditorImagePreview));
-    final expectedTextPreviewFontSize = WatermarkLayout.outputPixelsToPreview(
-      outputPixels: 48,
-      sourceWidth: controller.selectedImage.value!.width.toDouble(),
-      sourceHeight: controller.selectedImage.value!.height.toDouble(),
-      previewWidth: textPreviewSize.width,
-      previewHeight: textPreviewSize.height,
+    final previewPaint = tester.widget<CustomPaint>(
+      find.byKey(const ValueKey('text-watermark-tile-layer')),
     );
-    expect(
-      watermarkText.style?.fontSize,
-      closeTo(expectedTextPreviewFontSize, 0.01),
-    );
-    expect(
-      watermarkText.style?.color,
-      const Color(0xFF123456).withValues(alpha: 0.4),
-    );
-    expect(watermarkText.style?.shadows, isNull);
+    final previewPainter = previewPaint.painter! as TextWatermarkPreviewPainter;
+    expect(previewPainter.text, 'Checked Text');
+    expect(previewPainter.fontSize, 48);
+    expect(previewPainter.color, const Color(0xFF123456));
+    expect(previewPainter.opacity, 40);
+    expect(previewPainter.spacing, 64);
+    expect(previewPainter.position, WatermarkPosition.tile);
 
     await database.close();
     Get.reset();
@@ -2559,13 +2549,46 @@ void main() {
       width: 128,
       height: 128,
     );
+    controller.position.value = ImageWatermarkPosition.bottomRight;
+    controller.updateRotation(90);
+    await tester.pump();
+    final imagePreviewSize = tester.getSize(find.byType(EditorImagePreview));
+    final outputLogoSize = WatermarkLayout.imageWatermarkOutputSize(
+      sourceWidth: controller.selectedImage.value!.width.toDouble(),
+      sourceHeight: controller.selectedImage.value!.height.toDouble(),
+      watermarkWidth: controller.selectedWatermark.value!.width.toDouble(),
+      watermarkHeight: controller.selectedWatermark.value!.height.toDouble(),
+      scalePercent: controller.scalePercent.value,
+    );
+    final transformedLogoSize = WatermarkLayout.rotatedOutputSize(
+      width: outputLogoSize.roundedWidth.toDouble(),
+      height: outputLogoSize.roundedHeight.toDouble(),
+      rotationDegrees: controller.rotationDegrees.value,
+    );
+    final imagePreviewScale = WatermarkLayout.previewScale(
+      sourceWidth: controller.selectedImage.value!.width.toDouble(),
+      sourceHeight: controller.selectedImage.value!.height.toDouble(),
+      previewWidth: imagePreviewSize.width,
+      previewHeight: imagePreviewSize.height,
+    );
+    final transformedPreviewSize = tester.getSize(
+      find.byKey(const ValueKey('image-watermark-transformed-layer')),
+    );
+    expect(
+      transformedPreviewSize.width,
+      closeTo(transformedLogoSize.width * imagePreviewScale, 0.01),
+    );
+    expect(
+      transformedPreviewSize.height,
+      closeTo(transformedLogoSize.height * imagePreviewScale, 0.01),
+    );
+
     controller.position.value = ImageWatermarkPosition.tile;
     await tester.pump();
     expect(
       find.byKey(const ValueKey('image-watermark-tile-layer')),
       findsOneWidget,
     );
-    final imagePreviewSize = tester.getSize(find.byType(EditorImagePreview));
     final expectedLogoSize = WatermarkLayout.imageWatermarkPreviewSize(
       sourceWidth: controller.selectedImage.value!.width.toDouble(),
       sourceHeight: controller.selectedImage.value!.height.toDouble(),

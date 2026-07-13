@@ -157,6 +157,71 @@ void main() {
       expect(output.height, source.height);
       expect(_nonWhitePixelCount(output), greaterThan(0));
     });
+
+    test('矩形图片水印旋转后按实际包围盒定位', () async {
+      final source = _createPaletteImage(
+        width: 160,
+        height: 120,
+        red: 255,
+        green: 255,
+        blue: 255,
+      );
+      final watermark = _createPaletteImage(
+        width: 8,
+        height: 4,
+        red: 0,
+        green: 0,
+        blue: 255,
+      );
+      final sourceFile = _writePng(
+        temporaryDirectory,
+        'rotated_source.png',
+        source,
+      );
+      final watermarkFile = _writePng(
+        temporaryDirectory,
+        'rotated_watermark.png',
+        watermark,
+      );
+      final outputPath = _pathIn(temporaryDirectory, 'rotated_output.png');
+
+      final result = await WatermarkProcessingService.addImageWatermark(
+        sourcePath: sourceFile.path,
+        watermarkPath: watermarkFile.path,
+        outputPath: outputPath,
+        position: 'bottomright',
+        opacity: 100,
+        scalePercent: 25,
+        spacing: 24,
+        rotationDegrees: 90,
+      );
+      final output = _decodeOutput(result);
+      final baseSize = WatermarkLayout.imageWatermarkOutputSize(
+        sourceWidth: source.width.toDouble(),
+        sourceHeight: source.height.toDouble(),
+        watermarkWidth: watermark.width.toDouble(),
+        watermarkHeight: watermark.height.toDouble(),
+        scalePercent: 25,
+      );
+      final rotatedSize = WatermarkLayout.rotatedOutputSize(
+        width: baseSize.roundedWidth.toDouble(),
+        height: baseSize.roundedHeight.toDouble(),
+        rotationDegrees: 90,
+      );
+      final offset = WatermarkLayout.positionOffset(
+        sourceWidth: source.width,
+        sourceHeight: source.height,
+        overlayWidth: rotatedSize.roundedWidth,
+        overlayHeight: rotatedSize.roundedHeight,
+        position: 'bottomright',
+      );
+
+      final markedPixel = output.getPixel(offset.x, offset.y);
+      expect(markedPixel.r, lessThan(15));
+      expect(markedPixel.g, lessThan(15));
+      expect(markedPixel.b, greaterThan(240));
+      _expectWhite(output.getPixel(offset.x - 1, offset.y));
+    });
   });
 }
 

@@ -11,6 +11,9 @@ class WatermarkLayout {
   static const int minImageScalePercent = 5;
   static const int maxImageScalePercent = 100;
   static const int positionMarginPixels = 24;
+  static const int minSpacingPixels = 8;
+  static const int maxSpacingPixels = 160;
+  static const int tileRotationDegrees = -30;
   static const double minimumPreviewPixels = 1;
 
   static WatermarkSize imageWatermarkOutputSize({
@@ -66,6 +69,95 @@ class WatermarkLayout {
     return outputSize.scale(scale);
   }
 
+  /// 按导出引擎的取整规则计算旋转后的像素包围盒。
+  static WatermarkSize rotatedOutputSize({
+    required double width,
+    required double height,
+    required int rotationDegrees,
+  }) {
+    final safeWidth = _positive(width);
+    final safeHeight = _positive(height);
+    final normalizedDegrees = rotationDegrees % 360;
+    if (normalizedDegrees % 90 == 0) {
+      return normalizedDegrees == 90 || normalizedDegrees == 270
+          ? WatermarkSize(width: safeHeight, height: safeWidth)
+          : WatermarkSize(width: safeWidth, height: safeHeight);
+    }
+    final radians = normalizedDegrees * math.pi / 180;
+    final cosine = math.cos(radians).abs();
+    final sine = math.sin(radians).abs();
+    return WatermarkSize(
+      width: math.max(
+        minimumPreviewPixels,
+        (safeWidth * cosine + safeHeight * sine).toInt().toDouble(),
+      ),
+      height: math.max(
+        minimumPreviewPixels,
+        (safeWidth * sine + safeHeight * cosine).toInt().toDouble(),
+      ),
+    );
+  }
+
+  /// 计算非平铺水印的导出落点，位置值使用服务层的全小写稳定字符串。
+  static WatermarkOffset positionOffset({
+    required int sourceWidth,
+    required int sourceHeight,
+    required int overlayWidth,
+    required int overlayHeight,
+    required String position,
+  }) {
+    const margin = positionMarginPixels;
+    return switch (position.trim().toLowerCase()) {
+      'topleft' => const WatermarkOffset(margin, margin),
+      'topright' => WatermarkOffset(
+        math.max(margin, sourceWidth - overlayWidth - margin),
+        margin,
+      ),
+      'bottomleft' => WatermarkOffset(
+        margin,
+        math.max(margin, sourceHeight - overlayHeight - margin),
+      ),
+      'bottomright' => WatermarkOffset(
+        math.max(margin, sourceWidth - overlayWidth - margin),
+        math.max(margin, sourceHeight - overlayHeight - margin),
+      ),
+      _ => WatermarkOffset(
+        math.max(0, (sourceWidth - overlayWidth) ~/ 2),
+        math.max(0, (sourceHeight - overlayHeight) ~/ 2),
+      ),
+    };
+  }
+
+  /// 创建预览和导出共用的平铺画布，避免两端采用不同步长或起点。
+  static WatermarkTileLayout tileOutputLayout({
+    required int sourceWidth,
+    required int sourceHeight,
+    required int overlayWidth,
+    required int overlayHeight,
+    required int spacing,
+  }) {
+    final safeSourceWidth = math.max(1, sourceWidth);
+    final safeSourceHeight = math.max(1, sourceHeight);
+    final safeOverlayWidth = math.max(1, overlayWidth);
+    final safeOverlayHeight = math.max(1, overlayHeight);
+    final safeSpacing = spacing.clamp(minSpacingPixels, maxSpacingPixels);
+    final stepX = safeOverlayWidth + safeSpacing;
+    final stepY = safeOverlayHeight + safeSpacing;
+    final layerSize =
+        math
+            .sqrt(
+              safeSourceWidth * safeSourceWidth +
+                  safeSourceHeight * safeSourceHeight,
+            )
+            .ceil() +
+        math.max(stepX, stepY) * 2;
+    return WatermarkTileLayout(
+      layerSize: layerSize,
+      stepX: stepX,
+      stepY: stepY,
+    );
+  }
+
   static double previewScale({
     required double sourceWidth,
     required double sourceHeight,
@@ -101,6 +193,38 @@ class WatermarkLayout {
 
   static double _positive(double value) {
     return value.isFinite && value > 0 ? value : minimumPreviewPixels;
+  }
+}
+
+/// 水印在原图坐标系中的整数偏移。
+class WatermarkOffset {
+  const WatermarkOffset(this.x, this.y);
+
+  final int x;
+  final int y;
+}
+
+/// 平铺水印的公共画布参数，并按导出顺序提供每个水印落点。
+class WatermarkTileLayout {
+  const WatermarkTileLayout({
+    required this.layerSize,
+    required this.stepX,
+    required this.stepY,
+  });
+
+  final int layerSize;
+  final int stepX;
+  final int stepY;
+
+  Iterable<WatermarkOffset> get offsets sync* {
+    var row = 0;
+    for (var y = 0; y < layerSize + stepY; y += stepY) {
+      final rowOffset = row.isOdd ? stepX ~/ 2 : 0;
+      for (var x = -stepX; x < layerSize + stepX; x += stepX) {
+        yield WatermarkOffset(x + rowOffset, y);
+      }
+      row += 1;
+    }
   }
 }
 
