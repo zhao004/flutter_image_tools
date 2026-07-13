@@ -512,6 +512,7 @@ class _EditorCanvasOverlaySurface extends StatelessWidget {
   }
 }
 
+/// 预览边界只负责裁剪溢出内容，背景统一由工作台画布提供。
 class _PreviewFrame extends StatelessWidget {
   const _PreviewFrame({required this.child});
 
@@ -519,14 +520,7 @@ class _PreviewFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      key: const ValueKey('editor-preview-frame'),
-      decoration: BoxDecoration(
-        color: _EditorVisualTokens.previewBackdropColor,
-        border: Border.all(color: _EditorVisualTokens.canvasPanelBorderColor),
-      ),
-      child: ClipRect(child: child),
-    );
+    return ClipRect(key: const ValueKey('editor-preview-frame'), child: child);
   }
 }
 

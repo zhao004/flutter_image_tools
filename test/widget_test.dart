@@ -501,6 +501,10 @@ void main() {
     expect(find.byTooltip('Save to Gallery'), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-canvas-surface')), findsOneWidget);
     expect(
+      tester.widget(find.byKey(const ValueKey('editor-preview-frame'))),
+      isA<ClipRect>(),
+    );
+    expect(
       find.byKey(const ValueKey('editor-image-info-overlay')),
       findsOneWidget,
     );
@@ -1020,6 +1024,10 @@ void main() {
     );
     await tester.pump();
 
+    final editableCanvas = tester.widget<KeyedSubtree>(
+      find.byKey(const ValueKey('annotation-editable-canvas')),
+    );
+    expect(editableCanvas.child, isA<Stack>());
     expect(find.text('Move'), findsNothing);
     expect(find.text('Annotate'), findsOneWidget);
     expect(find.text('Mosaic'), findsOneWidget);

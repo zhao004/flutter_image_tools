@@ -167,10 +167,9 @@ class _EditableCanvasState extends State<_EditableCanvas> {
           }
         });
 
-        final canvas = DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          ),
+        // 编辑画布不单独绘制底色，透明图片直接显示工作台的统一背景。
+        final canvas = KeyedSubtree(
+          key: const ValueKey('annotation-editable-canvas'),
           child: Stack(
             fit: StackFit.expand,
             children: [
