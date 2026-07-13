@@ -69,12 +69,13 @@ class GridController extends GetxController {
   }
 
   void setGridScale(double value, Size canvasSize) {
+    final normalizedScale = _normalizeGridScale(value);
     if (!_isValidCanvas(canvasSize)) {
-      gridScale.value = value.clamp(minGridScale, maxGridScale).toDouble();
+      gridScale.value = normalizedScale;
       gridOffset.value = Offset.zero;
       return;
     }
-    gridScale.value = value.clamp(minGridScale, maxGridScale).toDouble();
+    gridScale.value = normalizedScale;
     _clampGridOffset(canvasSize);
   }
 
@@ -88,10 +89,15 @@ class GridController extends GetxController {
   }
 
   void moveGrid(Offset delta, Size canvasSize) {
-    if (!_isValidCanvas(canvasSize) || delta == Offset.zero) {
+    if (!_isValidCanvas(canvasSize) ||
+        !_isFiniteOffset(delta) ||
+        delta == Offset.zero) {
       return;
     }
-    gridOffset.value += delta;
+    final currentOffset = _isFiniteOffset(gridOffset.value)
+        ? gridOffset.value
+        : Offset.zero;
+    gridOffset.value = currentOffset + delta;
     _clampGridOffset(canvasSize);
   }
 
@@ -223,6 +229,10 @@ class GridController extends GetxController {
   }
 
   void _clampGridOffset(Size canvasSize) {
+    if (!_isValidCanvas(canvasSize)) {
+      gridOffset.value = Offset.zero;
+      return;
+    }
     final rect = gridRectFor(canvasSize);
     final side = _gridSide(canvasSize);
     gridOffset.value = Offset(
@@ -232,14 +242,26 @@ class GridController extends GetxController {
   }
 
   Rect _clampRect(Rect rect, Size canvasSize) {
-    final left = rect.left.clamp(0.0, canvasSize.width - rect.width).toDouble();
-    final top = rect.top.clamp(0.0, canvasSize.height - rect.height).toDouble();
-    return Rect.fromLTWH(left, top, rect.width, rect.height);
+    if (!_isValidCanvas(canvasSize)) {
+      return Rect.zero;
+    }
+    // 必须先收敛尺寸再计算可移动上界，避免浮点尾差形成负零或反向区间。
+    final width = _clampLength(rect.width, canvasSize.width);
+    final height = _clampLength(rect.height, canvasSize.height);
+    final left = _clampPosition(rect.left, canvasSize.width - width);
+    final top = _clampPosition(rect.top, canvasSize.height - height);
+    return Rect.fromLTWH(left, top, width, height);
   }
 
   double _gridSide(Size canvasSize) {
-    return (_shortestSide(canvasSize) * gridScale.value)
-        .clamp(1.0, _shortestSide(canvasSize))
+    final shortestSide = _shortestSide(canvasSize);
+    if (!shortestSide.isFinite || shortestSide <= 0) {
+      return 0;
+    }
+    // 极窄画布无法满足 1px 下限，改用完整短边保证 clamp 上下界有序。
+    final minimumSide = shortestSide < 1 ? shortestSide : 1.0;
+    return (shortestSide * _normalizeGridScale(gridScale.value))
+        .clamp(minimumSide, shortestSide)
         .toDouble();
   }
 
@@ -247,5 +269,31 @@ class GridController extends GetxController {
     return canvasSize.width < canvasSize.height
         ? canvasSize.width
         : canvasSize.height;
+  }
+
+  double _normalizeGridScale(double value) {
+    if (!value.isFinite) {
+      return minGridScale;
+    }
+    return value.clamp(minGridScale, maxGridScale).toDouble();
+  }
+
+  double _clampLength(double value, double maximum) {
+    if (!value.isFinite || value <= 0) {
+      return 0;
+    }
+    return value.clamp(0.0, maximum).toDouble();
+  }
+
+  double _clampPosition(double value, double maximum) {
+    if (!value.isFinite) {
+      return 0;
+    }
+    final safeMaximum = maximum.isFinite && maximum > 0 ? maximum : 0.0;
+    return value.clamp(0.0, safeMaximum).toDouble();
+  }
+
+  bool _isFiniteOffset(Offset value) {
+    return value.dx.isFinite && value.dy.isFinite;
   }
 }
