@@ -9,9 +9,10 @@ import 'grid_controller.dart';
 
 /// 九宫格切图页，选图后进入可拖动网格编辑状态。
 ///
-/// 构建设计：页面复用统一编辑骨架，将网格预览放入画布区，网格尺寸与
-/// 缩放放入属性面板，居中和导出放入底部动作栏。业务处理仍由控制器完成，
-/// 页面只负责展示与手势转发，避免改变原有切图参数和历史记录逻辑。
+/// 构建设计：页面复用统一编辑骨架，将网格预览放入画布区并保持画面无信息浮层，
+/// 网格尺寸与缩放放入属性面板，居中放入底部动作栏，保存入口固定在顶部。
+/// 业务处理仍由控制器完成，页面只负责展示与手势转发，避免改变原有切图参数和
+/// 历史记录逻辑。
 class GridView extends GetView<GridController> {
   const GridView({super.key});
 
@@ -30,12 +31,10 @@ class GridView extends GetView<GridController> {
         pickLabel: 'grid.action.pickImage'.tr,
         repickLabel: 'grid.action.repickImage'.tr,
         exportLabel: 'common.saveToGallery'.tr,
-        exportIcon: Icons.ios_share_outlined,
+        exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.splitImage,
-        imageMeta: image == null
-            ? null
-            : '${controller.formatDimensions(image)} · ${controller.formatBytes(image.sizeBytes)}',
+        showPreviewInfo: false,
         lockPreviewScroll: true,
         previewBuilder: (context, previewImage) =>
             _GridEditorCanvas(controller: controller, image: previewImage),

@@ -2659,6 +2659,12 @@ void main() {
     );
     await tester.pump();
 
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.ios_share_outlined), findsNothing);
+    expect(
+      find.byKey(const ValueKey('editor-image-info-overlay')),
+      findsNothing,
+    );
     final gridImageFinder = find.byType(Image);
     expect(gridImageFinder, findsOneWidget);
     final gridImage = tester.widget<Image>(gridImageFinder);
