@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import '../../models/local_image_file.dart';
 import '../../utils/watermark_layout.dart';
+import '../../utils/watermark_opacity.dart';
 import '../../widgets/image_editor_scaffold.dart';
 import 'image_watermark_controller.dart';
 
@@ -176,7 +177,7 @@ class _RotatedImageWatermark extends StatelessWidget {
     final outputWidth = outputSize.width * previewScale;
     final outputHeight = outputSize.height * previewScale;
     return Opacity(
-      opacity: opacity.clamp(0, 100) / 100,
+      opacity: WatermarkOpacity.factorFromPercent(opacity),
       child: SizedBox(
         width: transformedOutputSize.width * previewScale,
         height: transformedOutputSize.height * previewScale,

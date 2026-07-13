@@ -34,6 +34,7 @@ import '../models/resized_image_file.dart';
 import '../models/rotated_image_file.dart';
 import '../models/watermarked_image_file.dart';
 import '../utils/platform_path.dart';
+import '../utils/watermark_opacity.dart';
 import 'gif_processing_service.dart';
 import 'watermark_processing_service.dart';
 
@@ -1737,7 +1738,7 @@ class LocalImageChannel {
   ui.Color _uiColorFromHex(String value, {required int opacity}) {
     final normalized = _normalizeHexColor(value) ?? '#FFFFFF';
     final rgb = int.parse(normalized.substring(1), radix: 16);
-    final alpha = (opacity.clamp(0, 100) * 255 / 100).round().clamp(0, 255);
+    final alpha = WatermarkOpacity.alphaFromPercent(opacity);
     return ui.Color.fromARGB(
       alpha,
       (rgb >> 16) & 0xFF,

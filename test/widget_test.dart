@@ -2440,6 +2440,7 @@ void main() {
     expect(previewPainter.fontSize, 48);
     expect(previewPainter.color, const Color(0xFF123456));
     expect(previewPainter.opacity, 40);
+    expect(previewPainter.effectiveColor, const Color(0x66123456));
     expect(previewPainter.spacing, 64);
     expect(previewPainter.position, WatermarkPosition.tile);
 
@@ -2582,6 +2583,13 @@ void main() {
       transformedPreviewSize.height,
       closeTo(transformedLogoSize.height * imagePreviewScale, 0.01),
     );
+    final previewOpacity = tester.widget<Opacity>(
+      find.descendant(
+        of: find.byKey(const ValueKey('image-watermark-transformed-layer')),
+        matching: find.byType(Opacity),
+      ),
+    );
+    expect(previewOpacity.opacity, 0.4);
 
     controller.position.value = ImageWatermarkPosition.tile;
     await tester.pump();

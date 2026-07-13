@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import '../../models/local_image_file.dart';
 import '../../utils/watermark_layout.dart';
+import '../../utils/watermark_opacity.dart';
 import '../../widgets/image_editor_scaffold.dart';
 import 'watermark_controller.dart';
 
@@ -125,6 +126,9 @@ class TextWatermarkPreviewPainter extends CustomPainter {
   final int opacity;
   final int spacing;
 
+  Color get effectiveColor =>
+      color.withAlpha(WatermarkOpacity.alphaFromPercent(opacity));
+
   @override
   void paint(Canvas canvas, Size size) {
     final sourceWidth = math.max(1, sourceSize.width.round());
@@ -139,7 +143,7 @@ class TextWatermarkPreviewPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
-          color: color.withAlpha((opacity.clamp(0, 100) * 255 / 100).round()),
+          color: effectiveColor,
           fontSize: fontSize.toDouble(),
           fontWeight: FontWeight.w700,
         ),
