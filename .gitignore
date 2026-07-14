@@ -45,3 +45,4 @@ app.*.map.json
 /android/app/release
 /docs
 .artifacts/
+tmp_adb_20260711_110301/

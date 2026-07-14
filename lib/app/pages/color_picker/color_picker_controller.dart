@@ -13,10 +13,11 @@ import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
-/// 颜色提取控制器，负责选图、解码像素、点击取色和复制颜色值。
+/// 颜色提取控制器，负责选图、解码像素、点击/拖动取色和复制颜色值。
 ///
 /// 异常策略：图片读取和像素解码均在控制器内捕获并转换为中文提示；点击坐标
-/// 会裁剪到图片边界，避免边缘点击因为浮点误差越界。
+/// 和拖动坐标会裁剪到图片边界，避免边缘操作因为浮点误差越界。拖动期间只在
+/// 内存中更新预览，结束时才写入一次历史记录，避免高频数据库操作阻塞界面。
 class ColorPickerController extends GetxController {
   ColorPickerController({
     required LocalImageChannel imageChannel,
@@ -32,6 +33,7 @@ class ColorPickerController extends GetxController {
 
   final selectedImage = Rxn<LocalImageFile>();
   final sample = Rxn<PickedColorSample>();
+  final normalizedPosition = Rxn<Offset>();
   final isBusy = false.obs;
 
   ui.Image? _decodedImage;
@@ -50,6 +52,7 @@ class ColorPickerController extends GetxController {
       await _loadImagePixels(image);
       selectedImage.value = image;
       sample.value = null;
+      normalizedPosition.value = null;
       await _recentFilesRepository.recordImage(image);
     } on AppException catch (error) {
       _showError(error.message);
@@ -67,15 +70,57 @@ class ColorPickerController extends GetxController {
     required double displayHeight,
   }) async {
     final image = selectedImage.value;
+    final picked = _updateColorSample(
+      localX: localX,
+      localY: localY,
+      displayWidth: displayWidth,
+      displayHeight: displayHeight,
+    );
+    if (image == null || picked == null) {
+      return;
+    }
+    await _recordPickSuccess(image, picked);
+  }
+
+  void previewColor({
+    required double localX,
+    required double localY,
+    required double displayWidth,
+    required double displayHeight,
+  }) {
+    _updateColorSample(
+      localX: localX,
+      localY: localY,
+      displayWidth: displayWidth,
+      displayHeight: displayHeight,
+    );
+  }
+
+  Future<void> commitColorSelection() async {
+    final image = selectedImage.value;
+    final picked = sample.value;
+    if (image == null || picked == null) {
+      return;
+    }
+    await _recordPickSuccess(image, picked);
+  }
+
+  PickedColorSample? _updateColorSample({
+    required double localX,
+    required double localY,
+    required double displayWidth,
+    required double displayHeight,
+  }) {
+    final image = selectedImage.value;
     final decoded = _decodedImage;
     final bytes = _pixelBytes;
     if (image == null || decoded == null || bytes == null) {
       _showError('colorPicker.error.pickImageFirst'.tr);
-      return;
+      return null;
     }
     if (displayWidth <= 0 || displayHeight <= 0) {
       _showError('colorPicker.error.invalidDisplayArea'.tr);
-      return;
+      return null;
     }
 
     final pixelX = (localX / displayWidth * decoded.width).floor().clamp(
@@ -89,7 +134,7 @@ class ColorPickerController extends GetxController {
     final byteOffset = (pixelY * decoded.width + pixelX) * 4;
     if (byteOffset < 0 || byteOffset + 3 >= bytes.lengthInBytes) {
       _showError('colorPicker.error.outOfRange'.tr);
-      return;
+      return null;
     }
 
     final picked = PickedColorSample(
@@ -101,7 +146,11 @@ class ColorPickerController extends GetxController {
       alpha: bytes.getUint8(byteOffset + 3),
     );
     sample.value = picked;
-    await _recordPickSuccess(image, picked);
+    normalizedPosition.value = Offset(
+      (localX / displayWidth).clamp(0.0, 1.0),
+      (localY / displayHeight).clamp(0.0, 1.0),
+    );
+    return picked;
   }
 
   Future<void> copyValue(String value) async {

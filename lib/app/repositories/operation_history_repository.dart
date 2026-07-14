@@ -15,7 +15,8 @@ class OperationHistoryRepository {
   final AppDatabase _database;
 
   Future<List<OperationHistoryData>> getRecentHistory({
-    int limit = 50,
+    int limit = 20,
+    int offset = 0,
     String keyword = '',
     String status = '',
     DateTime? startDate,
@@ -23,6 +24,7 @@ class OperationHistoryRepository {
   }) {
     return _database.getRecentHistory(
       limit: limit,
+      offset: offset,
       keyword: keyword,
       status: status,
       startDate: startDate,

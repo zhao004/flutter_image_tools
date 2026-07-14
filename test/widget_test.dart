@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:flutter_image_tools/app/database/database.dart';
 import 'package:flutter_image_tools/app/models/cache_summary.dart';
 import 'package:flutter_image_tools/app/models/local_image_file.dart';
+import 'package:flutter_image_tools/app/models/picked_color_sample.dart';
 import 'package:flutter_image_tools/app/pages/annotation/annotation_controller.dart';
 import 'package:flutter_image_tools/app/pages/annotation/annotation_view.dart';
 import 'package:flutter_image_tools/app/pages/base64/base64_controller.dart';
@@ -26,14 +27,13 @@ import 'package:flutter_image_tools/app/pages/crop/crop_controller.dart';
 import 'package:flutter_image_tools/app/pages/crop/crop_view.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_controller.dart';
 import 'package:flutter_image_tools/app/pages/exif/exif_view.dart';
-import 'package:flutter_image_tools/app/pages/favorites/favorites_controller.dart';
-import 'package:flutter_image_tools/app/pages/favorites/favorites_view.dart';
 import 'package:flutter_image_tools/app/pages/flip/flip_controller.dart';
 import 'package:flutter_image_tools/app/pages/flip/flip_view.dart';
 import 'package:flutter_image_tools/app/pages/filter/filter_controller.dart';
 import 'package:flutter_image_tools/app/pages/filter/filter_view.dart'
     as filter_page;
 import 'package:flutter_image_tools/app/pages/gif/gif_controller.dart';
+import 'package:flutter_image_tools/app/pages/gif/gif_create_view.dart';
 import 'package:flutter_image_tools/app/pages/gif/gif_view.dart';
 import 'package:flutter_image_tools/app/pages/grid/grid_controller.dart';
 import 'package:flutter_image_tools/app/pages/grid/grid_view.dart' as grid_page;
@@ -41,13 +41,13 @@ import 'package:flutter_image_tools/app/pages/history/history_controller.dart';
 import 'package:flutter_image_tools/app/pages/history/history_view.dart';
 import 'package:flutter_image_tools/app/pages/image_watermark/image_watermark_controller.dart';
 import 'package:flutter_image_tools/app/pages/image_watermark/image_watermark_view.dart';
-import 'package:flutter_image_tools/app/pages/logs/logs_controller.dart';
-import 'package:flutter_image_tools/app/pages/logs/logs_view.dart';
 import 'package:flutter_image_tools/app/pages/merge/merge_controller.dart';
 import 'package:flutter_image_tools/app/pages/merge/merge_view.dart';
 import 'package:flutter_image_tools/app/pages/pdf/pdf_controller.dart';
+import 'package:flutter_image_tools/app/pages/pdf/pdf_create_view.dart';
 import 'package:flutter_image_tools/app/pages/pdf/pdf_view.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_controller.dart';
+import 'package:flutter_image_tools/app/pages/qrcode/qrcode_scan_view.dart';
 import 'package:flutter_image_tools/app/pages/qrcode/qrcode_view.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_controller.dart';
 import 'package:flutter_image_tools/app/pages/rotate/rotate_view.dart';
@@ -59,15 +59,14 @@ import 'package:flutter_image_tools/app/pages/watermark/watermark_controller.dar
 import 'package:flutter_image_tools/app/pages/watermark/watermark_view.dart';
 import 'package:flutter_image_tools/app/repositories/app_settings_repository.dart';
 import 'package:flutter_image_tools/app/repositories/cache_repository.dart';
-import 'package:flutter_image_tools/app/repositories/favorite_templates_repository.dart';
 import 'package:flutter_image_tools/app/repositories/operation_history_repository.dart';
-import 'package:flutter_image_tools/app/repositories/operation_logs_repository.dart';
 import 'package:flutter_image_tools/app/repositories/recent_files_repository.dart';
 import 'package:flutter_image_tools/app/services/local_image_channel.dart';
 import 'package:flutter_image_tools/app/theme/app_translations.dart';
 import 'package:flutter_image_tools/app/theme/app_theme.dart';
 import 'package:flutter_image_tools/app/utils/watermark_layout.dart';
 import 'package:flutter_image_tools/app/widgets/image_editor_scaffold.dart';
+import 'package:flutter_image_tools/app/widgets/tool_task_layout.dart';
 import 'package:flutter_image_tools/main.dart';
 import 'package:image/image.dart' as img;
 
@@ -142,6 +141,11 @@ void main() {
     expect(find.text('WebP'), findsOneWidget);
     expect(find.text('深色'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pump();
+    expect(find.text('日志管理'), findsNothing);
+    expect(find.text('收藏模板'), findsNothing);
 
     await database.close();
     Get.reset();
@@ -223,11 +227,19 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('显示英文日志管理页面', (WidgetTester tester) async {
-    // 使用内存数据库直接渲染日志页，验证空状态和筛选控件翻译。
+  testWidgets('历史记录每页二十条并在上拉后加载更多', (WidgetTester tester) async {
+    const totalCount = 25;
     final database = AppDatabase(NativeDatabase.memory());
-    final repository = OperationLogsRepository(database: database);
-    Get.put(LogsController(repository: repository));
+    final repository = OperationHistoryRepository(database: database);
+    for (var index = 0; index < totalCount; index++) {
+      await repository.recordOperationSuccess(
+        featureName: 'History item $index',
+        inputPath: '/tmp/input_$index.jpg',
+        outputPath: '/tmp/output_$index.jpg',
+        parameters: <String, Object>{'index': index},
+      );
+    }
+    final controller = Get.put(HistoryController(repository: repository));
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -235,53 +247,25 @@ void main() {
         locale: const Locale('en'),
         fallbackLocale: const Locale('zh', 'CN'),
         theme: AppTheme.light(),
-        home: const LogsView(),
+        home: const HistoryView(),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Log Management'), findsOneWidget);
-    expect(find.text('No operation logs'), findsOneWidget);
-    expect(
-      find.text('Search feature, path, parameters, or errors'),
-      findsOneWidget,
+    expect(controller.items, hasLength(HistoryController.pageSize));
+    expect(controller.hasMore.value, isTrue);
+
+    await tester.fling(
+      find.byKey(const ValueKey('history-scroll-view')),
+      const Offset(0, -4000),
+      1200,
     );
-    expect(find.text('All'), findsWidgets);
-    expect(find.text('Today'), findsOneWidget);
+    await tester.pumpAndSettle();
 
-    await database.close();
-    Get.reset();
-  });
-
-  testWidgets('显示英文收藏模板页面', (WidgetTester tester) async {
-    // 使用内存数据库直接渲染收藏页，验证表单、空状态和筛选文案翻译。
-    final database = AppDatabase(NativeDatabase.memory());
-    final repository = FavoriteTemplatesRepository(database: database);
-    Get.put(FavoritesController(repository: repository));
-
-    await tester.pumpWidget(
-      GetMaterialApp(
-        translations: AppTranslations(),
-        locale: const Locale('en'),
-        fallbackLocale: const Locale('zh', 'CN'),
-        theme: AppTheme.light(),
-        home: const FavoritesView(),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.text('Favorite Templates'), findsOneWidget);
-    expect(find.text('New Template'), findsOneWidget);
-    expect(find.text('Image Compression'), findsOneWidget);
-    expect(find.text('Template Name'), findsOneWidget);
-    expect(find.text('Parameters JSON'), findsOneWidget);
-    expect(
-      find.text('Search feature, template name, or parameters'),
-      findsOneWidget,
-    );
-    expect(find.text('No favorite templates'), findsOneWidget);
+    expect(controller.items, hasLength(totalCount));
+    expect(controller.hasMore.value, isFalse);
+    expect(find.text('No more records'), findsOneWidget);
 
     await database.close();
     Get.reset();
@@ -349,6 +333,7 @@ void main() {
 
     expect(find.text('Base64'), findsOneWidget);
     expect(find.text('Image to Base64'), findsOneWidget);
+    expect(find.text('Select Source Image'), findsOneWidget);
     expect(
       find.text(
         'Select a local image to generate Base64 text. Max 12 MB per file.',
@@ -360,9 +345,18 @@ void main() {
     expect(find.text('Base64 to Image'), findsOneWidget);
     expect(
       find.text('Paste Base64 text or data:image/png;base64,...'),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Base64 to Image'));
+    await tester.pump();
+
+    expect(
+      find.text('Paste Base64 text or data:image/png;base64,...'),
       findsOneWidget,
     );
-    expect(find.text('Save to Gallery'), findsOneWidget);
+    expect(find.text('Restore Image'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsNothing);
 
     await database.close();
     Get.reset();
@@ -391,34 +385,44 @@ void main() {
     await tester.pump();
 
     expect(find.text('QR Code'), findsOneWidget);
-    expect(find.text('Generate QR Code / Barcode'), findsOneWidget);
-    expect(find.text('Enter text, a link, or a short note'), findsOneWidget);
-    expect(find.text('Generate QR Code'), findsOneWidget);
-    expect(find.text('Generate Barcode'), findsOneWidget);
-
-    expect(find.text('Scan QR Code / Barcode'), findsOneWidget);
+    expect(find.text('Generate Code'), findsOneWidget);
     expect(
-      find.text(
-        'Select an image containing a QR code or barcode. Scanning stays fully local.',
-      ),
+      find.text('Create QR codes and Code 128 barcodes from text or links'),
       findsOneWidget,
     );
-    expect(find.text('Select and Scan'), findsOneWidget);
+    expect(find.text('Scan Code'), findsOneWidget);
+    expect(find.text('Scan from the gallery or a live camera'), findsOneWidget);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const QrcodeScanView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Take Photo'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('qrcode-scan-camera-photo')),
+      findsNothing,
+    );
+    expect(find.text('Choose from Gallery'), findsOneWidget);
+    expect(find.text('Live Camera Scan'), findsOneWidget);
 
     await database.close();
     Get.reset();
   });
 
   testWidgets('显示英文颜色提取页面', (WidgetTester tester) async {
-    // 直接注入控制器依赖，仅验证选图、预览和空状态文案国际化。
     final database = AppDatabase(NativeDatabase.memory());
-    Get.put(
-      ColorPickerController(
-        imageChannel: LocalImageChannel(),
-        historyRepository: OperationHistoryRepository(database: database),
-        recentFilesRepository: RecentFilesRepository(database: database),
-      ),
+    final controller = _DragTestColorPickerController(
+      historyRepository: OperationHistoryRepository(database: database),
+      recentFilesRepository: RecentFilesRepository(database: database),
     );
+    Get.put<ColorPickerController>(controller);
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -434,17 +438,107 @@ void main() {
     expect(find.text('Color Picker'), findsOneWidget);
     expect(find.text('Select Image'), findsWidgets);
     expect(
-      find.text('Select an image, then tap the preview area to pick a color.'),
+      find.text(
+        'Select an image, then tap or drag in the preview to pick a color.',
+      ),
       findsOneWidget,
     );
-    expect(find.text('Tap to Pick Color'), findsOneWidget);
+    expect(find.text('Tap or Drag to Pick'), findsOneWidget);
     expect(
       find.text('The preview appears here after an image loads.'),
-      findsOneWidget,
+      findsNothing,
     );
+
+    // 测试控制器记录手势坐标，隔离文件解码并验证指针本身不会阻断拖动。
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'missing-color-preview.png',
+      name: 'preview.png',
+      sizeBytes: 1024,
+      mimeType: 'image/png',
+      width: 800,
+      height: 400,
+    );
+    controller.sample.value = const PickedColorSample(
+      x: 400,
+      y: 200,
+      red: 15,
+      green: 118,
+      blue: 110,
+      alpha: 255,
+    );
+    controller.normalizedPosition.value = const Offset(0.5, 0.5);
+    await tester.pump();
+
+    final viewportFinder = find.byKey(const ValueKey('color-picker-viewport'));
+    final viewportCenter = tester.getCenter(viewportFinder);
+
+    expect(find.byKey(const ValueKey('color-picker-pointer')), findsOneWidget);
+    final sampleBeforeDrag = controller.sample.value;
+    final pointerBeforeDrag = tester.getCenter(
+      find.byKey(const ValueKey('color-picker-pointer')),
+    );
+    expect(pointerBeforeDrag, viewportCenter);
+
+    final dragDistance = tester.getSize(viewportFinder).width * 0.3;
+    await tester.dragFrom(pointerBeforeDrag, Offset(dragDistance, 0));
+    await tester.pump();
+
+    final sampleAfterDrag = controller.sample.value;
+    final pointerAfterDrag = tester.getCenter(
+      find.byKey(const ValueKey('color-picker-pointer')),
+    );
+    expect(sampleBeforeDrag, isNotNull);
+    expect(sampleAfterDrag, isNotNull);
+    expect(sampleAfterDrag!.x, greaterThan(sampleBeforeDrag!.x));
+    expect(pointerAfterDrag.dx, greaterThan(pointerBeforeDrag.dx));
+    expect(pointerAfterDrag.dy, closeTo(pointerBeforeDrag.dy, 0.1));
+    expect(controller.committedDragCount, 1);
 
     await database.close();
     Get.reset();
+  });
+
+  testWidgets('任务页按可用宽度切换单栏和主从双栏', (WidgetTester tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    Widget buildPage() {
+      return MaterialApp(
+        theme: AppTheme.light(),
+        home: const AdaptiveTaskScaffold(
+          title: 'Adaptive Task',
+          primary: SizedBox(key: ValueKey('adaptive-primary'), height: 120),
+          secondary: SizedBox(key: ValueKey('adaptive-secondary'), height: 120),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildPage());
+    await tester.pump();
+
+    final compactPrimary = tester.getTopLeft(
+      find.byKey(const ValueKey('adaptive-primary')),
+    );
+    final compactSecondary = tester.getTopLeft(
+      find.byKey(const ValueKey('adaptive-secondary')),
+    );
+    expect(compactSecondary.dy, greaterThan(compactPrimary.dy));
+
+    tester.view.physicalSize = const Size(900, 900);
+    await tester.pumpWidget(buildPage());
+    await tester.pump();
+
+    final expandedPrimary = tester.getTopLeft(
+      find.byKey(const ValueKey('adaptive-primary')),
+    );
+    final expandedSecondary = tester.getTopLeft(
+      find.byKey(const ValueKey('adaptive-secondary')),
+    );
+    expect(expandedSecondary.dx, greaterThan(expandedPrimary.dx));
+    expect(expandedSecondary.dy, expandedPrimary.dy);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('统一编辑器选图后显示沉浸式工作台', (WidgetTester tester) async {
@@ -970,8 +1064,9 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Read Again'), findsOneWidget);
-    expect(find.text('Save to Gallery'), findsOneWidget);
+    expect(find.text('Read Again'), findsNothing);
+    expect(find.text('Remove EXIF'), findsOneWidget);
+    expect(find.text('Save to Gallery'), findsNothing);
     expect(find.text('EXIF Information'), findsOneWidget);
     expect(
       find.text('Readable EXIF fields appear after selecting an image.'),
@@ -1854,6 +1949,24 @@ void main() {
     expect(find.byKey(const ValueKey('editor-export-action')), findsOneWidget);
     expect(find.text('Save to Gallery'), findsNothing);
 
+    final controller = Get.find<ConvertController>();
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'convert-preview.png',
+      name: 'convert-preview.png',
+      sizeBytes: 2048,
+      mimeType: 'image/png',
+      width: 800,
+      height: 600,
+    );
+    controller.selectedImages.assignAll([controller.selectedImage.value!]);
+    await tester.pump();
+
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('editor-image-info-overlay')),
+      findsNothing,
+    );
+
     await database.close();
     Get.reset();
   });
@@ -2721,11 +2834,25 @@ void main() {
     await tester.pump();
 
     expect(find.text('PDF Tools'), findsOneWidget);
-    expect(find.text('Select Images'), findsOneWidget);
+    expect(find.text('Images to PDF'), findsWidgets);
     expect(
-      find.text('Select 1 to 50 images. Each image becomes one PDF page.'),
+      find.text('Merge 1 to 50 images into one PDF document'),
       findsOneWidget,
     );
+    expect(find.text('PDF to Images'), findsOneWidget);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const PdfCreateView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Select Images'), findsOneWidget);
     expect(find.text('Select Batch'), findsOneWidget);
     expect(find.text('Page Settings'), findsOneWidget);
     expect(find.text('Portrait'), findsOneWidget);
@@ -2736,7 +2863,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Images to PDF'), findsOneWidget);
+    expect(find.text('Images to PDF'), findsWidgets);
 
     await database.close();
     Get.reset();
@@ -2765,13 +2892,28 @@ void main() {
     await tester.pump();
 
     expect(find.text('GIF Tools'), findsOneWidget);
-    expect(find.text('Select Frame Images'), findsOneWidget);
+    expect(find.text('Create GIF'), findsWidgets);
     expect(
       find.text(
-        'Select 2 to 30 images. The picker order becomes the GIF frame order.',
+        'Combine multiple images into an animation at a fixed interval',
       ),
       findsOneWidget,
     );
+    expect(find.text('Export Frames'), findsOneWidget);
+    expect(find.text('Compress GIF'), findsOneWidget);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const GifCreateView(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Select Frame Images'), findsOneWidget);
     expect(find.text('Select Batch'), findsOneWidget);
     expect(find.text('Playback Speed'), findsOneWidget);
     expect(find.text('Frame Delay: 300 ms'), findsOneWidget);
@@ -2781,7 +2923,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Create GIF'), findsOneWidget);
+    expect(find.text('Create GIF'), findsWidgets);
 
     await database.close();
     Get.reset();
@@ -2821,6 +2963,44 @@ class _DelayedSettingsRepository extends AppSettingsRepository {
   Future<String?> getDefaultExportDirectory() async {
     await Future<void>.delayed(delay);
     return super.getDefaultExportDirectory();
+  }
+}
+
+class _DragTestColorPickerController extends ColorPickerController {
+  _DragTestColorPickerController({
+    required super.historyRepository,
+    required super.recentFilesRepository,
+  }) : super(imageChannel: LocalImageChannel());
+
+  int committedDragCount = 0;
+
+  @override
+  void previewColor({
+    required double localX,
+    required double localY,
+    required double displayWidth,
+    required double displayHeight,
+  }) {
+    final image = selectedImage.value;
+    if (image == null || displayWidth <= 0 || displayHeight <= 0) {
+      return;
+    }
+    final normalizedX = (localX / displayWidth).clamp(0.0, 1.0).toDouble();
+    final normalizedY = (localY / displayHeight).clamp(0.0, 1.0).toDouble();
+    normalizedPosition.value = Offset(normalizedX, normalizedY);
+    sample.value = PickedColorSample(
+      x: (normalizedX * (image.width - 1)).round(),
+      y: (normalizedY * (image.height - 1)).round(),
+      red: (normalizedX * 255).round(),
+      green: (normalizedY * 255).round(),
+      blue: 120,
+      alpha: 255,
+    );
+  }
+
+  @override
+  Future<void> commitColorSelection() async {
+    committedDragCount += 1;
   }
 }
 

@@ -18,6 +18,8 @@ import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
 
+enum QrcodeGenerateMode { qrCode, barcode }
+
 /// 二维码控制器，负责本地生成 QR Code PNG 并记录历史。
 ///
 /// 异常策略：先校验文本和字节长度，二维码矩阵与 PNG 编码全部在 Dart 本地
@@ -41,11 +43,28 @@ class QrcodeController extends GetxController {
   final RecentFilesRepository _recentFilesRepository;
 
   final inputController = TextEditingController(text: 'https://example.com');
+  final generateMode = QrcodeGenerateMode.qrCode.obs;
   final result = Rxn<QrCodeImageFile>();
   final barcodeResult = Rxn<BarcodeImageFile>();
   final selectedImage = Rxn<LocalImageFile>();
   final scanResult = Rxn<BarcodeScanResult>();
   final isBusy = false.obs;
+
+  void setGenerateMode(QrcodeGenerateMode value) {
+    if (generateMode.value == value) {
+      return;
+    }
+    generateMode.value = value;
+    result.value = null;
+    barcodeResult.value = null;
+  }
+
+  Future<void> generateSelectedCode() {
+    return switch (generateMode.value) {
+      QrcodeGenerateMode.qrCode => generateQrCode(),
+      QrcodeGenerateMode.barcode => generateBarcode(),
+    };
+  }
 
   @override
   void onClose() {
@@ -203,6 +222,20 @@ class QrcodeController extends GetxController {
   }
 
   Future<void> pickAndScanImage() async {
+    await scanFromGallery();
+  }
+
+  Future<void> scanFromGallery() async {
+    await _pickAndScanImage(
+      origin: BarcodeScanOrigin.gallery,
+      picker: _imageChannel.pickSingleImage,
+    );
+  }
+
+  Future<void> _pickAndScanImage({
+    required BarcodeScanOrigin origin,
+    required Future<LocalImageFile?> Function() picker,
+  }) async {
     if (isBusy.value) {
       return;
     }
@@ -210,14 +243,17 @@ class QrcodeController extends GetxController {
     isBusy.value = true;
     LocalImageFile? image;
     try {
-      image = await _imageChannel.pickSingleImage();
+      image = await picker();
       if (image == null) {
         return;
       }
       selectedImage.value = image;
       scanResult.value = null;
       await _recentFilesRepository.recordImage(image);
-      final scan = await _imageChannel.scanBarcodeFromImage(source: image);
+      final scan = await _imageChannel.scanBarcodeFromImage(
+        source: image,
+        origin: origin,
+      );
       scanResult.value = scan;
       await _historyRepository.recordOperationSuccess(
         featureName: 'qrcode.feature.scan'.tr,
@@ -227,6 +263,7 @@ class QrcodeController extends GetxController {
           'format': scan.format,
           'length': scan.text.length,
           'rawBytesLength': scan.rawBytesLength,
+          'origin': origin.name,
         },
       );
       showLatestSnackbar(
@@ -238,7 +275,7 @@ class QrcodeController extends GetxController {
         await _historyRepository.recordOperationFailure(
           featureName: 'qrcode.feature.scan'.tr,
           inputPath: image.path,
-          parameters: const <String, Object>{'mode': 'scan_image'},
+          parameters: <String, Object>{'mode': origin.name},
           errorMessage: error.message,
         );
       }
@@ -248,7 +285,7 @@ class QrcodeController extends GetxController {
         await _historyRepository.recordOperationFailure(
           featureName: 'qrcode.feature.scan'.tr,
           inputPath: image.path,
-          parameters: const <String, Object>{'mode': 'scan_image'},
+          parameters: <String, Object>{'mode': origin.name},
           errorMessage: 'qrcode.error.scanFailedLog'.tr,
         );
       }
@@ -256,6 +293,53 @@ class QrcodeController extends GetxController {
     } finally {
       isBusy.value = false;
     }
+  }
+
+  Future<void> scanFromLiveCamera() async {
+    if (isBusy.value) {
+      return;
+    }
+    isBusy.value = true;
+    try {
+      final scan = await _imageChannel.scanBarcodeFromCamera();
+      if (scan == null) {
+        return;
+      }
+      selectedImage.value = null;
+      scanResult.value = scan;
+      await _historyRepository.recordOperationSuccess(
+        featureName: 'qrcode.feature.scan'.tr,
+        inputPath: 'qrcode.scan.origin.live'.tr,
+        outputPath: '',
+        parameters: <String, Object>{
+          'format': scan.format,
+          'length': scan.text.length,
+          'rawBytesLength': scan.rawBytesLength,
+          'origin': BarcodeScanOrigin.liveCamera.name,
+        },
+      );
+      showLatestSnackbar(
+        'qrcode.scan.success.title'.tr,
+        'qrcode.scan.success.message'.trParams({'format': scan.format}),
+      );
+    } on AppException catch (error) {
+      await _recordLiveScanFailure(error.message);
+      _showError(error.message);
+    } catch (_) {
+      await _recordLiveScanFailure('qrcode.error.scanFailedLog'.tr);
+      _showError('qrcode.error.scanFailed'.tr);
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
+  Future<void> _recordLiveScanFailure(String message) async {
+    await _historyRepository.recordOperationFailure(
+      featureName: 'qrcode.feature.scan'.tr,
+      inputPath: 'qrcode.scan.origin.live'.tr,
+      parameters: const <String, Object>{'mode': 'liveCamera'},
+      errorMessage: message,
+    );
   }
 
   Future<void> copyScanText() async {

@@ -24,6 +24,8 @@ import com.google.zxing.MultiFormatReader
 import com.google.zxing.NotFoundException
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
+import com.journeyapps.barcodescanner.ScanIntentResult
+import com.journeyapps.barcodescanner.ScanOptions
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -41,7 +43,9 @@ class MainActivity : FlutterActivity() {
     private val pickImageRequestCode = 1042
     private val pickMultipleImagesRequestCode = 1043
     private val pickPdfRequestCode = 1044
+    private val scanBarcodeRequestCode = 1045
     private var pendingPickResult: MethodChannel.Result? = null
+    private var pendingBarcodeScanResult: MethodChannel.Result? = null
     private var isMultipleSelection = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -56,6 +60,7 @@ class MainActivity : FlutterActivity() {
             "pickMultipleImages" -> pickMultipleImages(result)
             "pickSinglePdf" -> pickSinglePdf(result)
             "scanBarcodeFromImage" -> scanBarcodeFromImage(call, result)
+            "scanBarcodeFromCamera" -> scanBarcodeFromCamera(result)
             "compressImage" -> compressImage(call, result)
             "convertImage" -> convertImage(call, result)
             "cropImage" -> cropImage(call, result)
@@ -146,6 +151,24 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == scanBarcodeRequestCode) {
+            val pendingResult = pendingBarcodeScanResult ?: return
+            pendingBarcodeScanResult = null
+            val scan = ScanIntentResult.parseActivityResult(resultCode, data)
+            val contents = scan.contents
+            if (contents.isNullOrBlank()) {
+                pendingResult.success(null)
+                return
+            }
+            pendingResult.success(
+                mapOf(
+                    "text" to contents,
+                    "format" to (scan.formatName ?: "unknown"),
+                    "rawBytesLength" to (scan.rawBytes?.size ?: 0),
+                ),
+            )
+            return
+        }
         if (
             requestCode != pickImageRequestCode &&
             requestCode != pickMultipleImagesRequestCode &&
@@ -315,6 +338,30 @@ class MainActivity : FlutterActivity() {
             result.error("export_failed", error.message, null)
         } finally {
             bitmap.recycle()
+        }
+    }
+
+    private fun scanBarcodeFromCamera(result: MethodChannel.Result) {
+        if (pendingBarcodeScanResult != null || pendingPickResult != null) {
+            result.error("busy", "已有文件或扫码任务正在进行", null)
+            return
+        }
+
+        pendingBarcodeScanResult = result
+        try {
+            val options = ScanOptions().apply {
+                setPrompt("将二维码或条形码放入取景框")
+                setOrientationLocked(false)
+                setBeepEnabled(false)
+                setBarcodeImageEnabled(false)
+            }
+            startActivityForResult(
+                options.createScanIntent(this),
+                scanBarcodeRequestCode,
+            )
+        } catch (error: Exception) {
+            pendingBarcodeScanResult = null
+            result.error("camera_unavailable", error.message, null)
         }
     }
 

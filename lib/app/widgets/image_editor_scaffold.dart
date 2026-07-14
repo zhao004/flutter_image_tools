@@ -1201,20 +1201,24 @@ class EditorImagePreview extends StatelessWidget {
           constraints.maxWidth.isFinite ? constraints.maxWidth : 0,
           constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
         );
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.file(
-              File(image.path),
-              fit: fit,
-              errorBuilder: (context, error, stackTrace) {
-                return EditorImageLoadError(imageName: image.name);
-              },
-            ),
-            ?child,
-            if (overlayBuilder != null) overlayBuilder!(context, previewSize),
-          ],
-        );
+        final children = <Widget>[
+          Image.file(
+            File(image.path),
+            fit: fit,
+            errorBuilder: (context, error, stackTrace) {
+              return EditorImageLoadError(imageName: image.name);
+            },
+          ),
+        ];
+        final previewChild = child;
+        if (previewChild != null) {
+          children.add(previewChild);
+        }
+        final buildOverlay = overlayBuilder;
+        if (buildOverlay != null) {
+          children.add(buildOverlay(context, previewSize));
+        }
+        return Stack(fit: StackFit.expand, children: children);
       },
     );
     final filteredPreview = colorFilter == null

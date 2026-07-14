@@ -28,7 +28,7 @@ class ConvertView extends GetView<ConvertController> {
         pickLabel: 'convert.action.pickSingle'.tr,
         repickLabel: 'convert.action.repickSingle'.tr,
         exportLabel: 'common.saveToGallery'.tr,
-        exportIcon: Icons.swap_horiz,
+        exportIcon: Icons.save_outlined,
         onPickImage: controller.pickImage,
         onExport: controller.convert,
         imageMeta: image == null
@@ -36,6 +36,7 @@ class ConvertView extends GetView<ConvertController> {
             : '${_selectedImageSummary()} · ${controller.format.value.label}',
         previewBuilder: (context, previewImage) =>
             EditorImagePreview(image: previewImage),
+        showPreviewInfo: false,
         showEditingControlsWhenEmpty: true,
         bottomToolbar: _ConvertBottomToolPanel(controller: controller),
         resultSummary: result == null

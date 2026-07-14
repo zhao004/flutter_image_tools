@@ -127,6 +127,7 @@ void main() {
       expect(result.format, 'QR_CODE');
       expect(result.rawBytesLength, 19);
       expect(result.hasText, isTrue);
+      expect(result.origin, BarcodeScanOrigin.gallery);
     });
 
     test('缺少格式时使用 unknown 兜底', () {
@@ -146,6 +147,20 @@ void main() {
 
       expect(result.format, 'unknown');
       expect(result.hasText, isFalse);
+    });
+
+    test('实时相机结果允许没有源图片', () {
+      final result = BarcodeScanResult.fromMap(
+        origin: BarcodeScanOrigin.liveCamera,
+        map: const <Object?, Object?>{
+          'text': 'live-result',
+          'format': 'QR_CODE',
+        },
+      );
+
+      expect(result.source, isNull);
+      expect(result.origin, BarcodeScanOrigin.liveCamera);
+      expect(result.hasText, isTrue);
     });
   });
 }

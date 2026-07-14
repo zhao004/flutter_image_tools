@@ -16,8 +16,6 @@ import '../pages/crop/crop_binding.dart';
 import '../pages/crop/crop_view.dart';
 import '../pages/exif/exif_binding.dart';
 import '../pages/exif/exif_view.dart';
-import '../pages/favorites/favorites_binding.dart';
-import '../pages/favorites/favorites_view.dart';
 import '../pages/filter/filter_binding.dart';
 import '../pages/filter/filter_view.dart';
 import '../pages/flip/flip_binding.dart';
@@ -25,6 +23,9 @@ import '../pages/flip/flip_view.dart';
 import '../pages/grid/grid_binding.dart';
 import '../pages/grid/grid_view.dart';
 import '../pages/gif/gif_binding.dart';
+import '../pages/gif/gif_compress_view.dart';
+import '../pages/gif/gif_create_view.dart';
+import '../pages/gif/gif_frames_view.dart';
 import '../pages/gif/gif_view.dart';
 import '../pages/history/history_binding.dart';
 import '../pages/history/history_view.dart';
@@ -32,13 +33,15 @@ import '../pages/home/home_binding.dart';
 import '../pages/home/home_view.dart';
 import '../pages/image_watermark/image_watermark_binding.dart';
 import '../pages/image_watermark/image_watermark_view.dart';
-import '../pages/logs/logs_binding.dart';
-import '../pages/logs/logs_view.dart';
 import '../pages/merge/merge_binding.dart';
 import '../pages/merge/merge_view.dart';
 import '../pages/pdf/pdf_binding.dart';
+import '../pages/pdf/pdf_create_view.dart';
+import '../pages/pdf/pdf_export_view.dart';
 import '../pages/pdf/pdf_view.dart';
 import '../pages/qrcode/qrcode_binding.dart';
+import '../pages/qrcode/qrcode_generate_view.dart';
+import '../pages/qrcode/qrcode_scan_view.dart';
 import '../pages/qrcode/qrcode_view.dart';
 import '../pages/resize/resize_binding.dart';
 import '../pages/resize/resize_view.dart';
@@ -103,11 +106,6 @@ class AppPages {
       binding: ExifBinding(),
     ),
     GetPage(
-      name: _Paths.favorites,
-      page: () => const FavoritesView(),
-      binding: FavoritesBinding(),
-    ),
-    GetPage(
       name: _Paths.filter,
       page: () => const FilterView(),
       binding: FilterBinding(),
@@ -117,9 +115,20 @@ class AppPages {
       page: () => const GridView(),
       binding: GridBinding(),
     ),
+    GetPage(name: _Paths.gif, page: () => const GifView()),
     GetPage(
-      name: _Paths.gif,
-      page: () => const GifView(),
+      name: _Paths.gifCreate,
+      page: () => const GifCreateView(),
+      binding: GifBinding(),
+    ),
+    GetPage(
+      name: _Paths.gifFrames,
+      page: () => const GifFramesView(),
+      binding: GifBinding(),
+    ),
+    GetPage(
+      name: _Paths.gifCompress,
+      page: () => const GifCompressView(),
       binding: GifBinding(),
     ),
     GetPage(
@@ -133,23 +142,30 @@ class AppPages {
       binding: ImageWatermarkBinding(),
     ),
     GetPage(
-      name: _Paths.logs,
-      page: () => const LogsView(),
-      binding: LogsBinding(),
-    ),
-    GetPage(
       name: _Paths.merge,
       page: () => const MergeView(),
       binding: MergeBinding(),
     ),
+    GetPage(name: _Paths.pdf, page: () => const PdfView()),
     GetPage(
-      name: _Paths.pdf,
-      page: () => const PdfView(),
+      name: _Paths.pdfImagesToPdf,
+      page: () => const PdfCreateView(),
       binding: PdfBinding(),
     ),
     GetPage(
-      name: _Paths.qrcode,
-      page: () => const QrcodeView(),
+      name: _Paths.pdfToImages,
+      page: () => const PdfExportView(),
+      binding: PdfBinding(),
+    ),
+    GetPage(name: _Paths.qrcode, page: () => const QrcodeView()),
+    GetPage(
+      name: _Paths.qrcodeGenerate,
+      page: () => const QrcodeGenerateView(),
+      binding: QrcodeBinding(),
+    ),
+    GetPage(
+      name: _Paths.qrcodeScan,
+      page: () => const QrcodeScanView(),
       binding: QrcodeBinding(),
     ),
     GetPage(

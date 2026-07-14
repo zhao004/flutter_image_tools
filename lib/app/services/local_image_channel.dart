@@ -209,6 +209,7 @@ class LocalImageChannel {
 
   Future<BarcodeScanResult> scanBarcodeFromImage({
     required LocalImageFile source,
+    BarcodeScanOrigin origin = BarcodeScanOrigin.gallery,
   }) async {
     if (source.path.trim().isEmpty) {
       throw const AppException('图片路径为空，无法识别二维码');
@@ -222,7 +223,11 @@ class LocalImageChannel {
       if (result == null) {
         throw const AppException('识别结果为空，请重试');
       }
-      final scan = BarcodeScanResult.fromMap(source: source, map: result);
+      final scan = BarcodeScanResult.fromMap(
+        source: source,
+        origin: origin,
+        map: result,
+      );
       if (!scan.hasText) {
         throw const AppException('未识别到二维码或条形码内容');
       }
@@ -233,6 +238,31 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('识别二维码失败，请重试', cause: error);
+    }
+  }
+
+  Future<BarcodeScanResult?> scanBarcodeFromCamera() async {
+    try {
+      final result = await _channel.invokeMapMethod<Object?, Object?>(
+        'scanBarcodeFromCamera',
+      );
+      if (result == null) {
+        return null;
+      }
+      final scan = BarcodeScanResult.fromMap(
+        origin: BarcodeScanOrigin.liveCamera,
+        map: result,
+      );
+      if (!scan.hasText) {
+        throw const AppException('实时识别结果为空，请重试');
+      }
+      return scan;
+    } on PlatformException catch (error) {
+      throw AppException(_messageForCode(error.code), cause: error);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException('实时相机识别失败，请重试', cause: error);
     }
   }
 
@@ -1798,6 +1828,7 @@ class LocalImageChannel {
       'invalid_args' => '图片处理参数无效，请检查后重试',
       'export_failed' => '导出图片失败，请检查存储空间',
       'activity_missing' => '当前设备没有可用的图片选择器',
+      'camera_unavailable' => '当前设备无法启动实时相机识别',
       'busy' => '已有图片任务正在进行，请稍后再试',
       _ => '图片处理失败，请重试',
     };

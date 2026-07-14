@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,6 +12,9 @@ import '../../models/local_image_file.dart';
 import '../../repositories/operation_history_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../services/local_image_channel.dart';
+import '../../services/base64_processing_service.dart';
+
+enum Base64Mode { encode, decode }
 
 /// Base64 控制器，负责图片编码、文本复制、文本导出和 Base64 还原图片。
 ///
@@ -37,9 +39,16 @@ class Base64Controller extends GetxController {
   final selectedImage = Rxn<LocalImageFile>();
   final encodedResult = Rxn<Base64ImageResult>();
   final decodedResult = Rxn<Base64ImageResult>();
-  final base64Text = ''.obs;
+  final mode = Base64Mode.encode.obs;
   final isBusy = false.obs;
   final inputController = TextEditingController();
+  String _base64Text = '';
+
+  String get base64Preview => Base64ProcessingService.buildPreview(_base64Text);
+
+  void setMode(Base64Mode value) {
+    mode.value = value;
+  }
 
   @override
   void onClose() {
@@ -78,25 +87,16 @@ class Base64Controller extends GetxController {
 
     isBusy.value = true;
     try {
-      final file = File(source.path);
-      if (!await file.exists()) {
-        throw AppException('base64.error.fileMissing'.tr);
-      }
-      final sizeBytes = await file.length();
-      if (sizeBytes <= 0) {
-        throw AppException('base64.error.fileEmpty'.tr);
-      }
-      if (sizeBytes > maxInputBytes) {
-        throw AppException('base64.error.fileTooLarge'.tr);
-      }
-      final bytes = await file.readAsBytes();
-      final text = base64Encode(bytes);
-      base64Text.value = text;
-      inputController.text = text;
+      final output = await Base64ProcessingService.encodeFile(
+        path: source.path,
+        maxInputBytes: maxInputBytes,
+      );
+      final text = output.text;
+      _base64Text = text;
       encodedResult.value = Base64ImageResult(
         source: source,
         outputPath: source.path,
-        outputSizeBytes: sizeBytes,
+        outputSizeBytes: output.sourceSizeBytes,
         base64Length: text.length,
         mimeType: source.mimeType,
       );
@@ -110,6 +110,25 @@ class Base64Controller extends GetxController {
         'base64.encode.success.title'.tr,
         'base64.encode.success.message'.tr,
       );
+    } on FileSystemException catch (error) {
+      final message = error.message.contains('为空')
+          ? 'base64.error.fileEmpty'.tr
+          : 'base64.error.fileMissing'.tr;
+      await _historyRepository.recordOperationFailure(
+        featureName: 'Base64',
+        inputPath: source.path,
+        parameters: const <String, Object>{'mode': 'encode'},
+        errorMessage: message,
+      );
+      _showError(message);
+    } on RangeError {
+      await _historyRepository.recordOperationFailure(
+        featureName: 'Base64',
+        inputPath: source.path,
+        parameters: const <String, Object>{'mode': 'encode'},
+        errorMessage: 'base64.error.fileTooLarge'.tr,
+      );
+      _showError('base64.error.fileTooLarge'.tr);
     } on AppException catch (error) {
       await _historyRepository.recordOperationFailure(
         featureName: 'Base64',
@@ -132,7 +151,7 @@ class Base64Controller extends GetxController {
   }
 
   Future<void> copyBase64Text() async {
-    final text = base64Text.value.trim();
+    final text = _base64Text;
     if (text.isEmpty) {
       _showError('base64.error.noCopyText'.tr);
       return;
@@ -148,7 +167,7 @@ class Base64Controller extends GetxController {
     if (isBusy.value) {
       return;
     }
-    final text = base64Text.value.trim();
+    final text = _base64Text;
     final source = selectedImage.value;
     if (text.isEmpty || source == null) {
       _showError('base64.error.generateTextFirst'.tr);
@@ -162,7 +181,10 @@ class Base64Controller extends GetxController {
         prefix: 'image_base64',
         extension: 'txt',
       );
-      await output.writeAsString(text, encoding: utf8);
+      final outputSize = await Base64ProcessingService.writeTextFile(
+        text: text,
+        outputPath: output.path,
+      );
       await _historyRepository.recordOperationSuccess(
         featureName: 'Base64',
         inputPath: source.path,
@@ -175,7 +197,7 @@ class Base64Controller extends GetxController {
       encodedResult.value = Base64ImageResult(
         source: source,
         outputPath: output.path,
-        outputSizeBytes: await output.length(),
+        outputSizeBytes: outputSize,
         base64Length: text.length,
         mimeType: 'text/plain',
       );
@@ -204,7 +226,7 @@ class Base64Controller extends GetxController {
     if (isBusy.value) {
       return;
     }
-    final rawText = inputController.text.trim();
+    final rawText = inputController.text;
     if (rawText.isEmpty) {
       _showError('base64.error.inputRequired'.tr);
       return;
@@ -217,34 +239,28 @@ class Base64Controller extends GetxController {
     isBusy.value = true;
     var outputPath = '';
     try {
-      final payload = _parseBase64Payload(rawText);
-      final bytes = base64Decode(payload.text);
-      if (bytes.isEmpty) {
-        throw AppException('base64.error.payloadEmpty'.tr);
-      }
-      final extension = _extensionForMimeType(payload.mimeType);
-      final output = await _createOutputFile(
-        directoryName: 'base64_images',
-        prefix: 'decoded_base64',
-        extension: extension,
+      final root = await getTemporaryDirectory();
+      final decoded = await Base64ProcessingService.decodeToImage(
+        rawText: rawText,
+        outputDirectory: '${root.path}/base64_images',
+        maxBase64Chars: maxBase64Chars,
       );
-      outputPath = output.path;
-      await output.writeAsBytes(bytes, flush: true);
-      await _imageChannel.saveImageToGallery(output.path);
+      outputPath = decoded.outputPath;
+      await _imageChannel.saveImageToGallery(decoded.outputPath);
       decodedResult.value = Base64ImageResult(
-        outputPath: output.path,
-        outputSizeBytes: await output.length(),
-        base64Length: payload.text.length,
-        mimeType: payload.mimeType,
+        outputPath: decoded.outputPath,
+        outputSizeBytes: decoded.outputSizeBytes,
+        base64Length: decoded.base64Length,
+        mimeType: decoded.mimeType,
       );
       await _historyRepository.recordOperationSuccess(
         featureName: 'Base64',
         inputPath: 'base64.history.inputText'.tr,
-        outputPath: output.path,
+        outputPath: decoded.outputPath,
         parameters: <String, Object>{
           'mode': 'decode',
-          'mimeType': payload.mimeType,
-          'length': payload.text.length,
+          'mimeType': decoded.mimeType,
+          'length': decoded.base64Length,
         },
       );
       showLatestSnackbar(
@@ -307,34 +323,6 @@ class Base64Controller extends GetxController {
     return File('${directory.path}/${prefix}_$timestamp.$extension');
   }
 
-  _Base64Payload _parseBase64Payload(String rawText) {
-    final normalized = rawText.replaceAll(RegExp(r'\s+'), '');
-    if (normalized.startsWith('data:')) {
-      final separatorIndex = normalized.indexOf(',');
-      if (separatorIndex <= 0) {
-        throw AppException('base64.error.dataUriMissing'.tr);
-      }
-      final header = normalized.substring(0, separatorIndex);
-      final data = normalized.substring(separatorIndex + 1);
-      final mimeType = header
-          .replaceFirst('data:', '')
-          .split(';')
-          .firstWhere((item) => item.contains('/'), orElse: () => 'image/png');
-      return _Base64Payload(text: data, mimeType: mimeType);
-    }
-    return _Base64Payload(text: normalized, mimeType: 'image/png');
-  }
-
-  String _extensionForMimeType(String mimeType) {
-    return switch (mimeType.toLowerCase()) {
-      'image/jpeg' || 'image/jpg' => 'jpg',
-      'image/png' => 'png',
-      'image/webp' => 'webp',
-      'image/bmp' => 'bmp',
-      _ => 'png',
-    };
-  }
-
   Future<void> _recordDecodeFailure(String message, String outputPath) async {
     await _historyRepository.recordOperationFailure(
       featureName: 'Base64',
@@ -350,11 +338,4 @@ class Base64Controller extends GetxController {
   void _showError(String message) {
     showLatestSnackbar('base64.error.title'.tr, message);
   }
-}
-
-class _Base64Payload {
-  const _Base64Payload({required this.text, required this.mimeType});
-
-  final String text;
-  final String mimeType;
 }

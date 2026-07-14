@@ -58,5 +58,50 @@ void main() {
       expect(deletedCount, 0);
       expect(items, hasLength(1));
     });
+
+    test('按二十条分页读取历史记录且相邻页不重复', () async {
+      const pageSize = 20;
+      const totalCount = 45;
+      for (var index = 0; index < totalCount; index++) {
+        await repository.recordOperationSuccess(
+          featureName: '分页任务 $index',
+          inputPath: '/tmp/input_$index.jpg',
+          outputPath: '/tmp/output_$index.jpg',
+          parameters: <String, Object>{'index': index},
+        );
+      }
+
+      final firstPage = await repository.getRecentHistory(
+        limit: pageSize,
+        offset: 0,
+      );
+      final secondPage = await repository.getRecentHistory(
+        limit: pageSize,
+        offset: pageSize,
+      );
+      final thirdPage = await repository.getRecentHistory(
+        limit: pageSize,
+        offset: pageSize * 2,
+      );
+
+      expect(firstPage, hasLength(pageSize));
+      expect(secondPage, hasLength(pageSize));
+      expect(thirdPage, hasLength(totalCount - pageSize * 2));
+      expect(
+        firstPage
+            .map((item) => item.id)
+            .toSet()
+            .intersection(secondPage.map((item) => item.id).toSet()),
+        isEmpty,
+      );
+      expect(firstPage.first.id, greaterThan(firstPage.last.id));
+      expect(secondPage.first.id, lessThan(firstPage.last.id));
+    });
+
+    test('负分页偏移不会发起无效历史查询', () async {
+      final items = await repository.getRecentHistory(limit: 20, offset: -1);
+
+      expect(items, isEmpty);
+    });
   });
 }

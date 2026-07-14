@@ -32,6 +32,15 @@ enum PdfOrientation {
   final String value;
 }
 
+enum PdfExportMode {
+  singlePage(labelKey: 'pdf.export.mode.single'),
+  allPages(labelKey: 'pdf.export.mode.all');
+
+  const PdfExportMode({required this.labelKey});
+
+  final String labelKey;
+}
+
 /// PDF 工具控制器，负责图片转 PDF、指定页面和全部页面导出图片。
 ///
 /// 异常策略：Dart 层限制图片数量和页面参数，Android 层负责文件存在性、
@@ -56,6 +65,7 @@ class PdfController extends GetxController {
   final allPagesResult = Rxn<PdfPagesImageExport>();
   final pageSize = PdfPageSize.a4.obs;
   final orientation = PdfOrientation.portrait.obs;
+  final exportMode = PdfExportMode.singlePage.obs;
   final isBusy = false.obs;
   final pageNumberController = TextEditingController(text: '1');
 
@@ -122,6 +132,22 @@ class PdfController extends GetxController {
 
   void setOrientation(PdfOrientation value) {
     orientation.value = value;
+  }
+
+  void setExportMode(PdfExportMode value) {
+    if (exportMode.value == value) {
+      return;
+    }
+    exportMode.value = value;
+    pageImageResult.value = null;
+    allPagesResult.value = null;
+  }
+
+  Future<void> exportPdfImages() {
+    return switch (exportMode.value) {
+      PdfExportMode.singlePage => exportPdfPage(),
+      PdfExportMode.allPages => exportAllPdfPages(),
+    };
   }
 
   Future<void> createPdf() async {

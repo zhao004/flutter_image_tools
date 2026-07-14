@@ -201,26 +201,6 @@ class SettingsView extends GetView<SettingsController> {
                 onTap: () => Get.toNamed(Routes.cache),
               ),
             ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.article_outlined),
-                title: Text('settings.logs.title'.tr),
-                subtitle: Text('settings.logs.subtitle'.tr),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Get.toNamed(Routes.logs),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.star_outline),
-                title: Text('settings.favorites.title'.tr),
-                subtitle: Text('settings.favorites.subtitle'.tr),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Get.toNamed(Routes.favorites),
-              ),
-            ),
           ],
         ),
       ),
