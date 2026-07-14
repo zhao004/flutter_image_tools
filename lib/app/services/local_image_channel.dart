@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/painting.dart' as painting;
@@ -24,6 +25,7 @@ import '../models/gif_frames_export.dart';
 import '../models/gif_image_file.dart';
 import '../models/grid_image_file.dart';
 import '../models/image_watermarked_file.dart';
+import '../models/image_edit_transform.dart';
 import '../models/local_image_file.dart';
 import '../models/merged_image_file.dart';
 import '../models/pdf_document_file.dart';
@@ -62,7 +64,7 @@ class LocalImageChannel {
            temporaryDirectoryProvider ?? getTemporaryDirectory;
 
   static const String _channelName = 'image_toolkit/local_image';
-  static const int maxResizeDimension = 10000;
+  static const int maxResizeDimension = ImageEditorLimits.maxResizeDimension;
   static const int maxMergeImages = 20;
   static const int maxPdfImages = 50;
   static const int maxGifImages = 30;
@@ -894,8 +896,18 @@ class LocalImageChannel {
     }
 
     try {
-      final editedImage = processEditedImageBytes(
-        bytes: bytes,
+      final sourceFile = File(source.path);
+      if (!sourceFile.existsSync()) {
+        throw const AppException('图片文件不存在，请重新选择');
+      }
+      final encodedLength = await sourceFile.length();
+      if (encodedLength <= 0) {
+        throw const AppException('图片文件为空，请重新选择');
+      }
+      if (encodedLength > ImageEditorLimits.maxEncodedInputBytes) {
+        throw const AppException('图片文件过大，无法稳定处理');
+      }
+      final transform = ImageEditTransform(
         filter: filter,
         rotationDegrees: rotationDegrees,
         flipHorizontal: flipHorizontal,
@@ -904,11 +916,25 @@ class LocalImageChannel {
         resizeHeight: resizeHeight,
         cropAspectRatio: cropAspectRatio,
       );
-      final output = await _writeEncodedImage(
-        image: editedImage,
+      _validateEditorTransform(source: source, transform: transform);
+      final sourceBytes = await sourceFile.readAsBytes();
+      final encodedOutput = await Isolate.run(
+        () => _processAnnotatedImageWorker(
+          _AnnotatedImageWorkerRequest(
+            sourceBytes: sourceBytes,
+            overlayBytes: bytes,
+            transform: transform,
+          ),
+        ),
+      );
+      if (encodedOutput.isEmpty) {
+        throw const AppException('编辑结果为空，请重试');
+      }
+      final output = await _createOutputFile(
         prefix: 'edited',
         extension: 'png',
       );
+      await output.writeAsBytes(encodedOutput, flush: true);
       await saveImageToGallery(output.path);
       return AnnotatedImageFile(
         source: source,
@@ -922,6 +948,105 @@ class LocalImageChannel {
       rethrow;
     } catch (error) {
       throw AppException('图片编辑导出失败，请重试', cause: error);
+    }
+  }
+
+  /// 构建与导出算法一致的底图滤镜预览，并限制最长边避免预览缓存占用过高。
+  Future<Uint8List> buildFilteredPreview({
+    required LocalImageFile source,
+    required String filter,
+  }) async {
+    final normalizedFilter = filter.trim().toLowerCase();
+    if (!supportedFilters.contains(normalizedFilter)) {
+      throw const AppException('滤镜类型不支持');
+    }
+    if (!source.hasValidDimensions) {
+      throw const AppException('图片尺寸无效，请重新选择');
+    }
+    if (source.width * source.height > ImageEditorLimits.maxWorkingPixels) {
+      throw const AppException('图片像素过大，请选择不超过 1600 万像素的图片');
+    }
+    final file = File(source.path);
+    if (!file.existsSync()) {
+      throw const AppException('图片文件不存在，请重新选择');
+    }
+    final encodedLength = await file.length();
+    if (encodedLength <= 0 ||
+        encodedLength > ImageEditorLimits.maxEncodedInputBytes) {
+      throw const AppException('图片文件过大或为空，无法生成预览');
+    }
+    final sourceBytes = await file.readAsBytes();
+    return Isolate.run(
+      () => _processFilteredPreviewWorker(
+        _FilteredPreviewWorkerRequest(
+          sourceBytes: sourceBytes,
+          filter: normalizedFilter,
+          maxDimension: ImageEditorLimits.previewMaxDimension,
+        ),
+      ),
+    );
+  }
+
+  /// 将滤镜先应用到底图，再合成不受滤镜影响的标注层。
+  img.Image processAnnotatedImage({
+    required img.Image source,
+    required img.Image overlay,
+    required ImageEditTransform transform,
+  }) {
+    if (source.width <= 0 || source.height <= 0) {
+      throw const AppException('图片格式异常，请重试');
+    }
+    if (source.width * source.height > ImageEditorLimits.maxWorkingPixels) {
+      throw const AppException('图片像素过大，请选择不超过 1600 万像素的图片');
+    }
+    if (overlay.width != source.width || overlay.height != source.height) {
+      throw const AppException('标注图层尺寸与底图不一致');
+    }
+    final normalizedFilter = transform.filter?.trim().toLowerCase();
+    if (normalizedFilter != null && normalizedFilter.isNotEmpty) {
+      if (!supportedFilters.contains(normalizedFilter)) {
+        throw const AppException('滤镜类型不支持');
+      }
+    }
+    final maximumPixels = transform.maximumIntermediatePixels(
+      ui.Size(source.width.toDouble(), source.height.toDouble()),
+    );
+    if (maximumPixels > ImageEditorLimits.maxWorkingPixels) {
+      throw const AppException('编辑结果像素过大，请缩小尺寸或减少旋转角度');
+    }
+
+    var composited = img.Image.from(source);
+    if (normalizedFilter != null && normalizedFilter.isNotEmpty) {
+      _applyFilterToImage(composited, normalizedFilter);
+    }
+    // 索引色底图进行 Alpha 合成时，image 包会返回转换后的直接色彩图像。
+    composited = img.compositeImage(composited, overlay);
+    return processEditedImage(
+      image: composited,
+      rotationDegrees: transform.rotationDegrees,
+      flipHorizontal: transform.flipHorizontal,
+      flipVertical: transform.flipVertical,
+      resizeWidth: transform.resizeWidth,
+      resizeHeight: transform.resizeHeight,
+      cropAspectRatio: transform.cropAspectRatio,
+    );
+  }
+
+  void _validateEditorTransform({
+    required LocalImageFile source,
+    required ImageEditTransform transform,
+  }) {
+    if (!source.hasValidDimensions) {
+      throw const AppException('图片尺寸无效，请重新选择');
+    }
+    final sourceSize = ui.Size(
+      source.width.toDouble(),
+      source.height.toDouble(),
+    );
+    if (source.width * source.height > ImageEditorLimits.maxWorkingPixels ||
+        transform.maximumIntermediatePixels(sourceSize) >
+            ImageEditorLimits.maxWorkingPixels) {
+      throw const AppException('图片像素过大，请选择不超过 1600 万像素的图片');
     }
   }
 
@@ -1530,17 +1655,42 @@ class LocalImageChannel {
     if (!file.existsSync()) {
       throw const AppException('图片文件不存在，请重新选择');
     }
-    final decoded = await _readImage(file.path);
+    final fileLength = await file.length();
+    if (fileLength <= 0) {
+      throw const AppException('图片文件为空，请重新选择');
+    }
+    if (fileLength > ImageEditorLimits.maxEncodedInputBytes) {
+      throw const AppException('图片文件过大，请选择小于 64 MB 的图片');
+    }
+    final bytes = await file.readAsBytes();
+    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    ui.ImageDescriptor? descriptor;
+    late final int width;
+    late final int height;
+    try {
+      descriptor = await ui.ImageDescriptor.encoded(buffer);
+      width = descriptor.width;
+      height = descriptor.height;
+    } finally {
+      descriptor?.dispose();
+      buffer.dispose();
+    }
+    if (width <= 0 || height <= 0) {
+      throw const AppException('图片格式不支持或文件已损坏');
+    }
+    if (width * height > _maxDecodedPixels) {
+      throw const AppException('图片尺寸过大，请先缩小后再处理');
+    }
     final name = pickedFile.name.trim().isNotEmpty
         ? pickedFile.name.trim()
         : _basename(file.path);
     return LocalImageFile(
       path: file.path,
       name: name,
-      sizeBytes: await file.length(),
+      sizeBytes: fileLength,
       mimeType: pickedFile.mimeType ?? _mimeTypeForPath(file.path),
-      width: decoded.width,
-      height: decoded.height,
+      width: width,
+      height: height,
     );
   }
 
@@ -1833,6 +1983,64 @@ class LocalImageChannel {
       _ => '图片处理失败，请重试',
     };
   }
+}
+
+class _AnnotatedImageWorkerRequest {
+  const _AnnotatedImageWorkerRequest({
+    required this.sourceBytes,
+    required this.overlayBytes,
+    required this.transform,
+  });
+
+  final Uint8List sourceBytes;
+  final Uint8List overlayBytes;
+  final ImageEditTransform transform;
+}
+
+class _FilteredPreviewWorkerRequest {
+  const _FilteredPreviewWorkerRequest({
+    required this.sourceBytes,
+    required this.filter,
+    required this.maxDimension,
+  });
+
+  final Uint8List sourceBytes;
+  final String filter;
+  final int maxDimension;
+}
+
+/// 后台任务仅接收可跨 Isolate 传递的数据，避免把平台通道或 UI 对象带入任务。
+Uint8List _processAnnotatedImageWorker(_AnnotatedImageWorkerRequest request) {
+  final source = img.decodeImage(request.sourceBytes);
+  final overlay = img.decodePng(request.overlayBytes);
+  if (source == null || overlay == null) {
+    throw const AppException('图片或标注图层解码失败');
+  }
+  final channel = LocalImageChannel();
+  final output = channel.processAnnotatedImage(
+    source: source,
+    overlay: overlay,
+    transform: request.transform,
+  );
+  return Uint8List.fromList(img.encodePng(output));
+}
+
+Uint8List _processFilteredPreviewWorker(_FilteredPreviewWorkerRequest request) {
+  final decoded = img.decodeImage(request.sourceBytes);
+  if (decoded == null || decoded.width <= 0 || decoded.height <= 0) {
+    throw const AppException('图片格式不支持或文件已损坏');
+  }
+  var preview = decoded;
+  final longestSide = math.max(preview.width, preview.height);
+  if (longestSide > request.maxDimension) {
+    if (preview.width >= preview.height) {
+      preview = img.copyResize(preview, width: request.maxDimension);
+    } else {
+      preview = img.copyResize(preview, height: request.maxDimension);
+    }
+  }
+  LocalImageChannel()._applyFilterToImage(preview, request.filter);
+  return Uint8List.fromList(img.encodePng(preview));
 }
 
 class _ImageRect {

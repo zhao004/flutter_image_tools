@@ -564,6 +564,7 @@ class AppTranslations extends Translations {
       'annotation.image.empty': '选择一张图片进入编辑页，通过工具标签添加文字、形状、箭头、马赛克和画笔。',
       'annotation.style.title': '标注样式',
       'annotation.text.label': '文本内容',
+      'annotation.text.default': '请输入文字',
       'annotation.text.editTitle': '编辑文本',
       'annotation.text.size': '字号：@value px',
       'annotation.text.font': '字体',
@@ -605,6 +606,9 @@ class AppTranslations extends Translations {
       'annotation.clear.success.message': '画布编辑内容已清空',
       'annotation.error.title': '操作失败',
       'annotation.error.recentFileFailed': '记录最近文件失败，请重试',
+      'annotation.error.pickFailed': '选择图片失败，请重试',
+      'annotation.error.historySaveFailed': '图片已保存，但历史记录写入失败',
+      'annotation.error.imageTooLarge': '图片或中间结果不能超过 @max 百万像素',
       'annotation.error.pickImageFirst': '请先选择一张图片',
       'annotation.error.textRequired': '文本标注内容不能为空',
       'annotation.error.textTooLong': '文本标注不能超过 @max 个字符',
@@ -1639,6 +1643,7 @@ class AppTranslations extends Translations {
       'annotation.image.empty': '選擇一張圖片進入編輯頁，透過工具標籤加入文字、形狀、箭頭、馬賽克和畫筆。',
       'annotation.style.title': '標註樣式',
       'annotation.text.label': '文字內容',
+      'annotation.text.default': '請輸入文字',
       'annotation.text.editTitle': '編輯文字',
       'annotation.text.size': '字號：@value px',
       'annotation.text.font': '字體',
@@ -1680,6 +1685,9 @@ class AppTranslations extends Translations {
       'annotation.clear.success.message': '畫布編輯內容已清空',
       'annotation.error.title': '操作失敗',
       'annotation.error.recentFileFailed': '記錄最近檔案失敗，請重試',
+      'annotation.error.pickFailed': '選擇圖片失敗，請重試',
+      'annotation.error.historySaveFailed': '圖片已儲存，但歷史記錄寫入失敗',
+      'annotation.error.imageTooLarge': '圖片或中間結果不能超過 @max 百萬像素',
       'annotation.error.pickImageFirst': '請先選擇一張圖片',
       'annotation.error.textRequired': '文字標註內容不能為空',
       'annotation.error.textTooLong': '文字標註不能超過 @max 個字元',
@@ -2785,6 +2793,7 @@ class AppTranslations extends Translations {
           'Select one image to enter the editor, then use the tool tabs for text, shapes, arrows, mosaic, and brush.',
       'annotation.style.title': 'Annotation Style',
       'annotation.text.label': 'Text Content',
+      'annotation.text.default': 'Enter text',
       'annotation.text.editTitle': 'Edit Text',
       'annotation.text.size': 'Text Size: @value px',
       'annotation.text.font': 'Font',
@@ -2828,6 +2837,12 @@ class AppTranslations extends Translations {
       'annotation.error.title': 'Operation Failed',
       'annotation.error.recentFileFailed':
           'Failed to record the recent file. Please try again',
+      'annotation.error.pickFailed':
+          'Failed to select an image. Please try again',
+      'annotation.error.historySaveFailed':
+          'The image was saved, but history could not be recorded',
+      'annotation.error.imageTooLarge':
+          'The image or an intermediate result cannot exceed @max megapixels',
       'annotation.error.pickImageFirst': 'Select an image first',
       'annotation.error.textRequired': 'Annotation text is required',
       'annotation.error.textTooLong':

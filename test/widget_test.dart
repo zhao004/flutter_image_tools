@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:drift/native.dart';
 import 'package:flex_color_picker/flex_color_picker.dart' as flex_color_picker;
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -602,11 +603,79 @@ void main() {
       find.byKey(const ValueKey('editor-image-info-overlay')),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('editor-result-overlay')), findsNothing);
+    expect(find.byKey(const ValueKey('editor-result-overlay')), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-canvas')), findsOneWidget);
     expect(find.text('preview.png'), findsOneWidget);
     expect(find.text('Bottom Toolbar'), findsOneWidget);
-    expect(find.text('Result Summary'), findsNothing);
+    expect(find.text('Result Summary'), findsOneWidget);
+  });
+
+  testWidgets('统一编辑器忙碌时阻断画布和底部工具交互', (WidgetTester tester) async {
+    var previewTapCount = 0;
+    var toolbarTapCount = 0;
+    var exportTapCount = 0;
+    await tester.pumpWidget(
+      GetMaterialApp(
+        theme: AppTheme.light(),
+        home: ImageEditorScaffold(
+          title: 'Busy Editor',
+          selectedImage: const LocalImageFile(
+            path: 'preview.png',
+            name: 'preview.png',
+            sizeBytes: 1024,
+            mimeType: 'image/png',
+            width: 800,
+            height: 600,
+          ),
+          isBusy: true,
+          emptyIcon: Icons.image_outlined,
+          emptyTitle: 'Empty',
+          emptyMessage: 'Empty',
+          pickLabel: 'Pick',
+          repickLabel: 'Repick',
+          exportLabel: 'Export',
+          exportIcon: Icons.save_outlined,
+          onPickImage: () {},
+          onExport: () => exportTapCount++,
+          previewBuilder: (context, image) => GestureDetector(
+            key: const ValueKey('busy-preview-action'),
+            onTap: () => previewTapCount++,
+            child: const SizedBox(width: 200, height: 120),
+          ),
+          bottomToolbar: TextButton(
+            key: const ValueKey('busy-toolbar-action'),
+            onPressed: () => toolbarTapCount++,
+            child: const Text('Toolbar Action'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('busy-preview-action')),
+      warnIfMissed: false,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('busy-toolbar-action')),
+      warnIfMissed: false,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('editor-export-action')),
+      warnIfMissed: false,
+    );
+
+    expect(previewTapCount, 0);
+    expect(toolbarTapCount, 0);
+    expect(exportTapCount, 0);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byKey(const ValueKey('editor-export-action')),
+          )
+          .onPressed,
+      isNull,
+    );
   });
 
   testWidgets('统一编辑器窄屏图标导出按钮不溢出', (WidgetTester tester) async {
@@ -1182,17 +1251,14 @@ void main() {
 
     expect(find.text('Annotation Style'), findsNothing);
     expect(find.text('Text Size: 48 px'), findsOneWidget);
-    expect(controller.updateSelectedTextLayer(), isTrue);
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pumpAndSettle();
     final updatedText = controller.selectedObject.value as TextDrawable;
     expect(updatedText.text, 'Updated text');
     expect(updatedText.style.fontSize, 48);
     expect(updatedText.style.fontFamily, 'monospace');
     expect(controller.selectTextObjectAt(updatedText.position), isTrue);
 
-    if (find.byType(BottomSheet).evaluate().isNotEmpty) {
-      Navigator.of(tester.element(find.byType(BottomSheet))).pop();
-      await tester.pumpAndSettle();
-    }
     controller.deselectSelectedObject();
     await tester.pump();
 
@@ -1282,7 +1348,8 @@ void main() {
     await tester.tap(find.text('Annotate'));
     await tester.pumpAndSettle();
 
-    expect(controller.mode.value, AnnotationMode.brush);
+    expect(controller.mode.value, AnnotationMode.select);
+    expect(controller.isPropertyPanelVisible.value, isFalse);
     expect(find.text('Annotation Style'), findsNothing);
     expect(find.text('#123456'), findsNothing);
     expect(find.text('Stroke: 12 px'), findsNothing);
@@ -1374,19 +1441,19 @@ void main() {
     await tester.pump();
 
     expect(find.text('Target Size'), findsNothing);
-    expect(find.text('1200 × 800 px'), findsOneWidget);
-    await tester.tap(find.text('1200 × 800 px'));
+    expect(find.text('800 × 1200 px'), findsOneWidget);
+    await tester.tap(find.text('800 × 1200 px'));
     await tester.pumpAndSettle();
 
     expect(find.text('Width'), findsOneWidget);
     expect(find.text('Height'), findsOneWidget);
     expect(find.text('Keep Aspect Ratio'), findsOneWidget);
     controller.updateResizePercent(50);
-    expect(controller.resizeWidthController.text, '600');
-    expect(controller.resizeHeightController.text, '400');
+    expect(controller.resizeWidthController.text, '400');
+    expect(controller.resizeHeightController.text, '600');
     expect(
       controller.previewSizeFor(controller.selectedImage.value!),
-      const Size(600, 400),
+      const Size(400, 600),
     );
     Navigator.of(tester.element(find.byType(BottomSheet))).pop();
     await tester.pumpAndSettle();
@@ -1413,12 +1480,93 @@ void main() {
       find.byKey(const ValueKey('annotation-adjustment-preview')),
       findsOneWidget,
     );
-    expect(find.byType(ColorFiltered), findsWidgets);
-    expect(find.byType(RotatedBox), findsWidgets);
+    expect(find.byType(ColorFiltered), findsNothing);
+    expect(find.byType(RotatedBox), findsNothing);
     expect(find.byType(Transform), findsWidgets);
 
     await database.close();
     Get.reset();
+  });
+
+  testWidgets('关闭画笔属性面板后恢复对象选择模式', (WidgetTester tester) async {
+    // 复现真实路径：绘制画笔后再次点击已选一级工具收起面板，随后选择已有形状。
+    final database = AppDatabase(NativeDatabase.memory());
+    final controller = Get.put(
+      AnnotationController(
+        imageChannel: LocalImageChannel(),
+        historyRepository: OperationHistoryRepository(database: database),
+        recentFilesRepository: RecentFilesRepository(database: database),
+      ),
+    );
+    addTearDown(() async {
+      Get.reset();
+      await database.close();
+    });
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en'),
+        fallbackLocale: const Locale('zh', 'CN'),
+        theme: AppTheme.light(),
+        home: const AnnotationView(),
+      ),
+    );
+    controller.selectedImage.value = const LocalImageFile(
+      path: 'annotation_preview.png',
+      name: 'annotation_preview.png',
+      sizeBytes: 1200,
+      mimeType: 'image/png',
+      width: 1200,
+      height: 800,
+    );
+    await tester.pump();
+
+    controller.addShapeLayer(EditableLayerType.rectangle);
+    await tester.pump();
+    expect(find.text('Brush'), findsOneWidget);
+
+    await tester.tap(find.text('Brush'));
+    await tester.pump();
+    expect(controller.mode.value, AnnotationMode.brush);
+
+    var painterBox =
+        controller.painterController.painterKey.currentContext!
+                .findRenderObject()
+            as RenderBox;
+    await tester.dragFrom(
+      painterBox.localToGlobal(const Offset(40, 40)),
+      const Offset(60, 0),
+    );
+    await tester.pump();
+    expect(controller.strokes, hasLength(1));
+
+    await tester.tap(find.byKey(const ValueKey('editor-primary-tool-markup')));
+    await tester.pumpAndSettle();
+
+    expect(controller.mode.value, AnnotationMode.select);
+    expect(controller.isPropertyPanelVisible.value, isFalse);
+    expect(
+      find.byKey(const ValueKey('editor-compact-tool-panel')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('annotation-brush-gesture')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('annotation-selection-gesture')),
+      findsOneWidget,
+    );
+
+    final tapPoint = tester.getCenter(
+      find.byKey(const ValueKey('annotation-editable-canvas')),
+    );
+    await tester.tapAt(tapPoint);
+    await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 50));
+
+    expect(controller.selectedObject.value, isA<RectangleDrawable>());
+    expect(controller.strokes, hasLength(1));
   });
 
   test('图片编辑处理链支持滤镜旋转翻转尺寸和裁剪', () {

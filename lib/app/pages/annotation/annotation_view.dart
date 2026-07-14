@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/local_image_file.dart';
+import '../../models/image_edit_transform.dart';
 import '../../widgets/image_editor_scaffold.dart';
 import '../filter/filter_controller.dart';
 import 'annotation_controller.dart';
@@ -159,11 +160,10 @@ class _EditableCanvasState extends State<_EditableCanvas> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final logicalCanvasSize = controller.logicalCanvasSizeFor(widget.image);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            controller.updateCanvasSize(
-              Size(constraints.maxWidth, constraints.maxHeight),
-            );
+            controller.updateCanvasSize(logicalCanvasSize);
           }
         });
 
@@ -173,14 +173,28 @@ class _EditableCanvasState extends State<_EditableCanvas> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.file(
-                File(widget.image.path),
-                fit: BoxFit.fill,
-                errorBuilder: (context, error, stackTrace) {
-                  // 异常策略：底图失效时保留标注层结构，同时明确提示文件无法加载。
-                  return EditorImageLoadError(imageName: widget.image.name);
-                },
-              ),
+              Obx(() {
+                final previewBytes = controller.filteredPreviewBytes.value;
+                if (previewBytes != null && previewBytes.isNotEmpty) {
+                  return Image.memory(
+                    previewBytes,
+                    fit: BoxFit.fill,
+                    gaplessPlayback: true,
+                    errorBuilder: (context, error, stackTrace) {
+                      return EditorImageLoadError(imageName: widget.image.name);
+                    },
+                  );
+                }
+                return Image.file(
+                  File(widget.image.path),
+                  fit: BoxFit.fill,
+                  cacheWidth: ImageEditorLimits.previewMaxDimension,
+                  errorBuilder: (context, error, stackTrace) {
+                    // 异常策略：底图失效时保留标注层结构，同时明确提示文件无法加载。
+                    return EditorImageLoadError(imageName: widget.image.name);
+                  },
+                );
+              }),
               AnimatedBuilder(
                 animation: controller.painterController,
                 builder: (context, _) {
@@ -198,6 +212,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                     controller.selectedObject.value != null &&
                     controller.selectedMosaicIndex.value == null;
                 return GestureDetector(
+                  key: const ValueKey('annotation-selection-gesture'),
                   behavior: HitTestBehavior.translucent,
                   onDoubleTapDown: (details) async {
                     if (controller.selectTextObjectAt(details.localPosition)) {
@@ -226,6 +241,7 @@ class _EditableCanvasState extends State<_EditableCanvas> {
                   return const SizedBox.shrink();
                 }
                 return GestureDetector(
+                  key: const ValueKey('annotation-brush-gesture'),
                   behavior: HitTestBehavior.opaque,
                   onPanStart: _startBrush,
                   onPanUpdate: _appendBrush,
@@ -345,8 +361,17 @@ class _EditableCanvasState extends State<_EditableCanvas> {
       return;
     }
     _isTextEditorDialogVisible = true;
+    controller.beginEditTransaction();
     try {
-      await _showTextEditor(context, controller);
+      final confirmed = await _showTextEditor(context, controller);
+      if (confirmed) {
+        controller.commitEditTransaction();
+      } else {
+        controller.cancelEditTransaction();
+      }
+    } catch (_) {
+      controller.cancelEditTransaction();
+      rethrow;
     } finally {
       _isTextEditorDialogVisible = false;
     }
@@ -377,6 +402,9 @@ class _EditableCanvasState extends State<_EditableCanvas> {
 
   void _startSelectedMosaicMove(DragStartDetails details) {
     _isMovingSelectedMosaic = controller.selectMosaicAt(details.localPosition);
+    if (_isMovingSelectedMosaic) {
+      controller.beginEditTransaction();
+    }
   }
 
   void _moveSelectedMosaic(DragUpdateDetails details) {
@@ -387,6 +415,9 @@ class _EditableCanvasState extends State<_EditableCanvas> {
   }
 
   void _finishSelectedMosaicMove() {
+    if (_isMovingSelectedMosaic) {
+      controller.commitEditTransaction();
+    }
     _isMovingSelectedMosaic = false;
   }
 
@@ -394,6 +425,9 @@ class _EditableCanvasState extends State<_EditableCanvas> {
     _isMovingSelectedObject = controller.handleObjectPanStart(
       details.localPosition,
     );
+    if (_isMovingSelectedObject) {
+      controller.beginEditTransaction();
+    }
   }
 
   void _moveSelectedObject(DragUpdateDetails details) {
@@ -404,6 +438,9 @@ class _EditableCanvasState extends State<_EditableCanvas> {
   }
 
   void _finishSelectedObjectMove() {
+    if (_isMovingSelectedObject) {
+      controller.commitEditTransaction();
+    }
     _isMovingSelectedObject = false;
   }
 
@@ -476,23 +513,18 @@ class _ImageAdjustmentPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       controller.editRevision.value;
-      final colorFilter = _colorFilterFor(controller.filter.value);
-
-      final sourceAspectRatio = image.hasValidDimensions
-          ? image.width / image.height
-          : 1.0;
-      final cropAspectRatio =
-          controller.cropPreset.value.aspectRatio ?? sourceAspectRatio;
+      final sourceSize = controller.logicalCanvasSizeFor(image);
+      final croppedSize = controller.croppedLogicalCanvasSizeFor(image);
       Widget preview = SizedBox(
-        width: 1000,
-        height: 1000 / cropAspectRatio.clamp(0.1, 10),
+        width: croppedSize.width,
+        height: croppedSize.height,
         child: ClipRect(
           child: FittedBox(
             fit: BoxFit.cover,
             clipBehavior: Clip.hardEdge,
             child: SizedBox(
-              width: 1000,
-              height: 1000 / sourceAspectRatio.clamp(0.1, 10),
+              width: sourceSize.width,
+              height: sourceSize.height,
               child: child,
             ),
           ),
@@ -500,15 +532,24 @@ class _ImageAdjustmentPreview extends StatelessWidget {
       );
 
       final normalizedDegrees = controller.rotationDegrees.value % 360;
-      if (normalizedDegrees != 0 && normalizedDegrees % 90 == 0) {
-        preview = RotatedBox(
-          quarterTurns: normalizedDegrees ~/ 90,
-          child: preview,
-        );
-      } else if (normalizedDegrees != 0) {
-        preview = Transform.rotate(
-          angle: normalizedDegrees / 180 * math.pi,
-          child: preview,
+      if (normalizedDegrees != 0) {
+        final rotatedSize = controller.transformedLogicalCanvasSizeFor(image);
+        preview = SizedBox(
+          width: rotatedSize.width,
+          height: rotatedSize.height,
+          child: ClipRect(
+            child: OverflowBox(
+              minWidth: 0,
+              minHeight: 0,
+              maxWidth: double.infinity,
+              maxHeight: double.infinity,
+              child: Transform.rotate(
+                angle: normalizedDegrees / 180 * math.pi,
+                alignment: Alignment.center,
+                child: preview,
+              ),
+            ),
+          ),
         );
       }
       if (controller.flipHorizontal.value || controller.flipVertical.value) {
@@ -518,10 +559,6 @@ class _ImageAdjustmentPreview extends StatelessWidget {
           child: preview,
         );
       }
-      if (colorFilter != null) {
-        preview = ColorFiltered(colorFilter: colorFilter, child: preview);
-      }
-
       return ClipRect(
         key: const ValueKey('annotation-adjustment-preview'),
         child: _isImageProcessingMode(controller.mode.value)
@@ -559,244 +596,6 @@ class _ImageAdjustmentPreview extends StatelessWidget {
       AnnotationMode.arrow => false,
     };
   }
-
-  ColorFilter? _colorFilterFor(ImageFilterType? filter) {
-    if (filter == null) {
-      return null;
-    }
-    switch (filter) {
-      case ImageFilterType.grayscale:
-        return const ColorFilter.matrix([
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.monochrome:
-        return const ColorFilter.matrix([
-          1.5,
-          1.5,
-          1.5,
-          0,
-          -180,
-          1.5,
-          1.5,
-          1.5,
-          0,
-          -180,
-          1.5,
-          1.5,
-          1.5,
-          0,
-          -180,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.sepia:
-        return const ColorFilter.matrix([
-          0.393,
-          0.769,
-          0.189,
-          0,
-          0,
-          0.349,
-          0.686,
-          0.168,
-          0,
-          0,
-          0.272,
-          0.534,
-          0.131,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.invert:
-        return const ColorFilter.matrix([
-          -1,
-          0,
-          0,
-          0,
-          255,
-          0,
-          -1,
-          0,
-          0,
-          255,
-          0,
-          0,
-          -1,
-          0,
-          255,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.warm:
-        return const ColorFilter.matrix([
-          1.12,
-          0,
-          0,
-          0,
-          10,
-          0,
-          1.02,
-          0,
-          0,
-          2,
-          0,
-          0,
-          0.90,
-          0,
-          -8,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.cool:
-        return const ColorFilter.matrix([
-          0.90,
-          0,
-          0,
-          0,
-          -8,
-          0,
-          1.02,
-          0,
-          0,
-          2,
-          0,
-          0,
-          1.14,
-          0,
-          10,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.hdr:
-        return const ColorFilter.matrix([
-          1.25,
-          0,
-          0,
-          0,
-          -16,
-          0,
-          1.25,
-          0,
-          0,
-          -16,
-          0,
-          0,
-          1.25,
-          0,
-          -16,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.film:
-        return const ColorFilter.matrix([
-          1.05,
-          0.05,
-          0,
-          0,
-          8,
-          0.04,
-          0.98,
-          0.02,
-          0,
-          4,
-          0,
-          0.06,
-          0.92,
-          0,
-          10,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.sharpen:
-        return const ColorFilter.matrix([
-          1.12,
-          0,
-          0,
-          0,
-          -6,
-          0,
-          1.12,
-          0,
-          0,
-          -6,
-          0,
-          0,
-          1.12,
-          0,
-          -6,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-      case ImageFilterType.soften:
-        return const ColorFilter.matrix([
-          0.94,
-          0.03,
-          0.03,
-          0,
-          4,
-          0.03,
-          0.94,
-          0.03,
-          0,
-          4,
-          0.03,
-          0.03,
-          0.94,
-          0,
-          4,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]);
-    }
-  }
 }
 
 class _AnnotationBottomToolPanel extends StatelessWidget {
@@ -830,6 +629,7 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
             _handleCategorySelected(context, category.id),
         onSubItemSelected: (item) =>
             _handleSubItemSelected(context, activeCategoryId, item.id),
+        onClosePanel: controller.closePropertyPanel,
         activePanel: _activePanel(),
         maxPanelHeight: 260,
         showPanelHeader: false,
@@ -1016,8 +816,19 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
     }
     if (categoryId == AnnotationMode.text.value) {
       controller.setMode(AnnotationMode.text);
+      controller.beginEditTransaction();
       controller.createDefaultTextLayer();
-      await _showTextEditor(context, controller);
+      try {
+        final confirmed = await _showTextEditor(context, controller);
+        if (confirmed) {
+          controller.commitEditTransaction();
+        } else {
+          controller.cancelEditTransaction();
+        }
+      } catch (_) {
+        controller.cancelEditTransaction();
+        rethrow;
+      }
       return;
     }
     final mode = AnnotationMode.values.firstWhereOrNull(
@@ -1089,13 +900,13 @@ class _AnnotationBottomToolPanel extends StatelessWidget {
   }
 }
 
-Future<void> _showTextEditor(
+Future<bool> _showTextEditor(
   BuildContext context,
   AnnotationController controller,
 ) async {
   // 文本弹窗已经承载文本属性编辑，打开前收起常驻面板，避免同一文本出现两套设置入口。
   controller.closePropertyPanel();
-  await showModalBottomSheet<void>(
+  final confirmed = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     builder: (context) {
@@ -1115,7 +926,7 @@ Future<void> _showTextEditor(
                 alignment: Alignment.centerRight,
                 child: IconButton(
                   tooltip: 'annotation.action.closePanel'.tr,
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => Navigator.of(context).pop(false),
                   icon: const Icon(Icons.close),
                 ),
               ),
@@ -1138,7 +949,7 @@ Future<void> _showTextEditor(
                 child: FilledButton(
                   onPressed: () {
                     if (controller.updateSelectedTextLayer()) {
-                      Navigator.of(context).pop();
+                      Navigator.of(context).pop(true);
                     }
                   },
                   child: Text('common.confirm'.tr),
@@ -1150,6 +961,7 @@ Future<void> _showTextEditor(
       );
     },
   );
+  return confirmed ?? false;
 }
 
 class _AnnotationPropertyPanel extends StatelessWidget {
@@ -1240,7 +1052,9 @@ class _MosaicSingleLinePropertyPanel extends StatelessWidget {
                 max: 60,
                 divisions: 58,
                 value: strokeValue.toDouble(),
+                onChangeStart: (_) => controller.beginEditTransaction(),
                 onChanged: controller.updateStrokeWidth,
+                onChangeEnd: (_) => controller.commitEditTransaction(),
               ),
             ),
           ],
@@ -1355,8 +1169,10 @@ class _RotateToolPanel extends StatelessWidget {
                 max: 180,
                 divisions: 360,
                 value: degrees.toDouble().clamp(-180, 180),
+                onChangeStart: (_) => controller.beginEditTransaction(),
                 onChanged: (value) =>
                     controller.setRotationDegrees(value.round()),
+                onChangeEnd: (_) => controller.commitEditTransaction(),
               ),
             ),
           ],
@@ -1445,7 +1261,9 @@ class _ResizeToolPanel extends StatelessWidget {
                 max: 300,
                 divisions: 290,
                 value: controller.resizePercent.value.clamp(10, 300),
+                onChangeStart: (_) => controller.beginEditTransaction(),
                 onChanged: controller.updateResizePercent,
+                onChangeEnd: (_) => controller.commitEditTransaction(),
               ),
             ),
           ],
@@ -1566,7 +1384,9 @@ class _TextStyleControls extends StatelessWidget {
                           AnnotationController.minTextSize)
                       .round(),
               value: controller.textSize.value,
+              onChangeStart: (_) => controller.beginEditTransaction(),
               onChanged: controller.updateTextSize,
+              onChangeEnd: (_) => controller.commitEditTransaction(),
             ),
           ),
           const SizedBox(width: 8),
@@ -1607,7 +1427,9 @@ class _TextEditorStyleControls extends StatelessWidget {
                               AnnotationController.minTextSize)
                           .round(),
                   value: controller.textSize.value,
+                  onChangeStart: (_) => controller.beginEditTransaction(),
                   onChanged: controller.updateTextSize,
+                  onChangeEnd: (_) => controller.commitEditTransaction(),
                 ),
               ),
             ],
@@ -1709,7 +1531,9 @@ class _StrokeAndColorControls extends StatelessWidget {
                   max: 60,
                   divisions: 58,
                   value: strokeValue.toDouble(),
+                  onChangeStart: (_) => controller.beginEditTransaction(),
                   onChanged: controller.updateStrokeWidth,
+                  onChangeEnd: (_) => controller.commitEditTransaction(),
                 ),
               ),
             ],
@@ -1863,83 +1687,90 @@ Future<void> _showResizeSettingsPanel(
   BuildContext context,
   AnnotationController controller,
 ) async {
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) {
-      return SafeArea(
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 12,
-            bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-          ),
-          child: Obx(
-            () => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    tooltip: 'annotation.action.closePanel'.tr,
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
+  controller.beginEditTransaction();
+  try {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 12,
+              bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+            ),
+            child: Obx(
+              () => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      tooltip: 'annotation.action.closePanel'.tr,
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
                   ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _DimensionField(
-                        label: 'resize.size.width'.tr,
-                        controller: controller.resizeWidthController,
-                        onChanged: controller.updateResizeWidth,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _DimensionField(
+                          label: 'resize.size.width'.tr,
+                          controller: controller.resizeWidthController,
+                          onChanged: controller.updateResizeWidth,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _DimensionField(
-                        label: 'resize.size.height'.tr,
-                        controller: controller.resizeHeightController,
-                        onChanged: controller.updateResizeHeight,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _DimensionField(
+                          label: 'resize.size.height'.tr,
+                          controller: controller.resizeHeightController,
+                          onChanged: controller.updateResizeHeight,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: Text('resize.size.keepAspectRatio'.tr),
-                  value: controller.resizeKeepAspectRatio.value,
-                  onChanged: controller.setResizeKeepAspectRatio,
-                ),
-                Row(
-                  children: [
-                    Text(
-                      'resize.size.percent'.trParams({
-                        'percent': controller.resizePercent.value
-                            .round()
-                            .toString(),
-                      }),
-                    ),
-                    Expanded(
-                      child: Slider(
-                        min: 10,
-                        max: 300,
-                        divisions: 290,
-                        value: controller.resizePercent.value.clamp(10, 300),
-                        onChanged: controller.updateResizePercent,
+                    ],
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text('resize.size.keepAspectRatio'.tr),
+                    value: controller.resizeKeepAspectRatio.value,
+                    onChanged: controller.setResizeKeepAspectRatio,
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        'resize.size.percent'.trParams({
+                          'percent': controller.resizePercent.value
+                              .round()
+                              .toString(),
+                        }),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Expanded(
+                        child: Slider(
+                          min: 10,
+                          max: 300,
+                          divisions: 290,
+                          value: controller.resizePercent.value.clamp(10, 300),
+                          onChanged: controller.updateResizePercent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
+    controller.commitEditTransaction();
+  } catch (_) {
+    controller.cancelEditTransaction();
+    rethrow;
+  }
 }
 
 class _ChoicePill extends StatelessWidget {
@@ -2045,11 +1876,14 @@ class _ObjectControlOverlay extends StatelessWidget {
               center: handle.center,
               size: _dragDotSize,
               child: _ShapeScaleHandle(
+                onPanStart: (_) => controller.beginEditTransaction(),
                 onPanUpdate: (details) =>
                     controller.resizeSelectedShapeFromCorner(
                       corner: handle.corner,
                       point: canvasPointFromGlobal(details.globalPosition),
                     ),
+                onPanEnd: (_) => controller.commitEditTransaction(),
+                onPanCancel: controller.commitEditTransaction,
               ),
             ),
           if (geometry.rotateHandle != null)
@@ -2057,9 +1891,12 @@ class _ObjectControlOverlay extends StatelessWidget {
               center: geometry.rotateHandle!,
               size: _controlSize,
               child: _RotationHandle(
+                onPanStart: (_) => controller.beginEditTransaction(),
                 onPanUpdate: (details) => controller.rotateSelectedShapeTo(
                   canvasPointFromGlobal(details.globalPosition),
                 ),
+                onPanEnd: (_) => controller.commitEditTransaction(),
+                onPanCancel: controller.commitEditTransaction,
               ),
             ),
           if (geometry.arrowStart != null)
@@ -2067,11 +1904,14 @@ class _ObjectControlOverlay extends StatelessWidget {
               center: geometry.arrowStart!,
               size: _dragDotSize,
               child: _ArrowEndpointHandle(
+                onPanStart: (_) => controller.beginEditTransaction(),
                 onPanUpdate: (details) =>
                     controller.updateSelectedArrowScaleHandle(
                       isHead: false,
                       point: canvasPointFromGlobal(details.globalPosition),
                     ),
+                onPanEnd: (_) => controller.commitEditTransaction(),
+                onPanCancel: controller.commitEditTransaction,
               ),
             ),
           if (geometry.arrowEnd != null)
@@ -2079,11 +1919,14 @@ class _ObjectControlOverlay extends StatelessWidget {
               center: geometry.arrowEnd!,
               size: _dragDotSize,
               child: _ArrowEndpointHandle(
+                onPanStart: (_) => controller.beginEditTransaction(),
                 onPanUpdate: (details) =>
                     controller.updateSelectedArrowScaleHandle(
                       isHead: true,
                       point: canvasPointFromGlobal(details.globalPosition),
                     ),
+                onPanEnd: (_) => controller.commitEditTransaction(),
+                onPanCancel: controller.commitEditTransaction,
               ),
             ),
           if (geometry.arrowDirectionHandle != null)
@@ -2091,9 +1934,12 @@ class _ObjectControlOverlay extends StatelessWidget {
               center: geometry.arrowDirectionHandle!,
               size: _controlSize,
               child: _ArrowDirectionHandle(
+                onPanStart: (_) => controller.beginEditTransaction(),
                 onPanUpdate: (details) => controller.rotateSelectedArrowTo(
                   canvasPointFromGlobal(details.globalPosition),
                 ),
+                onPanEnd: (_) => controller.commitEditTransaction(),
+                onPanCancel: controller.commitEditTransaction,
               ),
             ),
         ],
@@ -2126,16 +1972,27 @@ class _PositionedControl extends StatelessWidget {
 }
 
 class _RotationHandle extends StatelessWidget {
-  const _RotationHandle({required this.onPanUpdate});
+  const _RotationHandle({
+    required this.onPanStart,
+    required this.onPanUpdate,
+    required this.onPanEnd,
+    required this.onPanCancel,
+  });
 
+  final GestureDragStartCallback onPanStart;
   final GestureDragUpdateCallback onPanUpdate;
+  final GestureDragEndCallback onPanEnd;
+  final GestureDragCancelCallback onPanCancel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onPanStart: onPanStart,
       onPanUpdate: onPanUpdate,
+      onPanEnd: onPanEnd,
+      onPanCancel: onPanCancel,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.primary,
@@ -2156,16 +2013,27 @@ class _RotationHandle extends StatelessWidget {
 }
 
 class _ArrowEndpointHandle extends StatelessWidget {
-  const _ArrowEndpointHandle({required this.onPanUpdate});
+  const _ArrowEndpointHandle({
+    required this.onPanStart,
+    required this.onPanUpdate,
+    required this.onPanEnd,
+    required this.onPanCancel,
+  });
 
+  final GestureDragStartCallback onPanStart;
   final GestureDragUpdateCallback onPanUpdate;
+  final GestureDragEndCallback onPanEnd;
+  final GestureDragCancelCallback onPanCancel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onPanStart: onPanStart,
       onPanUpdate: onPanUpdate,
+      onPanEnd: onPanEnd,
+      onPanCancel: onPanCancel,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surface,
@@ -2185,16 +2053,27 @@ class _ArrowEndpointHandle extends StatelessWidget {
 }
 
 class _ShapeScaleHandle extends StatelessWidget {
-  const _ShapeScaleHandle({required this.onPanUpdate});
+  const _ShapeScaleHandle({
+    required this.onPanStart,
+    required this.onPanUpdate,
+    required this.onPanEnd,
+    required this.onPanCancel,
+  });
 
+  final GestureDragStartCallback onPanStart;
   final GestureDragUpdateCallback onPanUpdate;
+  final GestureDragEndCallback onPanEnd;
+  final GestureDragCancelCallback onPanCancel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onPanStart: onPanStart,
       onPanUpdate: onPanUpdate,
+      onPanEnd: onPanEnd,
+      onPanCancel: onPanCancel,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surface,
@@ -2214,16 +2093,27 @@ class _ShapeScaleHandle extends StatelessWidget {
 }
 
 class _ArrowDirectionHandle extends StatelessWidget {
-  const _ArrowDirectionHandle({required this.onPanUpdate});
+  const _ArrowDirectionHandle({
+    required this.onPanStart,
+    required this.onPanUpdate,
+    required this.onPanEnd,
+    required this.onPanCancel,
+  });
 
+  final GestureDragStartCallback onPanStart;
   final GestureDragUpdateCallback onPanUpdate;
+  final GestureDragEndCallback onPanEnd;
+  final GestureDragCancelCallback onPanCancel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onPanStart: onPanStart,
       onPanUpdate: onPanUpdate,
+      onPanEnd: onPanEnd,
+      onPanCancel: onPanCancel,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.primary,
@@ -2289,7 +2179,7 @@ class _MosaicPainter extends CustomPainter {
     }
     switch (kind) {
       case MosaicStrokeKind.freehand:
-        for (final point in points) {
+        for (final point in sampleContinuousRedactionPoints(points, width)) {
           canvas.drawRect(
             Rect.fromCenter(
               center: point,

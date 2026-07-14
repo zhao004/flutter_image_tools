@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 
 import '../../exceptions/app_exception.dart';
 import '../../models/annotated_image_file.dart';
+import '../../models/image_edit_transform.dart';
 import '../../models/local_image_file.dart';
 import '../filter/filter_controller.dart';
 import '../../repositories/operation_history_repository.dart';
@@ -469,8 +470,6 @@ class EditableArrowDrawable extends ObjectDrawable implements ShapeDrawable {
 class AnnotationPainterController extends ChangeNotifier {
   final GlobalKey painterKey = GlobalKey();
   final List<ObjectDrawable> _drawables = <ObjectDrawable>[];
-  final List<_PainterSnapshot> _undoStack = <_PainterSnapshot>[];
-  final List<_PainterSnapshot> _redoStack = <_PainterSnapshot>[];
 
   ObjectDrawable? _selectedObjectDrawable;
 
@@ -479,18 +478,12 @@ class AnnotationPainterController extends ChangeNotifier {
 
   ObjectDrawable? get selectedObjectDrawable => _selectedObjectDrawable;
 
-  bool get canUndo => _undoStack.isNotEmpty;
-
-  bool get canRedo => _redoStack.isNotEmpty;
-
   void addDrawables(List<ObjectDrawable> drawables) {
     if (drawables.isEmpty) {
       return;
     }
-    _saveUndoState();
     _drawables.addAll(drawables);
     _selectedObjectDrawable = drawables.last;
-    _redoStack.clear();
     notifyListeners();
   }
 
@@ -499,12 +492,10 @@ class AnnotationPainterController extends ChangeNotifier {
     if (index < 0) {
       return;
     }
-    _saveUndoState();
     _drawables[index] = next;
     if (identical(_selectedObjectDrawable, current)) {
       _selectedObjectDrawable = next;
     }
-    _redoStack.clear();
     notifyListeners();
   }
 
@@ -513,13 +504,9 @@ class AnnotationPainterController extends ChangeNotifier {
     if (!removed) {
       return;
     }
-    _saveUndoStateFrom(
-      drawables: List<ObjectDrawable>.of(_drawables)..add(drawable),
-    );
     if (identical(_selectedObjectDrawable, drawable)) {
       _selectedObjectDrawable = null;
     }
-    _redoStack.clear();
     notifyListeners();
   }
 
@@ -527,10 +514,8 @@ class AnnotationPainterController extends ChangeNotifier {
     if (_drawables.isEmpty && _selectedObjectDrawable == null) {
       return;
     }
-    _saveUndoState();
     _drawables.clear();
     _selectedObjectDrawable = null;
-    _redoStack.clear();
     notifyListeners();
   }
 
@@ -556,12 +541,7 @@ class AnnotationPainterController extends ChangeNotifier {
   void setDrawables({
     required List<ObjectDrawable> drawables,
     ObjectDrawable? selected,
-    bool recordUndo = false,
   }) {
-    if (recordUndo) {
-      _saveUndoState();
-      _redoStack.clear();
-    }
     _drawables
       ..clear()
       ..addAll(drawables);
@@ -570,94 +550,32 @@ class AnnotationPainterController extends ChangeNotifier {
         : null;
     notifyListeners();
   }
-
-  void undo() {
-    if (_undoStack.isEmpty) {
-      return;
-    }
-    _redoStack.add(
-      _PainterSnapshot.capture(_drawables, _selectedObjectDrawable),
-    );
-    _restoreSnapshot(_undoStack.removeLast());
-  }
-
-  void redo() {
-    if (_redoStack.isEmpty) {
-      return;
-    }
-    _undoStack.add(
-      _PainterSnapshot.capture(_drawables, _selectedObjectDrawable),
-    );
-    _restoreSnapshot(_redoStack.removeLast());
-  }
-
-  Future<ui.Image> renderImage(Size outputSize, Size canvasSize) async {
-    if (outputSize.width <= 0 || outputSize.height <= 0) {
-      throw AppException('annotation.error.exportEmpty'.tr);
-    }
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final scaleX = outputSize.width / canvasSize.width;
-    final scaleY = outputSize.height / canvasSize.height;
-    canvas.scale(scaleX, scaleY);
-    drawAnnotationObjects(canvas, canvasSize, _drawables);
-    return recorder.endRecording().toImage(
-      outputSize.width.round(),
-      outputSize.height.round(),
-    );
-  }
-
-  void _saveUndoState() {
-    _saveUndoStateFrom(drawables: _drawables);
-  }
-
-  void _saveUndoStateFrom({required List<ObjectDrawable> drawables}) {
-    _undoStack.add(
-      _PainterSnapshot.capture(drawables, _selectedObjectDrawable),
-    );
-    if (_undoStack.length > 50) {
-      _undoStack.removeAt(0);
-    }
-  }
-
-  void _restoreSnapshot(_PainterSnapshot snapshot) {
-    _drawables
-      ..clear()
-      ..addAll(snapshot.drawables);
-    _selectedObjectDrawable = snapshot.restoreSelected(_drawables);
-    notifyListeners();
-  }
-}
-
-class _PainterSnapshot {
-  const _PainterSnapshot({
-    required this.drawables,
-    required this.selectedIndex,
-  });
-
-  final List<ObjectDrawable> drawables;
-  final int selectedIndex;
-
-  static _PainterSnapshot capture(
-    List<ObjectDrawable> drawables,
-    ObjectDrawable? selected,
-  ) {
-    return _PainterSnapshot(
-      drawables: drawables.map(_cloneDrawable).toList(growable: false),
-      selectedIndex: selected == null ? -1 : drawables.indexOf(selected),
-    );
-  }
-
-  ObjectDrawable? restoreSelected(List<ObjectDrawable> restored) {
-    if (selectedIndex < 0 || selectedIndex >= restored.length) {
-      return null;
-    }
-    return restored[selectedIndex];
-  }
 }
 
 ObjectDrawable _cloneDrawable(ObjectDrawable drawable) {
-  return drawable.copyWith();
+  return switch (drawable) {
+    TextDrawable item => item.copyWith(
+      style: item.style.copyWith(
+        shadows: item.style.shadows == null
+            ? null
+            : List<Shadow>.of(item.style.shadows!),
+      ),
+    ),
+    RectangleDrawable item => item.copyWith(paint: _clonePaint(item.paint)),
+    OvalDrawable item => item.copyWith(paint: _clonePaint(item.paint)),
+    EditableArrowDrawable item => item.copyWith(paint: _clonePaint(item.paint)),
+    _ => drawable.copyWith(),
+  };
+}
+
+Paint _clonePaint(Paint source) {
+  return Paint()
+    ..color = source.color
+    ..strokeWidth = source.strokeWidth
+    ..style = source.style
+    ..strokeCap = source.strokeCap
+    ..strokeJoin = source.strokeJoin
+    ..isAntiAlias = source.isAntiAlias;
 }
 
 void drawAnnotationObjects(
@@ -676,6 +594,41 @@ void drawAnnotationObjects(
     drawable.drawObject(canvas, size);
     canvas.restore();
   }
+}
+
+/// 按遮挡块宽度补齐相邻采样点，确保快速拖动时不会留下透明缝隙。
+List<Offset> sampleContinuousRedactionPoints(
+  List<Offset> points,
+  double strokeWidth,
+) {
+  if (points.length < 2) {
+    return List<Offset>.unmodifiable(points);
+  }
+  final safeStrokeWidth = strokeWidth.isFinite && strokeWidth > 0
+      ? strokeWidth
+      : 1.0;
+  final spacing = math.max(1.0, safeStrokeWidth * 0.75);
+  final sampled = <Offset>[];
+  for (var index = 0; index < points.length - 1; index++) {
+    final start = points[index];
+    final end = points[index + 1];
+    if (!start.dx.isFinite ||
+        !start.dy.isFinite ||
+        !end.dx.isFinite ||
+        !end.dy.isFinite) {
+      continue;
+    }
+    final distance = (end - start).distance;
+    final steps = math.max(1, (distance / spacing).ceil());
+    for (var step = 0; step < steps; step++) {
+      sampled.add(Offset.lerp(start, end, step / steps)!);
+    }
+  }
+  final last = points.last;
+  if (last.dx.isFinite && last.dy.isFinite) {
+    sampled.add(last);
+  }
+  return List<Offset>.unmodifiable(sampled);
 }
 
 /// 图片编辑控制器，使用本地画布处理文字、形状、箭头、画笔和对象变换。
@@ -700,9 +653,9 @@ class AnnotationController extends GetxController {
   static const double _minDrawableSide = 16;
   static const double _maxShapeStrokeWidth = 32;
   static const Color _defaultAnnotationColor = Color(0xFFE53935);
-  static const String _defaultText = '请输入文字';
+  static const int _historyLimit = 50;
   static const int _minResizeDimension = 1;
-  static const int _maxResizeDimension = LocalImageChannel.maxResizeDimension;
+  static const int _maxResizeDimension = ImageEditorLimits.maxResizeDimension;
 
   final LocalImageChannel _imageChannel;
   final OperationHistoryRepository _historyRepository;
@@ -731,12 +684,25 @@ class AnnotationController extends GetxController {
   final flipVertical = false.obs;
   final resizeKeepAspectRatio = true.obs;
   final resizePercent = 100.0.obs;
+  final resizeMode = ImageEditResizeMode.none.obs;
+  final resizePrimaryAxis = ImageEditDimensionAxis.width.obs;
   final cropPreset = AnnotationCropPreset.original.obs;
   final resizeWidthController = TextEditingController();
   final resizeHeightController = TextEditingController();
+  final filteredPreviewBytes = Rxn<Uint8List>();
+  final isPreviewLoading = false.obs;
 
-  ui.Image? _backgroundImage;
-  Size _canvasSize = Size.zero;
+  final List<_AnnotationDocumentSnapshot> _undoStack =
+      <_AnnotationDocumentSnapshot>[];
+  final List<_AnnotationDocumentSnapshot> _redoStack =
+      <_AnnotationDocumentSnapshot>[];
+  _AnnotationDocumentSnapshot? _interactionSnapshot;
+  int _interactionDepth = 0;
+  bool _interactionChanged = false;
+  bool _isRestoringSnapshot = false;
+  int _previewGeneration = 0;
+
+  String get defaultText => 'annotation.text.default'.tr;
 
   bool get hasEdits {
     editRevision.value;
@@ -767,48 +733,42 @@ class AnnotationController extends GetxController {
     if (!image.hasValidDimensions) {
       return const Size(1, 1);
     }
+    return _currentTransform(
+      includeValidResize: true,
+    ).outputSizeFor(Size(image.width.toDouble(), image.height.toDouble()));
+  }
 
-    var width = image.width.toDouble();
-    var height = image.height.toDouble();
-    final cropAspectRatio = cropPreset.value.aspectRatio;
-    if (cropAspectRatio != null && cropAspectRatio.isFinite) {
-      final sourceAspectRatio = _safeAspectRatio(width, height);
-      if (sourceAspectRatio > cropAspectRatio) {
-        width = height * cropAspectRatio;
-      } else {
-        height = width / cropAspectRatio;
-      }
+  /// 返回与实际手势层一致的固定逻辑画布，屏幕尺寸不会改变文档坐标。
+  Size logicalCanvasSizeFor(LocalImageFile image) {
+    if (!image.hasValidDimensions) {
+      return const Size.square(ImageEditorLimits.logicalCanvasWidth);
     }
-
-    final normalizedRotation = rotationDegrees.value.abs() % 180;
-    if (normalizedRotation == 90) {
-      final nextWidth = height;
-      height = width;
-      width = nextWidth;
-    }
-
-    final resizeDimensions = _hasResizeAdjustment(image)
-        ? _readResizeDimensions(showError: false)
-        : null;
-    if (resizeDimensions != null) {
-      width = resizeDimensions.width.toDouble();
-      height = resizeDimensions.height.toDouble();
-    }
-
     return Size(
-      width.clamp(1, _maxResizeDimension).toDouble(),
-      height.clamp(1, _maxResizeDimension).toDouble(),
+      ImageEditorLimits.logicalCanvasWidth,
+      ImageEditorLimits.logicalCanvasWidth * image.height / image.width,
     );
+  }
+
+  Size croppedLogicalCanvasSizeFor(LocalImageFile image) {
+    return _currentTransform(
+      includeValidResize: false,
+    ).croppedSizeFor(logicalCanvasSizeFor(image));
+  }
+
+  Size transformedLogicalCanvasSizeFor(LocalImageFile image) {
+    return _currentTransform(
+      includeValidResize: false,
+    ).preResizeSizeFor(logicalCanvasSizeFor(image));
   }
 
   bool get canUndo {
     editRevision.value;
-    return painterController.canUndo || strokes.isNotEmpty;
+    return _undoStack.isNotEmpty;
   }
 
   bool get canRedo {
     editRevision.value;
-    return painterController.canRedo;
+    return _redoStack.isNotEmpty;
   }
 
   @override
@@ -822,32 +782,235 @@ class AnnotationController extends GetxController {
   void onClose() {
     painterController.removeListener(_notifyPainterChanged);
     painterController.dispose();
-    _backgroundImage?.dispose();
+    _previewGeneration++;
     textController.dispose();
     resizeWidthController.dispose();
     resizeHeightController.dispose();
     super.onClose();
   }
 
+  /// 开始一次连续编辑事务，拖动和滑杆更新期间只记录一个撤销节点。
+  ///
+  /// 弹层内可能包含自己的滑杆事务，因此使用嵌套深度延迟到最外层再提交。
+  void beginEditTransaction() {
+    if (isBusy.value) {
+      return;
+    }
+    if (_interactionSnapshot != null) {
+      _interactionDepth++;
+      return;
+    }
+    _interactionSnapshot = _captureDocumentSnapshot();
+    _interactionDepth = 1;
+    _interactionChanged = false;
+  }
+
+  /// 提交连续编辑事务；没有实际修改时不会污染历史栈。
+  void commitEditTransaction() {
+    final snapshot = _interactionSnapshot;
+    if (snapshot == null) {
+      _interactionDepth = 0;
+      _interactionChanged = false;
+      return;
+    }
+    if (_interactionDepth > 1) {
+      _interactionDepth--;
+      return;
+    }
+    _interactionSnapshot = null;
+    _interactionDepth = 0;
+    if (!_interactionChanged) {
+      _interactionChanged = false;
+      return;
+    }
+    _pushUndo(snapshot);
+    _redoStack.clear();
+    _interactionChanged = false;
+    editRevision.value++;
+  }
+
+  /// 取消连续编辑事务并恢复开始时状态，供弹层取消或手势中断使用。
+  void cancelEditTransaction() {
+    final snapshot = _interactionSnapshot;
+    _interactionSnapshot = null;
+    _interactionDepth = 0;
+    _interactionChanged = false;
+    if (snapshot != null) {
+      _restoreDocumentSnapshot(snapshot);
+    }
+  }
+
+  void _runDocumentMutation(VoidCallback mutation) {
+    if (isBusy.value || _isRestoringSnapshot) {
+      return;
+    }
+    final before = _interactionSnapshot == null
+        ? _captureDocumentSnapshot()
+        : null;
+    mutation();
+    result.value = null;
+    editRevision.value++;
+    if (_interactionSnapshot != null) {
+      _interactionChanged = true;
+      return;
+    }
+    if (before != null) {
+      _pushUndo(before);
+      _redoStack.clear();
+    }
+  }
+
+  void _pushUndo(_AnnotationDocumentSnapshot snapshot) {
+    _undoStack.add(snapshot);
+    if (_undoStack.length > _historyLimit) {
+      _undoStack.removeAt(0);
+    }
+  }
+
+  _AnnotationDocumentSnapshot _captureDocumentSnapshot() {
+    final drawables = painterController.drawables;
+    final selectedIndex = painterController.selectedObjectDrawable == null
+        ? -1
+        : drawables.indexOf(painterController.selectedObjectDrawable!);
+    return _AnnotationDocumentSnapshot(
+      drawables: drawables.map(_cloneDrawable).toList(growable: false),
+      strokes: strokes
+          .map(
+            (stroke) => stroke.copyWith(points: List<Offset>.of(stroke.points)),
+          )
+          .toList(growable: false),
+      selectedObjectIndex: selectedIndex,
+      selectedMosaicIndex: selectedMosaicIndex.value,
+      filter: filter.value,
+      rotationDegrees: rotationDegrees.value,
+      flipHorizontal: flipHorizontal.value,
+      flipVertical: flipVertical.value,
+      cropPreset: cropPreset.value,
+      resizeKeepAspectRatio: resizeKeepAspectRatio.value,
+      resizePercent: resizePercent.value,
+      resizeMode: resizeMode.value,
+      resizePrimaryAxis: resizePrimaryAxis.value,
+      resizeWidthText: resizeWidthController.text,
+      resizeHeightText: resizeHeightController.text,
+      annotationColor: color.value,
+      strokeWidth: strokeWidth.value,
+      text: textController.text,
+      textSize: textSize.value,
+      textFont: textFont.value,
+      arrowStyle: arrowStyle.value,
+      mosaicDrawMode: mosaicDrawMode.value,
+    );
+  }
+
+  void _restoreDocumentSnapshot(_AnnotationDocumentSnapshot snapshot) {
+    _isRestoringSnapshot = true;
+    try {
+      final restoredDrawables = snapshot.drawables
+          .map(_cloneDrawable)
+          .toList(growable: false);
+      final restoredSelected =
+          snapshot.selectedObjectIndex >= 0 &&
+              snapshot.selectedObjectIndex < restoredDrawables.length
+          ? restoredDrawables[snapshot.selectedObjectIndex]
+          : null;
+      painterController.setDrawables(
+        drawables: restoredDrawables,
+        selected: restoredSelected,
+      );
+      strokes.assignAll(
+        snapshot.strokes.map(
+          (stroke) => stroke.copyWith(points: List<Offset>.of(stroke.points)),
+        ),
+      );
+      selectedObject.value = restoredSelected;
+      final mosaicIndex = snapshot.selectedMosaicIndex;
+      selectedMosaicIndex.value =
+          mosaicIndex != null &&
+              mosaicIndex >= 0 &&
+              mosaicIndex < strokes.length
+          ? mosaicIndex
+          : null;
+      filter.value = snapshot.filter;
+      rotationDegrees.value = snapshot.rotationDegrees;
+      flipHorizontal.value = snapshot.flipHorizontal;
+      flipVertical.value = snapshot.flipVertical;
+      cropPreset.value = snapshot.cropPreset;
+      resizeKeepAspectRatio.value = snapshot.resizeKeepAspectRatio;
+      resizePercent.value = snapshot.resizePercent;
+      resizeMode.value = snapshot.resizeMode;
+      resizePrimaryAxis.value = snapshot.resizePrimaryAxis;
+      resizeWidthController.text = snapshot.resizeWidthText;
+      resizeHeightController.text = snapshot.resizeHeightText;
+      color.value = snapshot.annotationColor;
+      strokeWidth.value = snapshot.strokeWidth;
+      textController.text = snapshot.text;
+      textSize.value = snapshot.textSize;
+      textFont.value = snapshot.textFont;
+      arrowStyle.value = snapshot.arrowStyle;
+      mosaicDrawMode.value = snapshot.mosaicDrawMode;
+      isPropertyPanelVisible.value =
+          restoredSelected != null || selectedMosaicIndex.value != null;
+      result.value = null;
+      editRevision.value++;
+    } finally {
+      _isRestoringSnapshot = false;
+    }
+    unawaited(_refreshFilteredPreview());
+  }
+
+  void _clearDocumentState({required bool resetHistory}) {
+    _isRestoringSnapshot = true;
+    try {
+      painterController.setDrawables(drawables: const <ObjectDrawable>[]);
+      strokes.clear();
+      selectedObject.value = null;
+      selectedMosaicIndex.value = null;
+      isPropertyPanelVisible.value = false;
+      result.value = null;
+      if (resetHistory) {
+        _undoStack.clear();
+        _redoStack.clear();
+        _interactionSnapshot = null;
+        _interactionDepth = 0;
+        _interactionChanged = false;
+      }
+      editRevision.value++;
+    } finally {
+      _isRestoringSnapshot = false;
+    }
+  }
+
   Future<void> pickImage() async {
     if (isBusy.value) {
       return;
     }
+    isBusy.value = true;
     try {
       final image = await _imageChannel.pickSingleImage();
       if (image == null) {
         return;
       }
-      await _loadBackground(image);
+      if (!image.hasValidDimensions ||
+          image.width * image.height > ImageEditorLimits.maxWorkingPixels) {
+        throw AppException(
+          'annotation.error.imageTooLarge'.trParams({'max': '16'}),
+        );
+      }
       selectedImage.value = image;
       result.value = null;
       _resetImageAdjustments(image);
-      clearEdits(showMessage: false);
-      await _recentFilesRepository.recordImage(image);
+      _clearDocumentState(resetHistory: true);
+      try {
+        await _recentFilesRepository.recordImage(image);
+      } catch (_) {
+        _showError('annotation.error.recentFileFailed'.tr);
+      }
     } on AppException catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('annotation.error.recentFileFailed'.tr);
+      _showError('annotation.error.pickFailed'.tr);
+    } finally {
+      isBusy.value = false;
     }
   }
 
@@ -871,106 +1034,154 @@ class AnnotationController extends GetxController {
   }
 
   void setFilter(ImageFilterType? value) {
-    filter.value = value;
-    _markImageAdjustmentChanged();
+    if (filter.value == value || isBusy.value) {
+      return;
+    }
+    _runDocumentMutation(() => filter.value = value);
+    unawaited(_refreshFilteredPreview());
   }
 
   void setRotationDegrees(int degrees) {
-    rotationDegrees.value = degrees.clamp(-360, 360);
-    _markImageAdjustmentChanged();
+    final next = degrees.clamp(-360, 360);
+    if (rotationDegrees.value == next || isBusy.value) {
+      return;
+    }
+    _runDocumentMutation(() {
+      rotationDegrees.value = next;
+      _syncResizeForBaseChange();
+    });
   }
 
   void rotateByQuarterTurn(int degrees) {
     final normalized = (rotationDegrees.value + degrees) % 360;
-    rotationDegrees.value = normalized > 180 ? normalized - 360 : normalized;
-    _markImageAdjustmentChanged();
+    setRotationDegrees(normalized > 180 ? normalized - 360 : normalized);
   }
 
   void setFlipHorizontal(bool value) {
-    flipHorizontal.value = value;
-    _markImageAdjustmentChanged();
+    if (flipHorizontal.value == value) {
+      return;
+    }
+    _runDocumentMutation(() => flipHorizontal.value = value);
   }
 
   void setFlipVertical(bool value) {
-    flipVertical.value = value;
-    _markImageAdjustmentChanged();
+    if (flipVertical.value == value) {
+      return;
+    }
+    _runDocumentMutation(() => flipVertical.value = value);
   }
 
   void setCropPreset(AnnotationCropPreset value) {
-    cropPreset.value = value;
-    _markImageAdjustmentChanged();
+    if (cropPreset.value == value) {
+      return;
+    }
+    _runDocumentMutation(() {
+      cropPreset.value = value;
+      _syncResizeForBaseChange();
+    });
   }
 
   void setResizeKeepAspectRatio(bool value) {
-    resizeKeepAspectRatio.value = value;
-    final image = selectedImage.value;
-    if (value && image != null && image.hasValidDimensions) {
-      _syncResizeHeightFromWidth(image);
+    if (resizeKeepAspectRatio.value == value) {
+      return;
     }
-    _markImageAdjustmentChanged();
+    _runDocumentMutation(() {
+      resizeKeepAspectRatio.value = value;
+      if (value) {
+        _syncManualResizeCompanion();
+      }
+    });
   }
 
   void updateResizeWidth(String value) {
-    resizeWidthController.text = value;
-    final image = selectedImage.value;
-    if (resizeKeepAspectRatio.value &&
-        image != null &&
-        image.hasValidDimensions) {
-      _syncResizeHeightFromWidth(image);
-    }
-    _updateResizePercentFromFields(image);
-    _markImageAdjustmentChanged();
+    _runDocumentMutation(() {
+      _setControllerText(resizeWidthController, value);
+      resizeMode.value = ImageEditResizeMode.manual;
+      resizePrimaryAxis.value = ImageEditDimensionAxis.width;
+      if (resizeKeepAspectRatio.value) {
+        _syncManualResizeCompanion();
+      }
+      _updateResizePercentFromFields();
+    });
   }
 
   void updateResizeHeight(String value) {
-    resizeHeightController.text = value;
-    final image = selectedImage.value;
-    if (resizeKeepAspectRatio.value &&
-        image != null &&
-        image.hasValidDimensions) {
-      _syncResizeWidthFromHeight(image);
-    }
-    _updateResizePercentFromFields(image);
-    _markImageAdjustmentChanged();
+    _runDocumentMutation(() {
+      _setControllerText(resizeHeightController, value);
+      resizeMode.value = ImageEditResizeMode.manual;
+      resizePrimaryAxis.value = ImageEditDimensionAxis.height;
+      if (resizeKeepAspectRatio.value) {
+        _syncManualResizeCompanion();
+      }
+      _updateResizePercentFromFields();
+    });
   }
 
   void updateResizePercent(double value) {
-    final image = selectedImage.value;
-    if (image == null || !image.hasValidDimensions) {
+    final baseSize = _resizeBaseSize;
+    if (baseSize == null) {
       return;
     }
     final percent = value.clamp(10, 300).toDouble();
-    resizePercent.value = percent;
-    resizeWidthController.text = _scaleDimension(
-      image.width,
-      percent,
-    ).toString();
-    resizeHeightController.text = _scaleDimension(
-      image.height,
-      percent,
-    ).toString();
-    _markImageAdjustmentChanged();
+    _runDocumentMutation(() {
+      resizePercent.value = percent;
+      resizeMode.value = percent == 100
+          ? ImageEditResizeMode.none
+          : ImageEditResizeMode.percent;
+      resizeWidthController.text = _scaleDimension(
+        baseSize.width,
+        percent,
+      ).toString();
+      resizeHeightController.text = _scaleDimension(
+        baseSize.height,
+        percent,
+      ).toString();
+    });
   }
 
   String get colorHex {
-    final rgb = color.value.toARGB32() & 0x00FFFFFF;
-    return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+    return _formatColorHex(color.value);
   }
 
   void setColor(Color value) {
-    color.value = value;
-    _applyPainterMode();
-    _updateSelectedObjectColor(value);
-    _updateSelectedMosaicColor(value);
-    result.value = null;
-    editRevision.value++;
+    if (color.value == value) {
+      return;
+    }
+    final changesDocument =
+        painterController.selectedObjectDrawable != null ||
+        selectedMosaicIndex.value != null;
+    if (!changesDocument) {
+      color.value = value;
+      _applyPainterMode();
+      return;
+    }
+    _runDocumentMutation(() {
+      color.value = value;
+      _applyPainterMode();
+      _updateSelectedObjectColor(value);
+      _updateSelectedMosaicColor(value);
+    });
   }
 
   void updateStrokeWidth(double value) {
-    strokeWidth.value = value.round().clamp(2, 60);
-    _applyPainterMode();
-    _updateSelectedShapeStrokeWidth(strokeWidth.value.toDouble());
-    _updateSelectedMosaicStrokeWidth(strokeWidth.value.toDouble());
+    final nextWidth = value.round().clamp(2, 60);
+    if (strokeWidth.value == nextWidth) {
+      return;
+    }
+    final changesDocument =
+        painterController.selectedObjectDrawable is ShapeDrawable ||
+        selectedMosaicIndex.value != null;
+    if (!changesDocument) {
+      strokeWidth.value = nextWidth;
+      _applyPainterMode();
+      return;
+    }
+    _runDocumentMutation(() {
+      strokeWidth.value = nextWidth;
+      _applyPainterMode();
+      _updateSelectedShapeStrokeWidth(nextWidth.toDouble());
+      _updateSelectedMosaicStrokeWidth(nextWidth.toDouble());
+    });
   }
 
   void updateCanvasSize(Size size) {
@@ -980,13 +1191,7 @@ class AnnotationController extends GetxController {
         size.height <= 0) {
       return;
     }
-    if ((_canvasSize.width - size.width).abs() < 0.5 &&
-        (_canvasSize.height - size.height).abs() < 0.5) {
-      return;
-    }
-    // 设计意图：布局高度变化只代表预览区域被底部面板挤压，不代表标注内容的逻辑坐标系变化。
-    // 因此这里只更新当前画布尺寸，避免打开工具属性面板时对已有元素做二次缩放而产生抖动。
-    _canvasSize = size;
+    // 视口尺寸仅用于布局；标注文档始终使用固定逻辑画布，避免设备尺寸污染导出坐标。
   }
 
   void createDefaultTextLayer() {
@@ -994,8 +1199,8 @@ class AnnotationController extends GetxController {
       _showError('annotation.error.pickImageFirst'.tr);
       return;
     }
-    textController.text = _defaultText;
-    addTextLayer(text: _defaultText);
+    textController.text = defaultText;
+    addTextLayer(text: defaultText);
   }
 
   void addTextLayer({String? text}) {
@@ -1119,12 +1324,12 @@ class AnnotationController extends GetxController {
       deleteSelectedMosaic();
       return;
     }
-    painterController.removeDrawable(drawable);
-    painterController.deselectObjectDrawable(isRemoved: true);
-    selectedObject.value = null;
-    isPropertyPanelVisible.value = false;
-    result.value = null;
-    editRevision.value++;
+    _runDocumentMutation(() {
+      painterController.removeDrawable(drawable);
+      painterController.deselectObjectDrawable(isRemoved: true);
+      selectedObject.value = null;
+      isPropertyPanelVisible.value = false;
+    });
   }
 
   void deselectSelectedObject() {
@@ -1218,6 +1423,9 @@ class AnnotationController extends GetxController {
     if (drawable == null || drawable.locked) {
       return;
     }
+    if (!delta.dx.isFinite || !delta.dy.isFinite || delta == Offset.zero) {
+      return;
+    }
     final next = drawable.copyWith(position: drawable.position + delta);
     _replaceSelectedObject(drawable, next);
   }
@@ -1226,17 +1434,17 @@ class AnnotationController extends GetxController {
     if (points.length < 2) {
       return;
     }
-    strokes.add(
-      DrawingStroke(
-        mode: AnnotationMode.brush,
-        kind: MosaicStrokeKind.freehand,
-        color: color.value,
-        width: strokeWidth.value.toDouble(),
-        points: List<Offset>.unmodifiable(points),
-      ),
-    );
-    result.value = null;
-    editRevision.value++;
+    _runDocumentMutation(() {
+      strokes.add(
+        DrawingStroke(
+          mode: AnnotationMode.brush,
+          kind: MosaicStrokeKind.freehand,
+          color: color.value,
+          width: strokeWidth.value.toDouble(),
+          points: List<Offset>.unmodifiable(points),
+        ),
+      );
+    });
   }
 
   void setMosaicDrawMode(MosaicDrawMode value) {
@@ -1245,18 +1453,48 @@ class AnnotationController extends GetxController {
   }
 
   void setArrowStyle(EditableArrowStyle value) {
-    arrowStyle.value = value;
-    _updateSelectedArrowStyle(value);
+    if (arrowStyle.value == value) {
+      return;
+    }
+    final changesDocument =
+        painterController.selectedObjectDrawable is EditableArrowDrawable;
+    if (!changesDocument) {
+      arrowStyle.value = value;
+      return;
+    }
+    _runDocumentMutation(() {
+      arrowStyle.value = value;
+      _updateSelectedArrowStyle(value);
+    });
   }
 
   void updateTextSize(double value) {
-    textSize.value = value.clamp(minTextSize, maxTextSize).toDouble();
-    _updateSelectedTextStyle();
+    final next = value.clamp(minTextSize, maxTextSize).toDouble();
+    if (textSize.value == next) {
+      return;
+    }
+    if (painterController.selectedObjectDrawable is! TextDrawable) {
+      textSize.value = next;
+      return;
+    }
+    _runDocumentMutation(() {
+      textSize.value = next;
+      _updateSelectedTextStyle();
+    });
   }
 
   void setTextFont(AnnotationTextFont value) {
-    textFont.value = value;
-    _updateSelectedTextStyle();
+    if (textFont.value == value) {
+      return;
+    }
+    if (painterController.selectedObjectDrawable is! TextDrawable) {
+      textFont.value = value;
+      return;
+    }
+    _runDocumentMutation(() {
+      textFont.value = value;
+      _updateSelectedTextStyle();
+    });
   }
 
   void rotateSelectedShapeTo(Offset point) {
@@ -1267,11 +1505,7 @@ class AnnotationController extends GetxController {
         return;
       }
       final next = drawable.copyWith(rotation: vector.direction - math.pi / 2);
-      painterController.replaceDrawable(drawable, next);
-      painterController.selectObjectDrawable(next);
-      selectedObject.value = next;
-      result.value = null;
-      editRevision.value++;
+      _replaceSelectedObject(drawable, next);
     }
     if (drawable is OvalDrawable) {
       final vector = point - drawable.position;
@@ -1279,11 +1513,7 @@ class AnnotationController extends GetxController {
         return;
       }
       final next = drawable.copyWith(rotation: vector.direction - math.pi / 2);
-      painterController.replaceDrawable(drawable, next);
-      painterController.selectObjectDrawable(next);
-      selectedObject.value = next;
-      result.value = null;
-      editRevision.value++;
+      _replaceSelectedObject(drawable, next);
     }
   }
 
@@ -1343,11 +1573,7 @@ class AnnotationController extends GetxController {
     if (next == null) {
       return;
     }
-    painterController.replaceDrawable(drawable, next);
-    painterController.selectObjectDrawable(next);
-    selectedObject.value = next;
-    result.value = null;
-    editRevision.value++;
+    _replaceSelectedObject(drawable, next);
   }
 
   void rotateSelectedArrowTo(Offset point) {
@@ -1363,41 +1589,42 @@ class AnnotationController extends GetxController {
     if (next == null) {
       return;
     }
-    painterController.replaceDrawable(drawable, next);
-    painterController.selectObjectDrawable(next);
-    selectedObject.value = next;
-    result.value = null;
-    editRevision.value++;
+    _replaceSelectedObject(drawable, next);
   }
 
   void addMosaicStroke(List<Offset> points, {required MosaicStrokeKind kind}) {
     if (points.length < 2) {
       return;
     }
-    final nextPoints = _normalizedMosaicPoints(points, kind);
+    final nextPoints = _normalizedMosaicPoints(
+      points,
+      kind,
+      strokeWidth.value.toDouble(),
+    );
     mosaicDrawMode.value = switch (kind) {
       MosaicStrokeKind.freehand => MosaicDrawMode.freehand,
       MosaicStrokeKind.rectangle => MosaicDrawMode.rectangle,
       MosaicStrokeKind.circle => MosaicDrawMode.circle,
     };
-    strokes.add(
-      DrawingStroke(
-        mode: AnnotationMode.mosaic,
-        kind: kind,
-        color: color.value,
-        width: strokeWidth.value.toDouble(),
-        points: nextPoints,
-      ),
-    );
-    if (kind == MosaicStrokeKind.rectangle || kind == MosaicStrokeKind.circle) {
-      painterController.deselectObjectDrawable();
-      selectedObject.value = null;
-      selectedMosaicIndex.value = strokes.length - 1;
-      mode.value = AnnotationMode.select;
-      isPropertyPanelVisible.value = true;
-    }
-    editRevision.value++;
-    result.value = null;
+    _runDocumentMutation(() {
+      strokes.add(
+        DrawingStroke(
+          mode: AnnotationMode.mosaic,
+          kind: kind,
+          color: color.value,
+          width: strokeWidth.value.toDouble(),
+          points: nextPoints,
+        ),
+      );
+      if (kind == MosaicStrokeKind.rectangle ||
+          kind == MosaicStrokeKind.circle) {
+        painterController.deselectObjectDrawable();
+        selectedObject.value = null;
+        selectedMosaicIndex.value = strokes.length - 1;
+        mode.value = AnnotationMode.select;
+        isPropertyPanelVisible.value = true;
+      }
+    });
   }
 
   void deleteSelectedMosaic() {
@@ -1405,11 +1632,11 @@ class AnnotationController extends GetxController {
     if (index == null || index < 0 || index >= strokes.length) {
       return;
     }
-    strokes.removeAt(index);
-    selectedMosaicIndex.value = null;
-    isPropertyPanelVisible.value = false;
-    result.value = null;
-    editRevision.value++;
+    _runDocumentMutation(() {
+      strokes.removeAt(index);
+      selectedMosaicIndex.value = null;
+      isPropertyPanelVisible.value = false;
+    });
   }
 
   void moveSelectedMosaicBy(Offset delta) {
@@ -1424,9 +1651,9 @@ class AnnotationController extends GetxController {
     final movedPoints = stroke.points
         .map((point) => point + delta)
         .toList(growable: false);
-    strokes[index] = stroke.copyWith(points: movedPoints);
-    result.value = null;
-    editRevision.value++;
+    _runDocumentMutation(
+      () => strokes[index] = stroke.copyWith(points: movedPoints),
+    );
   }
 
   void resizeSelectedMosaicFromCorner({
@@ -1462,55 +1689,42 @@ class AnnotationController extends GetxController {
       fixedCorner.dy + sign.dy * height,
     );
     final nextRect = Rect.fromPoints(fixedCorner, dragged);
-    strokes[index] = stroke.copyWith(
-      points: [nextRect.topLeft, nextRect.bottomRight],
-    );
-    result.value = null;
-    editRevision.value++;
+    _runDocumentMutation(() {
+      strokes[index] = stroke.copyWith(
+        points: [nextRect.topLeft, nextRect.bottomRight],
+      );
+    });
   }
 
   void undo() {
-    if (mode.value == AnnotationMode.mosaic && strokes.isNotEmpty) {
-      strokes.removeLast();
-      selectedMosaicIndex.value = null;
-      editRevision.value++;
-      result.value = null;
+    if (isBusy.value || _undoStack.isEmpty) {
       return;
     }
-    if (painterController.canUndo) {
-      painterController.undo();
-      selectedObject.value = painterController.selectedObjectDrawable;
-      editRevision.value++;
-      result.value = null;
-      return;
-    }
-    if (strokes.isNotEmpty) {
-      strokes.removeLast();
-      selectedMosaicIndex.value = null;
-      editRevision.value++;
-      result.value = null;
-    }
+    _redoStack.add(_captureDocumentSnapshot());
+    _restoreDocumentSnapshot(_undoStack.removeLast());
   }
 
   void redo() {
-    if (!painterController.canRedo) {
+    if (isBusy.value || _redoStack.isEmpty) {
       return;
     }
-    painterController.redo();
-    selectedObject.value = painterController.selectedObjectDrawable;
-    editRevision.value++;
-    result.value = null;
+    _pushUndo(_captureDocumentSnapshot());
+    _restoreDocumentSnapshot(_redoStack.removeLast());
   }
 
   void clearEdits({bool showMessage = true}) {
-    painterController.clearDrawables();
-    painterController.deselectObjectDrawable();
-    strokes.clear();
-    selectedObject.value = null;
-    selectedMosaicIndex.value = null;
-    result.value = null;
-    _applyPainterMode();
-    editRevision.value++;
+    if (isBusy.value || !hasEdits) {
+      return;
+    }
+    _runDocumentMutation(() {
+      painterController.clearDrawables();
+      painterController.deselectObjectDrawable();
+      strokes.clear();
+      selectedObject.value = null;
+      selectedMosaicIndex.value = null;
+      _resetImageAdjustments(selectedImage.value);
+      _applyPainterMode();
+    });
     if (showMessage) {
       showLatestSnackbar(
         'annotation.clear.success.title'.tr,
@@ -1536,55 +1750,76 @@ class AnnotationController extends GetxController {
       _showError('annotation.error.exportFailed'.tr);
       return;
     }
-    final canvasSize = _validCanvasSize;
-    if (canvasSize == null) {
-      _showError('annotation.error.canvasUnavailable'.tr);
+    final transform = _validatedTransform(showError: true);
+    if (transform == null) {
       return;
     }
+    final sourceSize = Size(source.width.toDouble(), source.height.toDouble());
+    if (transform.maximumIntermediatePixels(sourceSize) >
+        ImageEditorLimits.maxWorkingPixels) {
+      _showError('annotation.error.imageTooLarge'.trParams({'max': '16'}));
+      return;
+    }
+    final document = _captureDocumentSnapshot();
+    final canvasSize = logicalCanvasSizeFor(source);
 
     isBusy.value = true;
     try {
-      final outputSize = Size(
-        source.width.toDouble(),
-        source.height.toDouble(),
-      );
-      final pngBytes = await _encodeEditedPreview(
-        outputSize: outputSize,
+      final pngBytes = await _encodeAnnotationOverlay(
+        outputSize: sourceSize,
         canvasSize: canvasSize,
+        drawables: document.drawables,
+        drawingStrokes: document.strokes,
       );
       if (pngBytes.isEmpty) {
         throw AppException('annotation.error.exportEmpty'.tr);
       }
-      final dimensions = _readResizeDimensionsIfNeeded(source);
       final annotated = await _imageChannel.saveEditedImageBytes(
         source: source,
         bytes: pngBytes,
-        filter: filter.value?.value,
-        rotationDegrees: rotationDegrees.value,
-        flipHorizontal: flipHorizontal.value,
-        flipVertical: flipVertical.value,
-        resizeWidth: dimensions?.width,
-        resizeHeight: dimensions?.height,
-        cropAspectRatio: cropPreset.value.aspectRatio,
+        filter: transform.filter,
+        rotationDegrees: transform.rotationDegrees,
+        flipHorizontal: transform.flipHorizontal,
+        flipVertical: transform.flipVertical,
+        resizeWidth: transform.resizeWidth,
+        resizeHeight: transform.resizeHeight,
+        cropAspectRatio: transform.cropAspectRatio,
       );
       result.value = annotated;
-      await _historyRepository.recordOperationSuccess(
-        featureName: 'annotation.featureName'.tr,
-        inputPath: source.path,
-        outputPath: annotated.outputPath,
-        parameters: _historyParameters(),
-      );
       showLatestSnackbar(
         'annotation.export.success.title'.tr,
         'annotation.export.success.message'.tr,
       );
+      try {
+        await _historyRepository.recordOperationSuccess(
+          featureName: 'annotation.featureName'.tr,
+          inputPath: source.path,
+          outputPath: annotated.outputPath,
+          parameters: _historyParameters(
+            document: document,
+            transform: transform,
+          ),
+        );
+      } catch (_) {
+        showLatestSnackbar(
+          'annotation.export.success.title'.tr,
+          'annotation.error.historySaveFailed'.tr,
+        );
+      }
     } catch (error) {
-      await _historyRepository.recordOperationFailure(
-        featureName: 'annotation.featureName'.tr,
-        inputPath: source.path,
-        parameters: _historyParameters(),
-        errorMessage: error is AppException ? error.message : '$error',
-      );
+      try {
+        await _historyRepository.recordOperationFailure(
+          featureName: 'annotation.featureName'.tr,
+          inputPath: source.path,
+          parameters: _historyParameters(
+            document: document,
+            transform: transform,
+          ),
+          errorMessage: error is AppException ? error.message : '$error',
+        );
+      } catch (_) {
+        // 历史记录属于辅助能力，二次失败不能覆盖真正的导出错误。
+      }
       _showError(
         error is AppException
             ? error.message
@@ -1663,30 +1898,15 @@ class AnnotationController extends GetxController {
   }
 
   void _addObjectDrawable(ObjectDrawable drawable) {
-    painterController.addDrawables([drawable]);
-    painterController.selectObjectDrawable(drawable);
-    selectedObject.value = drawable;
-    selectedMosaicIndex.value = null;
-    mode.value = AnnotationMode.select;
-    isPropertyPanelVisible.value = true;
-    _applyPainterMode();
-    result.value = null;
-  }
-
-  Future<void> _loadBackground(LocalImageFile image) async {
-    if (image.path.trim().isEmpty) {
-      throw AppException('annotation.error.pickImageFirst'.tr);
-    }
-    final file = File(image.path);
-    if (!file.existsSync()) {
-      throw AppException('annotation.error.pickImageFirst'.tr);
-    }
-    final bytes = await file.readAsBytes();
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final background = frame.image;
-    _backgroundImage?.dispose();
-    _backgroundImage = background;
+    _runDocumentMutation(() {
+      painterController.addDrawables([drawable]);
+      painterController.selectObjectDrawable(drawable);
+      selectedObject.value = drawable;
+      selectedMosaicIndex.value = null;
+      mode.value = AnnotationMode.select;
+      isPropertyPanelVisible.value = true;
+      _applyPainterMode();
+    });
   }
 
   void _applyPainterMode() {
@@ -1725,11 +1945,11 @@ class AnnotationController extends GetxController {
   }
 
   void _replaceSelectedObject(ObjectDrawable current, ObjectDrawable next) {
-    painterController.replaceDrawable(current, next);
-    painterController.selectObjectDrawable(next);
-    selectedObject.value = next;
-    result.value = null;
-    editRevision.value++;
+    _runDocumentMutation(() {
+      painterController.replaceDrawable(current, next);
+      painterController.selectObjectDrawable(next);
+      selectedObject.value = next;
+    });
   }
 
   void _updateSelectedShapeStrokeWidth(double width) {
@@ -1789,50 +2009,37 @@ class AnnotationController extends GetxController {
       _showError('annotation.error.textTooLong'.trParams({'max': '40'}));
       return false;
     }
-    final next = drawable.copyWith(
-      text: nextText,
-      style: _textStyle(
-        color: drawable.style.color ?? color.value,
-        shadows: drawable.style.shadows,
-      ),
-    );
-    painterController.replaceDrawable(drawable, next);
-    painterController.selectObjectDrawable(next);
-    selectedObject.value = next;
-    result.value = null;
-    editRevision.value++;
+    _runDocumentMutation(() {
+      final next = drawable.copyWith(
+        text: nextText,
+        style: _textStyle(
+          color: drawable.style.color ?? color.value,
+          shadows: drawable.style.shadows,
+        ),
+      );
+      painterController.replaceDrawable(drawable, next);
+      painterController.selectObjectDrawable(next);
+      selectedObject.value = next;
+    });
     return true;
   }
 
-  Future<Uint8List> _encodeEditedPreview({
+  Future<Uint8List> _encodeAnnotationOverlay({
     required Size outputSize,
     required Size canvasSize,
+    required List<ObjectDrawable> drawables,
+    required List<DrawingStroke> drawingStrokes,
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    final background = _backgroundImage;
-    if (background == null) {
-      throw AppException('annotation.error.canvasUnavailable'.tr);
-    }
-    canvas.drawImageRect(
-      background,
-      Rect.fromLTWH(
-        0,
-        0,
-        background.width.toDouble(),
-        background.height.toDouble(),
-      ),
-      Offset.zero & outputSize,
-      Paint(),
-    );
     final paint = Paint()..style = PaintingStyle.fill;
     final scaleX = outputSize.width / canvasSize.width;
     final scaleY = outputSize.height / canvasSize.height;
     canvas.save();
     canvas.scale(scaleX, scaleY);
-    drawAnnotationObjects(canvas, canvasSize, painterController.drawables);
+    drawAnnotationObjects(canvas, canvasSize, drawables);
     canvas.restore();
-    for (final stroke in strokes) {
+    for (final stroke in drawingStrokes) {
       _drawMosaicStroke(canvas, paint, stroke, scaleX: scaleX, scaleY: scaleY);
     }
     final image = await recorder.endRecording().toImage(
@@ -1844,21 +2051,24 @@ class AnnotationController extends GetxController {
     return byteData?.buffer.asUint8List() ?? Uint8List(0);
   }
 
-  Map<String, Object> _historyParameters() {
+  Map<String, Object> _historyParameters({
+    required _AnnotationDocumentSnapshot document,
+    required ImageEditTransform transform,
+  }) {
     return <String, Object>{
       'mode': 'editor',
-      'layers': painterController.drawables.length,
-      'strokes': strokes.length,
-      'strokeWidth': strokeWidth.value,
-      'color': colorHex,
-      'filter': filter.value?.value ?? 'none',
-      'rotationDegrees': rotationDegrees.value,
-      'flipHorizontal': flipHorizontal.value,
-      'flipVertical': flipVertical.value,
-      'resizeWidth': resizeWidthController.text.trim(),
-      'resizeHeight': resizeHeightController.text.trim(),
-      'resizePercent': resizePercent.value.round(),
-      'cropPreset': cropPreset.value.name,
+      'layers': document.drawables.length,
+      'strokes': document.strokes.length,
+      'strokeWidth': document.strokeWidth,
+      'color': _formatColorHex(document.annotationColor),
+      'filter': transform.filter ?? 'none',
+      'rotationDegrees': transform.rotationDegrees,
+      'flipHorizontal': transform.flipHorizontal,
+      'flipVertical': transform.flipVertical,
+      'resizeWidth': transform.resizeWidth ?? '',
+      'resizeHeight': transform.resizeHeight ?? '',
+      'resizePercent': document.resizePercent.round(),
+      'cropPreset': document.cropPreset.name,
     };
   }
 
@@ -1868,43 +2078,79 @@ class AnnotationController extends GetxController {
     result.value = null;
   }
 
-  void _resetImageAdjustments(LocalImageFile image) {
+  String _formatColorHex(Color value) {
+    final rgb = value.toARGB32() & 0x00FFFFFF;
+    return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  }
+
+  void _resetImageAdjustments(LocalImageFile? image) {
+    final validImage = image?.hasValidDimensions == true ? image : null;
     filter.value = null;
+    filteredPreviewBytes.value = null;
+    _previewGeneration++;
     rotationDegrees.value = 0;
     flipHorizontal.value = false;
     flipVertical.value = false;
     resizeKeepAspectRatio.value = true;
     resizePercent.value = 100;
+    resizeMode.value = ImageEditResizeMode.none;
+    resizePrimaryAxis.value = ImageEditDimensionAxis.width;
     cropPreset.value = AnnotationCropPreset.original;
-    resizeWidthController.text = image.hasValidDimensions
-        ? image.width.toString()
-        : '';
-    resizeHeightController.text = image.hasValidDimensions
-        ? image.height.toString()
-        : '';
+    resizeWidthController.text = validImage?.width.toString() ?? '';
+    resizeHeightController.text = validImage?.height.toString() ?? '';
   }
 
-  void _markImageAdjustmentChanged() {
-    result.value = null;
-    editRevision.value++;
+  ImageEditTransform _currentTransform({required bool includeValidResize}) {
+    final dimensions =
+        includeValidResize && resizeMode.value != ImageEditResizeMode.none
+        ? _readResizeDimensions(showError: false)
+        : null;
+    return ImageEditTransform(
+      filter: filter.value?.value,
+      rotationDegrees: rotationDegrees.value,
+      flipHorizontal: flipHorizontal.value,
+      flipVertical: flipVertical.value,
+      resizeWidth: dimensions?.width,
+      resizeHeight: dimensions?.height,
+      cropAspectRatio: cropPreset.value.aspectRatio,
+    );
+  }
+
+  ImageEditTransform? _validatedTransform({required bool showError}) {
+    _ResizeDimensions? dimensions;
+    if (resizeMode.value != ImageEditResizeMode.none) {
+      dimensions = _readResizeDimensions(showError: showError);
+      if (dimensions == null) {
+        return null;
+      }
+    }
+    return ImageEditTransform(
+      filter: filter.value?.value,
+      rotationDegrees: rotationDegrees.value,
+      flipHorizontal: flipHorizontal.value,
+      flipVertical: flipVertical.value,
+      resizeWidth: dimensions?.width,
+      resizeHeight: dimensions?.height,
+      cropAspectRatio: cropPreset.value.aspectRatio,
+    );
   }
 
   bool _hasResizeAdjustment(LocalImageFile? image) {
-    if (image == null || !image.hasValidDimensions) {
+    if (image == null ||
+        !image.hasValidDimensions ||
+        resizeMode.value == ImageEditResizeMode.none) {
       return false;
     }
     final dimensions = _readResizeDimensions(showError: false);
     if (dimensions == null) {
-      return false;
+      return true;
     }
-    return dimensions.width != image.width || dimensions.height != image.height;
-  }
-
-  _ResizeDimensions? _readResizeDimensionsIfNeeded(LocalImageFile source) {
-    if (!_hasResizeAdjustment(source)) {
-      return null;
+    final baseSize = _resizeBaseSize;
+    if (baseSize == null) {
+      return true;
     }
-    return _readResizeDimensions(showError: true);
+    return dimensions.width != baseSize.width.round() ||
+        dimensions.height != baseSize.height.round();
   }
 
   _ResizeDimensions? _readResizeDimensions({required bool showError}) {
@@ -1935,48 +2181,86 @@ class AnnotationController extends GetxController {
     return _ResizeDimensions(width: width, height: height);
   }
 
-  void _syncResizeHeightFromWidth(LocalImageFile image) {
-    final width = int.tryParse(resizeWidthController.text.trim());
-    if (width == null || width <= 0 || image.width <= 0 || image.height <= 0) {
-      return;
+  Size? get _resizeBaseSize {
+    final image = selectedImage.value;
+    if (image == null || !image.hasValidDimensions) {
+      return null;
     }
-    resizeHeightController.text = _scaledCompanion(
-      changed: width,
-      sourceChanged: image.width,
-      sourceCompanion: image.height,
-    ).toString();
+    return _currentTransform(
+      includeValidResize: false,
+    ).preResizeSizeFor(Size(image.width.toDouble(), image.height.toDouble()));
   }
 
-  void _syncResizeWidthFromHeight(LocalImageFile image) {
+  void _syncResizeForBaseChange() {
+    final baseSize = _resizeBaseSize;
+    if (baseSize == null) {
+      return;
+    }
+    switch (resizeMode.value) {
+      case ImageEditResizeMode.none:
+        resizePercent.value = 100;
+        resizeWidthController.text = baseSize.width.round().toString();
+        resizeHeightController.text = baseSize.height.round().toString();
+      case ImageEditResizeMode.percent:
+        resizeWidthController.text = _scaleDimension(
+          baseSize.width,
+          resizePercent.value,
+        ).toString();
+        resizeHeightController.text = _scaleDimension(
+          baseSize.height,
+          resizePercent.value,
+        ).toString();
+      case ImageEditResizeMode.manual:
+        if (resizeKeepAspectRatio.value) {
+          _syncManualResizeCompanion();
+        }
+    }
+  }
+
+  void _syncManualResizeCompanion() {
+    final baseSize = _resizeBaseSize;
+    if (baseSize == null) {
+      return;
+    }
+    if (resizePrimaryAxis.value == ImageEditDimensionAxis.width) {
+      final width = int.tryParse(resizeWidthController.text.trim());
+      if (width == null || width <= 0) {
+        return;
+      }
+      resizeHeightController.text = _scaledCompanion(
+        changed: width,
+        sourceChanged: baseSize.width,
+        sourceCompanion: baseSize.height,
+      ).toString();
+      return;
+    }
     final height = int.tryParse(resizeHeightController.text.trim());
-    if (height == null ||
-        height <= 0 ||
-        image.width <= 0 ||
-        image.height <= 0) {
+    if (height == null || height <= 0) {
       return;
     }
     resizeWidthController.text = _scaledCompanion(
       changed: height,
-      sourceChanged: image.height,
-      sourceCompanion: image.width,
+      sourceChanged: baseSize.height,
+      sourceCompanion: baseSize.width,
     ).toString();
   }
 
-  void _updateResizePercentFromFields(LocalImageFile? image) {
-    if (image == null || !image.hasValidDimensions) {
+  void _updateResizePercentFromFields() {
+    final baseSize = _resizeBaseSize;
+    if (baseSize == null || baseSize.width <= 0) {
       return;
     }
     final width = int.tryParse(resizeWidthController.text.trim());
-    if (width == null || width <= 0 || image.width <= 0) {
+    if (width == null || width <= 0) {
       return;
     }
-    resizePercent.value = (width / image.width * 100).clamp(10, 300);
+    resizePercent.value = (width / baseSize.width * 100).clamp(10, 300);
   }
 
   int _scaledCompanion({
     required int changed,
-    required int sourceChanged,
-    required int sourceCompanion,
+    required double sourceChanged,
+    required double sourceCompanion,
   }) {
     if (changed <= 0 || sourceChanged <= 0 || sourceCompanion <= 0) {
       return _minResizeDimension;
@@ -1987,11 +2271,50 @@ class AnnotationController extends GetxController {
     );
   }
 
-  int _scaleDimension(int value, double percent) {
+  int _scaleDimension(double value, double percent) {
     return (value * percent / 100).round().clamp(
       _minResizeDimension,
       _maxResizeDimension,
     );
+  }
+
+  void _setControllerText(TextEditingController controller, String value) {
+    if (controller.text == value) {
+      return;
+    }
+    controller.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+  }
+
+  Future<void> _refreshFilteredPreview() async {
+    final generation = ++_previewGeneration;
+    final image = selectedImage.value;
+    final selectedFilter = filter.value;
+    if (image == null || selectedFilter == null) {
+      filteredPreviewBytes.value = null;
+      isPreviewLoading.value = false;
+      return;
+    }
+    isPreviewLoading.value = true;
+    try {
+      final bytes = await _imageChannel.buildFilteredPreview(
+        source: image,
+        filter: selectedFilter.value,
+      );
+      if (!isClosed && generation == _previewGeneration) {
+        filteredPreviewBytes.value = bytes;
+      }
+    } catch (_) {
+      if (!isClosed && generation == _previewGeneration) {
+        filteredPreviewBytes.value = null;
+      }
+    } finally {
+      if (!isClosed && generation == _previewGeneration) {
+        isPreviewLoading.value = false;
+      }
+    }
   }
 
   double _safeAspectRatio(double width, double height) {
@@ -2039,38 +2362,11 @@ class AnnotationController extends GetxController {
       Offset(_effectiveCanvasSize.width / 2, _effectiveCanvasSize.height / 2);
 
   Size get _effectiveCanvasSize {
-    final canvasSize = _validCanvasSize;
-    if (canvasSize != null) {
-      return canvasSize;
-    }
     final image = selectedImage.value;
     if (image == null || !image.hasValidDimensions) {
-      return const Size(320, 320);
+      return const Size.square(ImageEditorLimits.logicalCanvasWidth);
     }
-    final ratio = image.width / image.height;
-    const maxSide = 320.0;
-    if (ratio >= 1) {
-      return Size(maxSide, maxSide / ratio);
-    }
-    return Size(maxSide * ratio, maxSide);
-  }
-
-  Size? get _validCanvasSize {
-    if (_canvasSize.width <= 0 ||
-        _canvasSize.height <= 0 ||
-        !_canvasSize.width.isFinite ||
-        !_canvasSize.height.isFinite) {
-      final contextSize = painterController.painterKey.currentContext?.size;
-      if (contextSize == null ||
-          contextSize.width <= 0 ||
-          contextSize.height <= 0 ||
-          !contextSize.width.isFinite ||
-          !contextSize.height.isFinite) {
-        return null;
-      }
-      return contextSize;
-    }
-    return _canvasSize;
+    return logicalCanvasSizeFor(image);
   }
 
   ObjectDrawable _rectangleFromDrag(Offset center, Offset delta, Paint paint) {
@@ -2589,7 +2885,10 @@ class AnnotationController extends GetxController {
     paint.color = stroke.color.withValues(alpha: 1);
     switch (stroke.kind) {
       case MosaicStrokeKind.freehand:
-        for (final point in stroke.points) {
+        for (final point in sampleContinuousRedactionPoints(
+          stroke.points,
+          stroke.width,
+        )) {
           canvas.drawRect(
             Rect.fromCenter(
               center: Offset(point.dx * scaleX, point.dy * scaleY),
@@ -2654,8 +2953,12 @@ class AnnotationController extends GetxController {
   List<Offset> _normalizedMosaicPoints(
     List<Offset> points,
     MosaicStrokeKind kind,
+    double width,
   ) {
-    if (kind == MosaicStrokeKind.freehand || points.length < 2) {
+    if (kind == MosaicStrokeKind.freehand) {
+      return sampleContinuousRedactionPoints(points, width);
+    }
+    if (points.length < 2) {
       return List<Offset>.unmodifiable(points);
     }
     final rect = _rectFromMosaicPoints(points);
@@ -2683,6 +2986,56 @@ class AnnotationController extends GetxController {
   void _showError(String message) {
     showLatestSnackbar('annotation.error.title'.tr, message);
   }
+}
+
+class _AnnotationDocumentSnapshot {
+  const _AnnotationDocumentSnapshot({
+    required this.drawables,
+    required this.strokes,
+    required this.selectedObjectIndex,
+    required this.selectedMosaicIndex,
+    required this.filter,
+    required this.rotationDegrees,
+    required this.flipHorizontal,
+    required this.flipVertical,
+    required this.cropPreset,
+    required this.resizeKeepAspectRatio,
+    required this.resizePercent,
+    required this.resizeMode,
+    required this.resizePrimaryAxis,
+    required this.resizeWidthText,
+    required this.resizeHeightText,
+    required this.annotationColor,
+    required this.strokeWidth,
+    required this.text,
+    required this.textSize,
+    required this.textFont,
+    required this.arrowStyle,
+    required this.mosaicDrawMode,
+  });
+
+  final List<ObjectDrawable> drawables;
+  final List<DrawingStroke> strokes;
+  final int selectedObjectIndex;
+  final int? selectedMosaicIndex;
+  final ImageFilterType? filter;
+  final int rotationDegrees;
+  final bool flipHorizontal;
+  final bool flipVertical;
+  final AnnotationCropPreset cropPreset;
+  final bool resizeKeepAspectRatio;
+  final double resizePercent;
+  final ImageEditResizeMode resizeMode;
+  final ImageEditDimensionAxis resizePrimaryAxis;
+  final String resizeWidthText;
+  final String resizeHeightText;
+  final Color annotationColor;
+  final int strokeWidth;
+  final String text;
+  final double textSize;
+  final AnnotationTextFont textFont;
+  final EditableArrowStyle arrowStyle;
+  final MosaicDrawMode mosaicDrawMode;
 }
 
 class _ArrowEndpoints {

@@ -168,7 +168,7 @@ class ImageEditorScaffold extends StatelessWidget {
         ? null
         : _EditorBottomToolbarSurface(
             elevated: overlayToolbar,
-            child: bottomToolbar!,
+            child: AbsorbPointer(absorbing: isBusy, child: bottomToolbar!),
           );
     final shouldShowToolbar =
         showEditingControls && bottomToolbarSurface != null;
@@ -223,7 +223,7 @@ class ImageEditorScaffold extends StatelessWidget {
               child: SafeArea(
                 top: false,
                 bottom: !shouldShowToolbar,
-                child: previewContent,
+                child: AbsorbPointer(absorbing: isBusy, child: previewContent),
               ),
             ),
             if (shouldShowToolbar) bottomToolbarSurface,
@@ -426,6 +426,22 @@ class _EditorPreviewStage extends StatelessWidget {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: _EditorImageInfoOverlay(image: image, meta: meta),
+                  ),
+                ),
+              ),
+            if (resultSummary != null)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: KeyedSubtree(
+                    key: const ValueKey('editor-result-overlay'),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: resultSummary!,
+                    ),
                   ),
                 ),
               ),
@@ -779,6 +795,8 @@ class _EditorDynamicToolPanelState extends State<EditorDynamicToolPanel> {
       setState(() => _isPanelCollapsed = willCollapse);
       if (willCollapse) {
         FocusScope.of(context).unfocus();
+        // 折叠属性区等同于结束当前工具，通知页面同步清理绘制模式和手势层。
+        widget.onClosePanel?.call();
       }
       return;
     }
