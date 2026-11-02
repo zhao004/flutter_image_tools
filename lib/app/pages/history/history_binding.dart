@@ -7,9 +7,8 @@ class HistoryBinding extends Bindings {
   @override
   void dependencies() {
     Get.lazyPut<HistoryController>(
-      () => HistoryController(
-        repository: Get.find<OperationHistoryRepository>(),
-      ),
+      () =>
+          HistoryController(repository: Get.find<OperationHistoryRepository>()),
     );
   }
 }

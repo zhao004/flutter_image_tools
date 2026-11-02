@@ -905,7 +905,7 @@ class _ReorderImageList extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: images.length,
-      onReorder: controller.reorderSelectedImages,
+      onReorderItem: controller.reorderSelectedImages,
       buildDefaultDragHandles: false,
       itemBuilder: (context, index) {
         final image = images[index];

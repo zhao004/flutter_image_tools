@@ -6,9 +6,9 @@ import 'dart:ui';
 /// 设计意图：纯 Dart 图像处理会同时持有多个 RGBA 缓冲区，16MP 上限兼顾
 /// 常见手机照片和低内存设备稳定性；超过边界时明确拒绝，不进行无提示降采样。
 abstract final class ImageEditorLimits {
-  static const int maxWorkingPixels = 16_000_000;
+  static const int maxWorkingPixels = 16 * 1000 * 1000;
   static const int maxEncodedInputBytes = 64 * 1024 * 1024;
-  static const int maxResizeDimension = 10_000;
+  static const int maxResizeDimension = 10 * 1000;
   static const int previewMaxDimension = 2048;
   static const double logicalCanvasWidth = 1000;
 }

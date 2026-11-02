@@ -12,50 +12,80 @@ class $AppSettingsTable extends AppSettings
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _settingKeyMeta =
-      const VerificationMeta('settingKey');
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _settingKeyMeta = const VerificationMeta(
+    'settingKey',
+  );
   @override
   late final GeneratedColumn<String> settingKey = GeneratedColumn<String>(
-      'setting_key', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
-  static const VerificationMeta _settingValueMeta =
-      const VerificationMeta('settingValue');
+    'setting_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _settingValueMeta = const VerificationMeta(
+    'settingValue',
+  );
   @override
   late final GeneratedColumn<String> settingValue = GeneratedColumn<String>(
-      'setting_value', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _valueTypeMeta =
-      const VerificationMeta('valueType');
+    'setting_value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueTypeMeta = const VerificationMeta(
+    'valueType',
+  );
   @override
   late final GeneratedColumn<String> valueType = GeneratedColumn<String>(
-      'value_type', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _updatedAtMeta =
-      const VerificationMeta('updatedAt');
+    'value_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
   @override
   late final GeneratedColumnWithTypeConverter<DateTime, DateTime> updatedAt =
-      GeneratedColumn<DateTime>('updated_at', aliasedName, false,
-              type: DriftSqlType.dateTime, requiredDuringInsert: true)
-          .withConverter<DateTime>($AppSettingsTable.$converterupdatedAt);
+      GeneratedColumn<DateTime>(
+        'updated_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($AppSettingsTable.$converterupdatedAt);
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, settingKey, settingValue, valueType, updatedAt];
+  List<GeneratedColumn> get $columns => [
+    id,
+    settingKey,
+    settingValue,
+    valueType,
+    updatedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
   static const String $name = 'app_settings';
   @override
-  VerificationContext validateIntegrity(Insertable<AppSetting> instance,
-      {bool isInserting = false}) {
+  VerificationContext validateIntegrity(
+    Insertable<AppSetting> instance, {
+    bool isInserting = false,
+  }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
@@ -63,23 +93,28 @@ class $AppSettingsTable extends AppSettings
     }
     if (data.containsKey('setting_key')) {
       context.handle(
-          _settingKeyMeta,
-          settingKey.isAcceptableOrUnknown(
-              data['setting_key']!, _settingKeyMeta));
+        _settingKeyMeta,
+        settingKey.isAcceptableOrUnknown(data['setting_key']!, _settingKeyMeta),
+      );
     } else if (isInserting) {
       context.missing(_settingKeyMeta);
     }
     if (data.containsKey('setting_value')) {
       context.handle(
+        _settingValueMeta,
+        settingValue.isAcceptableOrUnknown(
+          data['setting_value']!,
           _settingValueMeta,
-          settingValue.isAcceptableOrUnknown(
-              data['setting_value']!, _settingValueMeta));
+        ),
+      );
     } else if (isInserting) {
       context.missing(_settingValueMeta);
     }
     if (data.containsKey('value_type')) {
-      context.handle(_valueTypeMeta,
-          valueType.isAcceptableOrUnknown(data['value_type']!, _valueTypeMeta));
+      context.handle(
+        _valueTypeMeta,
+        valueType.isAcceptableOrUnknown(data['value_type']!, _valueTypeMeta),
+      );
     } else if (isInserting) {
       context.missing(_valueTypeMeta);
     }
@@ -93,17 +128,28 @@ class $AppSettingsTable extends AppSettings
   AppSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return AppSetting(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      settingKey: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}setting_key'])!,
-      settingValue: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}setting_value'])!,
-      valueType: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}value_type'])!,
-      updatedAt: $AppSettingsTable.$converterupdatedAt.fromSql(attachedDatabase
-          .typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      settingKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}setting_key'],
+      )!,
+      settingValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}setting_value'],
+      )!,
+      valueType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value_type'],
+      )!,
+      updatedAt: $AppSettingsTable.$converterupdatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}updated_at'],
+        )!,
+      ),
     );
   }
 
@@ -122,12 +168,13 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   final String settingValue;
   final String valueType;
   final DateTime updatedAt;
-  const AppSetting(
-      {required this.id,
-      required this.settingKey,
-      required this.settingValue,
-      required this.valueType,
-      required this.updatedAt});
+  const AppSetting({
+    required this.id,
+    required this.settingKey,
+    required this.settingValue,
+    required this.valueType,
+    required this.updatedAt,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -137,7 +184,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     map['value_type'] = Variable<String>(valueType);
     {
       map['updated_at'] = Variable<DateTime>(
-          $AppSettingsTable.$converterupdatedAt.toSql(updatedAt));
+        $AppSettingsTable.$converterupdatedAt.toSql(updatedAt),
+      );
     }
     return map;
   }
@@ -152,8 +200,10 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     );
   }
 
-  factory AppSetting.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
+  factory AppSetting.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return AppSetting(
       id: serializer.fromJson<int>(json['id']),
@@ -175,24 +225,25 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     };
   }
 
-  AppSetting copyWith(
-          {int? id,
-          String? settingKey,
-          String? settingValue,
-          String? valueType,
-          DateTime? updatedAt}) =>
-      AppSetting(
-        id: id ?? this.id,
-        settingKey: settingKey ?? this.settingKey,
-        settingValue: settingValue ?? this.settingValue,
-        valueType: valueType ?? this.valueType,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
+  AppSetting copyWith({
+    int? id,
+    String? settingKey,
+    String? settingValue,
+    String? valueType,
+    DateTime? updatedAt,
+  }) => AppSetting(
+    id: id ?? this.id,
+    settingKey: settingKey ?? this.settingKey,
+    settingValue: settingValue ?? this.settingValue,
+    valueType: valueType ?? this.valueType,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
     return AppSetting(
       id: data.id.present ? data.id.value : this.id,
-      settingKey:
-          data.settingKey.present ? data.settingKey.value : this.settingKey,
+      settingKey: data.settingKey.present
+          ? data.settingKey.value
+          : this.settingKey,
       settingValue: data.settingValue.present
           ? data.settingValue.value
           : this.settingValue,
@@ -246,10 +297,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     required String settingValue,
     required String valueType,
     required DateTime updatedAt,
-  })  : settingKey = Value(settingKey),
-        settingValue = Value(settingValue),
-        valueType = Value(valueType),
-        updatedAt = Value(updatedAt);
+  }) : settingKey = Value(settingKey),
+       settingValue = Value(settingValue),
+       valueType = Value(valueType),
+       updatedAt = Value(updatedAt);
   static Insertable<AppSetting> custom({
     Expression<int>? id,
     Expression<String>? settingKey,
@@ -266,12 +317,13 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     });
   }
 
-  AppSettingsCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? settingKey,
-      Value<String>? settingValue,
-      Value<String>? valueType,
-      Value<DateTime>? updatedAt}) {
+  AppSettingsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? settingKey,
+    Value<String>? settingValue,
+    Value<String>? valueType,
+    Value<DateTime>? updatedAt,
+  }) {
     return AppSettingsCompanion(
       id: id ?? this.id,
       settingKey: settingKey ?? this.settingKey,
@@ -298,7 +350,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(
-          $AppSettingsTable.$converterupdatedAt.toSql(updatedAt.value));
+        $AppSettingsTable.$converterupdatedAt.toSql(updatedAt.value),
+      );
     }
     return map;
   }
@@ -325,65 +378,103 @@ class $OperationHistoryTable extends OperationHistory
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _featureNameMeta =
-      const VerificationMeta('featureName');
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _featureNameMeta = const VerificationMeta(
+    'featureName',
+  );
   @override
   late final GeneratedColumn<String> featureName = GeneratedColumn<String>(
-      'feature_name', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _inputPathMeta =
-      const VerificationMeta('inputPath');
+    'feature_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _inputPathMeta = const VerificationMeta(
+    'inputPath',
+  );
   @override
   late final GeneratedColumn<String> inputPath = GeneratedColumn<String>(
-      'input_path', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _outputPathMeta =
-      const VerificationMeta('outputPath');
+    'input_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _outputPathMeta = const VerificationMeta(
+    'outputPath',
+  );
   @override
   late final GeneratedColumn<String> outputPath = GeneratedColumn<String>(
-      'output_path', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _parametersJsonMeta =
-      const VerificationMeta('parametersJson');
+    'output_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _parametersJsonMeta = const VerificationMeta(
+    'parametersJson',
+  );
   @override
   late final GeneratedColumn<String> parametersJson = GeneratedColumn<String>(
-      'parameters_json', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
+    'parameters_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
-      'status', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _errorMessageMeta =
-      const VerificationMeta('errorMessage');
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
   @override
   late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
-      'error_message', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _createdAtMeta =
-      const VerificationMeta('createdAt');
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
   @override
   late final GeneratedColumnWithTypeConverter<DateTime, DateTime> createdAt =
-      GeneratedColumn<DateTime>('created_at', aliasedName, false,
-              type: DriftSqlType.dateTime, requiredDuringInsert: true)
-          .withConverter<DateTime>($OperationHistoryTable.$convertercreatedAt);
+      GeneratedColumn<DateTime>(
+        'created_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($OperationHistoryTable.$convertercreatedAt);
   @override
   List<GeneratedColumn> get $columns => [
-        id,
-        featureName,
-        inputPath,
-        outputPath,
-        parametersJson,
-        status,
-        errorMessage,
-        createdAt
-      ];
+    id,
+    featureName,
+    inputPath,
+    outputPath,
+    parametersJson,
+    status,
+    errorMessage,
+    createdAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -391,8 +482,9 @@ class $OperationHistoryTable extends OperationHistory
   static const String $name = 'operation_history';
   @override
   VerificationContext validateIntegrity(
-      Insertable<OperationHistoryData> instance,
-      {bool isInserting = false}) {
+    Insertable<OperationHistoryData> instance, {
+    bool isInserting = false,
+  }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
@@ -400,43 +492,56 @@ class $OperationHistoryTable extends OperationHistory
     }
     if (data.containsKey('feature_name')) {
       context.handle(
+        _featureNameMeta,
+        featureName.isAcceptableOrUnknown(
+          data['feature_name']!,
           _featureNameMeta,
-          featureName.isAcceptableOrUnknown(
-              data['feature_name']!, _featureNameMeta));
+        ),
+      );
     } else if (isInserting) {
       context.missing(_featureNameMeta);
     }
     if (data.containsKey('input_path')) {
-      context.handle(_inputPathMeta,
-          inputPath.isAcceptableOrUnknown(data['input_path']!, _inputPathMeta));
+      context.handle(
+        _inputPathMeta,
+        inputPath.isAcceptableOrUnknown(data['input_path']!, _inputPathMeta),
+      );
     } else if (isInserting) {
       context.missing(_inputPathMeta);
     }
     if (data.containsKey('output_path')) {
       context.handle(
-          _outputPathMeta,
-          outputPath.isAcceptableOrUnknown(
-              data['output_path']!, _outputPathMeta));
+        _outputPathMeta,
+        outputPath.isAcceptableOrUnknown(data['output_path']!, _outputPathMeta),
+      );
     }
     if (data.containsKey('parameters_json')) {
       context.handle(
+        _parametersJsonMeta,
+        parametersJson.isAcceptableOrUnknown(
+          data['parameters_json']!,
           _parametersJsonMeta,
-          parametersJson.isAcceptableOrUnknown(
-              data['parameters_json']!, _parametersJsonMeta));
+        ),
+      );
     } else if (isInserting) {
       context.missing(_parametersJsonMeta);
     }
     if (data.containsKey('status')) {
-      context.handle(_statusMeta,
-          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
     } else if (isInserting) {
       context.missing(_statusMeta);
     }
     if (data.containsKey('error_message')) {
       context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
           _errorMessageMeta,
-          errorMessage.isAcceptableOrUnknown(
-              data['error_message']!, _errorMessageMeta));
+        ),
+      );
     }
     context.handle(_createdAtMeta, const VerificationResult.success());
     return context;
@@ -448,23 +553,40 @@ class $OperationHistoryTable extends OperationHistory
   OperationHistoryData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return OperationHistoryData(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      featureName: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}feature_name'])!,
-      inputPath: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}input_path'])!,
-      outputPath: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}output_path']),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      featureName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}feature_name'],
+      )!,
+      inputPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}input_path'],
+      )!,
+      outputPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}output_path'],
+      ),
       parametersJson: attachedDatabase.typeMapping.read(
-          DriftSqlType.string, data['${effectivePrefix}parameters_json'])!,
-      status: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
-      errorMessage: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}error_message']),
+        DriftSqlType.string,
+        data['${effectivePrefix}parameters_json'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
       createdAt: $OperationHistoryTable.$convertercreatedAt.fromSql(
-          attachedDatabase.typeMapping.read(
-              DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!),
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}created_at'],
+        )!,
+      ),
     );
   }
 
@@ -487,15 +609,16 @@ class OperationHistoryData extends DataClass
   final String status;
   final String? errorMessage;
   final DateTime createdAt;
-  const OperationHistoryData(
-      {required this.id,
-      required this.featureName,
-      required this.inputPath,
-      this.outputPath,
-      required this.parametersJson,
-      required this.status,
-      this.errorMessage,
-      required this.createdAt});
+  const OperationHistoryData({
+    required this.id,
+    required this.featureName,
+    required this.inputPath,
+    this.outputPath,
+    required this.parametersJson,
+    required this.status,
+    this.errorMessage,
+    required this.createdAt,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -512,7 +635,8 @@ class OperationHistoryData extends DataClass
     }
     {
       map['created_at'] = Variable<DateTime>(
-          $OperationHistoryTable.$convertercreatedAt.toSql(createdAt));
+        $OperationHistoryTable.$convertercreatedAt.toSql(createdAt),
+      );
     }
     return map;
   }
@@ -534,8 +658,10 @@ class OperationHistoryData extends DataClass
     );
   }
 
-  factory OperationHistoryData.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
+  factory OperationHistoryData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return OperationHistoryData(
       id: serializer.fromJson<int>(json['id']),
@@ -563,34 +689,35 @@ class OperationHistoryData extends DataClass
     };
   }
 
-  OperationHistoryData copyWith(
-          {int? id,
-          String? featureName,
-          String? inputPath,
-          Value<String?> outputPath = const Value.absent(),
-          String? parametersJson,
-          String? status,
-          Value<String?> errorMessage = const Value.absent(),
-          DateTime? createdAt}) =>
-      OperationHistoryData(
-        id: id ?? this.id,
-        featureName: featureName ?? this.featureName,
-        inputPath: inputPath ?? this.inputPath,
-        outputPath: outputPath.present ? outputPath.value : this.outputPath,
-        parametersJson: parametersJson ?? this.parametersJson,
-        status: status ?? this.status,
-        errorMessage:
-            errorMessage.present ? errorMessage.value : this.errorMessage,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  OperationHistoryData copyWith({
+    int? id,
+    String? featureName,
+    String? inputPath,
+    Value<String?> outputPath = const Value.absent(),
+    String? parametersJson,
+    String? status,
+    Value<String?> errorMessage = const Value.absent(),
+    DateTime? createdAt,
+  }) => OperationHistoryData(
+    id: id ?? this.id,
+    featureName: featureName ?? this.featureName,
+    inputPath: inputPath ?? this.inputPath,
+    outputPath: outputPath.present ? outputPath.value : this.outputPath,
+    parametersJson: parametersJson ?? this.parametersJson,
+    status: status ?? this.status,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    createdAt: createdAt ?? this.createdAt,
+  );
   OperationHistoryData copyWithCompanion(OperationHistoryCompanion data) {
     return OperationHistoryData(
       id: data.id.present ? data.id.value : this.id,
-      featureName:
-          data.featureName.present ? data.featureName.value : this.featureName,
+      featureName: data.featureName.present
+          ? data.featureName.value
+          : this.featureName,
       inputPath: data.inputPath.present ? data.inputPath.value : this.inputPath,
-      outputPath:
-          data.outputPath.present ? data.outputPath.value : this.outputPath,
+      outputPath: data.outputPath.present
+          ? data.outputPath.value
+          : this.outputPath,
       parametersJson: data.parametersJson.present
           ? data.parametersJson.value
           : this.parametersJson,
@@ -618,8 +745,16 @@ class OperationHistoryData extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(id, featureName, inputPath, outputPath,
-      parametersJson, status, errorMessage, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    featureName,
+    inputPath,
+    outputPath,
+    parametersJson,
+    status,
+    errorMessage,
+    createdAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -662,11 +797,11 @@ class OperationHistoryCompanion extends UpdateCompanion<OperationHistoryData> {
     required String status,
     this.errorMessage = const Value.absent(),
     required DateTime createdAt,
-  })  : featureName = Value(featureName),
-        inputPath = Value(inputPath),
-        parametersJson = Value(parametersJson),
-        status = Value(status),
-        createdAt = Value(createdAt);
+  }) : featureName = Value(featureName),
+       inputPath = Value(inputPath),
+       parametersJson = Value(parametersJson),
+       status = Value(status),
+       createdAt = Value(createdAt);
   static Insertable<OperationHistoryData> custom({
     Expression<int>? id,
     Expression<String>? featureName,
@@ -689,15 +824,16 @@ class OperationHistoryCompanion extends UpdateCompanion<OperationHistoryData> {
     });
   }
 
-  OperationHistoryCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? featureName,
-      Value<String>? inputPath,
-      Value<String?>? outputPath,
-      Value<String>? parametersJson,
-      Value<String>? status,
-      Value<String?>? errorMessage,
-      Value<DateTime>? createdAt}) {
+  OperationHistoryCompanion copyWith({
+    Value<int>? id,
+    Value<String>? featureName,
+    Value<String>? inputPath,
+    Value<String?>? outputPath,
+    Value<String>? parametersJson,
+    Value<String>? status,
+    Value<String?>? errorMessage,
+    Value<DateTime>? createdAt,
+  }) {
     return OperationHistoryCompanion(
       id: id ?? this.id,
       featureName: featureName ?? this.featureName,
@@ -736,7 +872,8 @@ class OperationHistoryCompanion extends UpdateCompanion<OperationHistoryData> {
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(
-          $OperationHistoryTable.$convertercreatedAt.toSql(createdAt.value));
+        $OperationHistoryTable.$convertercreatedAt.toSql(createdAt.value),
+      );
     }
     return map;
   }
@@ -766,82 +903,126 @@ class $RecentFilesTable extends RecentFiles
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _filePathMeta =
-      const VerificationMeta('filePath');
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _filePathMeta = const VerificationMeta(
+    'filePath',
+  );
   @override
   late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
-      'file_path', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
-  static const VerificationMeta _fileNameMeta =
-      const VerificationMeta('fileName');
+    'file_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _fileNameMeta = const VerificationMeta(
+    'fileName',
+  );
   @override
   late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
-      'file_name', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _mimeTypeMeta =
-      const VerificationMeta('mimeType');
+    'file_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mimeTypeMeta = const VerificationMeta(
+    'mimeType',
+  );
   @override
   late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
-      'mime_type', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _sizeBytesMeta =
-      const VerificationMeta('sizeBytes');
+    'mime_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
   @override
   late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
-      'size_bytes', aliasedName, false,
-      type: DriftSqlType.int, requiredDuringInsert: true);
-  static const VerificationMeta _lastUsedAtMeta =
-      const VerificationMeta('lastUsedAt');
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastUsedAtMeta = const VerificationMeta(
+    'lastUsedAt',
+  );
   @override
   late final GeneratedColumnWithTypeConverter<DateTime, DateTime> lastUsedAt =
-      GeneratedColumn<DateTime>('last_used_at', aliasedName, false,
-              type: DriftSqlType.dateTime, requiredDuringInsert: true)
-          .withConverter<DateTime>($RecentFilesTable.$converterlastUsedAt);
+      GeneratedColumn<DateTime>(
+        'last_used_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($RecentFilesTable.$converterlastUsedAt);
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, filePath, fileName, mimeType, sizeBytes, lastUsedAt];
+  List<GeneratedColumn> get $columns => [
+    id,
+    filePath,
+    fileName,
+    mimeType,
+    sizeBytes,
+    lastUsedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
   static const String $name = 'recent_files';
   @override
-  VerificationContext validateIntegrity(Insertable<RecentFile> instance,
-      {bool isInserting = false}) {
+  VerificationContext validateIntegrity(
+    Insertable<RecentFile> instance, {
+    bool isInserting = false,
+  }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
     if (data.containsKey('file_path')) {
-      context.handle(_filePathMeta,
-          filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta));
+      context.handle(
+        _filePathMeta,
+        filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta),
+      );
     } else if (isInserting) {
       context.missing(_filePathMeta);
     }
     if (data.containsKey('file_name')) {
-      context.handle(_fileNameMeta,
-          fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta));
+      context.handle(
+        _fileNameMeta,
+        fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta),
+      );
     } else if (isInserting) {
       context.missing(_fileNameMeta);
     }
     if (data.containsKey('mime_type')) {
-      context.handle(_mimeTypeMeta,
-          mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta));
+      context.handle(
+        _mimeTypeMeta,
+        mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta),
+      );
     } else if (isInserting) {
       context.missing(_mimeTypeMeta);
     }
     if (data.containsKey('size_bytes')) {
-      context.handle(_sizeBytesMeta,
-          sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta));
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
     } else if (isInserting) {
       context.missing(_sizeBytesMeta);
     }
@@ -855,19 +1036,32 @@ class $RecentFilesTable extends RecentFiles
   RecentFile map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return RecentFile(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      filePath: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}file_path'])!,
-      fileName: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}file_name'])!,
-      mimeType: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}mime_type'])!,
-      sizeBytes: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}size_bytes'])!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      filePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_path'],
+      )!,
+      fileName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_name'],
+      )!,
+      mimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mime_type'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
       lastUsedAt: $RecentFilesTable.$converterlastUsedAt.fromSql(
-          attachedDatabase.typeMapping.read(
-              DriftSqlType.dateTime, data['${effectivePrefix}last_used_at'])!),
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}last_used_at'],
+        )!,
+      ),
     );
   }
 
@@ -887,13 +1081,14 @@ class RecentFile extends DataClass implements Insertable<RecentFile> {
   final String mimeType;
   final int sizeBytes;
   final DateTime lastUsedAt;
-  const RecentFile(
-      {required this.id,
-      required this.filePath,
-      required this.fileName,
-      required this.mimeType,
-      required this.sizeBytes,
-      required this.lastUsedAt});
+  const RecentFile({
+    required this.id,
+    required this.filePath,
+    required this.fileName,
+    required this.mimeType,
+    required this.sizeBytes,
+    required this.lastUsedAt,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -904,7 +1099,8 @@ class RecentFile extends DataClass implements Insertable<RecentFile> {
     map['size_bytes'] = Variable<int>(sizeBytes);
     {
       map['last_used_at'] = Variable<DateTime>(
-          $RecentFilesTable.$converterlastUsedAt.toSql(lastUsedAt));
+        $RecentFilesTable.$converterlastUsedAt.toSql(lastUsedAt),
+      );
     }
     return map;
   }
@@ -920,8 +1116,10 @@ class RecentFile extends DataClass implements Insertable<RecentFile> {
     );
   }
 
-  factory RecentFile.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
+  factory RecentFile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return RecentFile(
       id: serializer.fromJson<int>(json['id']),
@@ -945,21 +1143,21 @@ class RecentFile extends DataClass implements Insertable<RecentFile> {
     };
   }
 
-  RecentFile copyWith(
-          {int? id,
-          String? filePath,
-          String? fileName,
-          String? mimeType,
-          int? sizeBytes,
-          DateTime? lastUsedAt}) =>
-      RecentFile(
-        id: id ?? this.id,
-        filePath: filePath ?? this.filePath,
-        fileName: fileName ?? this.fileName,
-        mimeType: mimeType ?? this.mimeType,
-        sizeBytes: sizeBytes ?? this.sizeBytes,
-        lastUsedAt: lastUsedAt ?? this.lastUsedAt,
-      );
+  RecentFile copyWith({
+    int? id,
+    String? filePath,
+    String? fileName,
+    String? mimeType,
+    int? sizeBytes,
+    DateTime? lastUsedAt,
+  }) => RecentFile(
+    id: id ?? this.id,
+    filePath: filePath ?? this.filePath,
+    fileName: fileName ?? this.fileName,
+    mimeType: mimeType ?? this.mimeType,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    lastUsedAt: lastUsedAt ?? this.lastUsedAt,
+  );
   RecentFile copyWithCompanion(RecentFilesCompanion data) {
     return RecentFile(
       id: data.id.present ? data.id.value : this.id,
@@ -967,8 +1165,9 @@ class RecentFile extends DataClass implements Insertable<RecentFile> {
       fileName: data.fileName.present ? data.fileName.value : this.fileName,
       mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
       sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
-      lastUsedAt:
-          data.lastUsedAt.present ? data.lastUsedAt.value : this.lastUsedAt,
+      lastUsedAt: data.lastUsedAt.present
+          ? data.lastUsedAt.value
+          : this.lastUsedAt,
     );
   }
 
@@ -1022,11 +1221,11 @@ class RecentFilesCompanion extends UpdateCompanion<RecentFile> {
     required String mimeType,
     required int sizeBytes,
     required DateTime lastUsedAt,
-  })  : filePath = Value(filePath),
-        fileName = Value(fileName),
-        mimeType = Value(mimeType),
-        sizeBytes = Value(sizeBytes),
-        lastUsedAt = Value(lastUsedAt);
+  }) : filePath = Value(filePath),
+       fileName = Value(fileName),
+       mimeType = Value(mimeType),
+       sizeBytes = Value(sizeBytes),
+       lastUsedAt = Value(lastUsedAt);
   static Insertable<RecentFile> custom({
     Expression<int>? id,
     Expression<String>? filePath,
@@ -1045,13 +1244,14 @@ class RecentFilesCompanion extends UpdateCompanion<RecentFile> {
     });
   }
 
-  RecentFilesCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? filePath,
-      Value<String>? fileName,
-      Value<String>? mimeType,
-      Value<int>? sizeBytes,
-      Value<DateTime>? lastUsedAt}) {
+  RecentFilesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? filePath,
+    Value<String>? fileName,
+    Value<String>? mimeType,
+    Value<int>? sizeBytes,
+    Value<DateTime>? lastUsedAt,
+  }) {
     return RecentFilesCompanion(
       id: id ?? this.id,
       filePath: filePath ?? this.filePath,
@@ -1082,7 +1282,8 @@ class RecentFilesCompanion extends UpdateCompanion<RecentFile> {
     }
     if (lastUsedAt.present) {
       map['last_used_at'] = Variable<DateTime>(
-          $RecentFilesTable.$converterlastUsedAt.toSql(lastUsedAt.value));
+        $RecentFilesTable.$converterlastUsedAt.toSql(lastUsedAt.value),
+      );
     }
     return map;
   }
@@ -1110,77 +1311,119 @@ class $CacheRecordsTable extends CacheRecords
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _cacheKeyMeta =
-      const VerificationMeta('cacheKey');
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _cacheKeyMeta = const VerificationMeta(
+    'cacheKey',
+  );
   @override
   late final GeneratedColumn<String> cacheKey = GeneratedColumn<String>(
-      'cache_key', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
-  static const VerificationMeta _filePathMeta =
-      const VerificationMeta('filePath');
+    'cache_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _filePathMeta = const VerificationMeta(
+    'filePath',
+  );
   @override
   late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
-      'file_path', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _sizeBytesMeta =
-      const VerificationMeta('sizeBytes');
+    'file_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
   @override
   late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
-      'size_bytes', aliasedName, false,
-      type: DriftSqlType.int, requiredDuringInsert: true);
-  static const VerificationMeta _createdAtMeta =
-      const VerificationMeta('createdAt');
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
   @override
   late final GeneratedColumnWithTypeConverter<DateTime, DateTime> createdAt =
-      GeneratedColumn<DateTime>('created_at', aliasedName, false,
-              type: DriftSqlType.dateTime, requiredDuringInsert: true)
-          .withConverter<DateTime>($CacheRecordsTable.$convertercreatedAt);
-  static const VerificationMeta _expiresAtMeta =
-      const VerificationMeta('expiresAt');
+      GeneratedColumn<DateTime>(
+        'created_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($CacheRecordsTable.$convertercreatedAt);
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
   @override
   late final GeneratedColumnWithTypeConverter<DateTime?, DateTime> expiresAt =
-      GeneratedColumn<DateTime>('expires_at', aliasedName, true,
-              type: DriftSqlType.dateTime, requiredDuringInsert: false)
-          .withConverter<DateTime?>($CacheRecordsTable.$converterexpiresAtn);
+      GeneratedColumn<DateTime>(
+        'expires_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($CacheRecordsTable.$converterexpiresAtn);
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, cacheKey, filePath, sizeBytes, createdAt, expiresAt];
+  List<GeneratedColumn> get $columns => [
+    id,
+    cacheKey,
+    filePath,
+    sizeBytes,
+    createdAt,
+    expiresAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
   static const String $name = 'cache_records';
   @override
-  VerificationContext validateIntegrity(Insertable<CacheRecord> instance,
-      {bool isInserting = false}) {
+  VerificationContext validateIntegrity(
+    Insertable<CacheRecord> instance, {
+    bool isInserting = false,
+  }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
     if (data.containsKey('cache_key')) {
-      context.handle(_cacheKeyMeta,
-          cacheKey.isAcceptableOrUnknown(data['cache_key']!, _cacheKeyMeta));
+      context.handle(
+        _cacheKeyMeta,
+        cacheKey.isAcceptableOrUnknown(data['cache_key']!, _cacheKeyMeta),
+      );
     } else if (isInserting) {
       context.missing(_cacheKeyMeta);
     }
     if (data.containsKey('file_path')) {
-      context.handle(_filePathMeta,
-          filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta));
+      context.handle(
+        _filePathMeta,
+        filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta),
+      );
     } else if (isInserting) {
       context.missing(_filePathMeta);
     }
     if (data.containsKey('size_bytes')) {
-      context.handle(_sizeBytesMeta,
-          sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta));
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
     } else if (isInserting) {
       context.missing(_sizeBytesMeta);
     }
@@ -1195,20 +1438,34 @@ class $CacheRecordsTable extends CacheRecords
   CacheRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return CacheRecord(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      cacheKey: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}cache_key'])!,
-      filePath: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}file_path'])!,
-      sizeBytes: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}size_bytes'])!,
-      createdAt: $CacheRecordsTable.$convertercreatedAt.fromSql(attachedDatabase
-          .typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      cacheKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cache_key'],
+      )!,
+      filePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_path'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
+      createdAt: $CacheRecordsTable.$convertercreatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}created_at'],
+        )!,
+      ),
       expiresAt: $CacheRecordsTable.$converterexpiresAtn.fromSql(
-          attachedDatabase.typeMapping.read(
-              DriftSqlType.dateTime, data['${effectivePrefix}expires_at'])),
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}expires_at'],
+        ),
+      ),
     );
   }
 
@@ -1232,13 +1489,14 @@ class CacheRecord extends DataClass implements Insertable<CacheRecord> {
   final int sizeBytes;
   final DateTime createdAt;
   final DateTime? expiresAt;
-  const CacheRecord(
-      {required this.id,
-      required this.cacheKey,
-      required this.filePath,
-      required this.sizeBytes,
-      required this.createdAt,
-      this.expiresAt});
+  const CacheRecord({
+    required this.id,
+    required this.cacheKey,
+    required this.filePath,
+    required this.sizeBytes,
+    required this.createdAt,
+    this.expiresAt,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1248,11 +1506,13 @@ class CacheRecord extends DataClass implements Insertable<CacheRecord> {
     map['size_bytes'] = Variable<int>(sizeBytes);
     {
       map['created_at'] = Variable<DateTime>(
-          $CacheRecordsTable.$convertercreatedAt.toSql(createdAt));
+        $CacheRecordsTable.$convertercreatedAt.toSql(createdAt),
+      );
     }
     if (!nullToAbsent || expiresAt != null) {
       map['expires_at'] = Variable<DateTime>(
-          $CacheRecordsTable.$converterexpiresAtn.toSql(expiresAt));
+        $CacheRecordsTable.$converterexpiresAtn.toSql(expiresAt),
+      );
     }
     return map;
   }
@@ -1270,8 +1530,10 @@ class CacheRecord extends DataClass implements Insertable<CacheRecord> {
     );
   }
 
-  factory CacheRecord.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
+  factory CacheRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return CacheRecord(
       id: serializer.fromJson<int>(json['id']),
@@ -1295,21 +1557,21 @@ class CacheRecord extends DataClass implements Insertable<CacheRecord> {
     };
   }
 
-  CacheRecord copyWith(
-          {int? id,
-          String? cacheKey,
-          String? filePath,
-          int? sizeBytes,
-          DateTime? createdAt,
-          Value<DateTime?> expiresAt = const Value.absent()}) =>
-      CacheRecord(
-        id: id ?? this.id,
-        cacheKey: cacheKey ?? this.cacheKey,
-        filePath: filePath ?? this.filePath,
-        sizeBytes: sizeBytes ?? this.sizeBytes,
-        createdAt: createdAt ?? this.createdAt,
-        expiresAt: expiresAt.present ? expiresAt.value : this.expiresAt,
-      );
+  CacheRecord copyWith({
+    int? id,
+    String? cacheKey,
+    String? filePath,
+    int? sizeBytes,
+    DateTime? createdAt,
+    Value<DateTime?> expiresAt = const Value.absent(),
+  }) => CacheRecord(
+    id: id ?? this.id,
+    cacheKey: cacheKey ?? this.cacheKey,
+    filePath: filePath ?? this.filePath,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    createdAt: createdAt ?? this.createdAt,
+    expiresAt: expiresAt.present ? expiresAt.value : this.expiresAt,
+  );
   CacheRecord copyWithCompanion(CacheRecordsCompanion data) {
     return CacheRecord(
       id: data.id.present ? data.id.value : this.id,
@@ -1371,10 +1633,10 @@ class CacheRecordsCompanion extends UpdateCompanion<CacheRecord> {
     required int sizeBytes,
     required DateTime createdAt,
     this.expiresAt = const Value.absent(),
-  })  : cacheKey = Value(cacheKey),
-        filePath = Value(filePath),
-        sizeBytes = Value(sizeBytes),
-        createdAt = Value(createdAt);
+  }) : cacheKey = Value(cacheKey),
+       filePath = Value(filePath),
+       sizeBytes = Value(sizeBytes),
+       createdAt = Value(createdAt);
   static Insertable<CacheRecord> custom({
     Expression<int>? id,
     Expression<String>? cacheKey,
@@ -1393,13 +1655,14 @@ class CacheRecordsCompanion extends UpdateCompanion<CacheRecord> {
     });
   }
 
-  CacheRecordsCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? cacheKey,
-      Value<String>? filePath,
-      Value<int>? sizeBytes,
-      Value<DateTime>? createdAt,
-      Value<DateTime?>? expiresAt}) {
+  CacheRecordsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? cacheKey,
+    Value<String>? filePath,
+    Value<int>? sizeBytes,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? expiresAt,
+  }) {
     return CacheRecordsCompanion(
       id: id ?? this.id,
       cacheKey: cacheKey ?? this.cacheKey,
@@ -1427,11 +1690,13 @@ class CacheRecordsCompanion extends UpdateCompanion<CacheRecord> {
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(
-          $CacheRecordsTable.$convertercreatedAt.toSql(createdAt.value));
+        $CacheRecordsTable.$convertercreatedAt.toSql(createdAt.value),
+      );
     }
     if (expiresAt.present) {
       map['expires_at'] = Variable<DateTime>(
-          $CacheRecordsTable.$converterexpiresAtn.toSql(expiresAt.value));
+        $CacheRecordsTable.$converterexpiresAtn.toSql(expiresAt.value),
+      );
     }
     return map;
   }
@@ -1454,683 +1719,788 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
-  late final $OperationHistoryTable operationHistory =
-      $OperationHistoryTable(this);
+  late final $OperationHistoryTable operationHistory = $OperationHistoryTable(
+    this,
+  );
   late final $RecentFilesTable recentFiles = $RecentFilesTable(this);
   late final $CacheRecordsTable cacheRecords = $CacheRecordsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [appSettings, operationHistory, recentFiles, cacheRecords];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    appSettings,
+    operationHistory,
+    recentFiles,
+    cacheRecords,
+  ];
 }
 
-typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
-    Function({
-  Value<int> id,
-  required String settingKey,
-  required String settingValue,
-  required String valueType,
-  required DateTime updatedAt,
-});
-typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
-    Function({
-  Value<int> id,
-  Value<String> settingKey,
-  Value<String> settingValue,
-  Value<String> valueType,
-  Value<DateTime> updatedAt,
-});
+typedef $$AppSettingsTableCreateCompanionBuilder =
+    AppSettingsCompanion Function({
+      Value<int> id,
+      required String settingKey,
+      required String settingValue,
+      required String valueType,
+      required DateTime updatedAt,
+    });
+typedef $$AppSettingsTableUpdateCompanionBuilder =
+    AppSettingsCompanion Function({
+      Value<int> id,
+      Value<String> settingKey,
+      Value<String> settingValue,
+      Value<String> valueType,
+      Value<DateTime> updatedAt,
+    });
 
 class $$AppSettingsTableFilterComposer
     extends FilterComposer<_$AppDatabase, $AppSettingsTable> {
   $$AppSettingsTableFilterComposer(super.$state);
   ColumnFilters<int> get id => $state.composableBuilder(
-      column: $state.table.id,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.id,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get settingKey => $state.composableBuilder(
-      column: $state.table.settingKey,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.settingKey,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get settingValue => $state.composableBuilder(
-      column: $state.table.settingValue,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.settingValue,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get valueType => $state.composableBuilder(
-      column: $state.table.valueType,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.valueType,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnWithTypeConverterFilters<DateTime, DateTime, DateTime> get updatedAt =>
       $state.composableBuilder(
-          column: $state.table.updatedAt,
-          builder: (column, joinBuilders) => ColumnWithTypeConverterFilters(
-              column,
-              joinBuilders: joinBuilders));
+        column: $state.table.updatedAt,
+        builder: (column, joinBuilders) =>
+            ColumnWithTypeConverterFilters(column, joinBuilders: joinBuilders),
+      );
 }
 
 class $$AppSettingsTableOrderingComposer
     extends OrderingComposer<_$AppDatabase, $AppSettingsTable> {
   $$AppSettingsTableOrderingComposer(super.$state);
   ColumnOrderings<int> get id => $state.composableBuilder(
-      column: $state.table.id,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.id,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get settingKey => $state.composableBuilder(
-      column: $state.table.settingKey,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.settingKey,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get settingValue => $state.composableBuilder(
-      column: $state.table.settingValue,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.settingValue,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get valueType => $state.composableBuilder(
-      column: $state.table.valueType,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.valueType,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<DateTime> get updatedAt => $state.composableBuilder(
-      column: $state.table.updatedAt,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.updatedAt,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 }
 
-class $$AppSettingsTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $AppSettingsTable,
-    AppSetting,
-    $$AppSettingsTableFilterComposer,
-    $$AppSettingsTableOrderingComposer,
-    $$AppSettingsTableCreateCompanionBuilder,
-    $$AppSettingsTableUpdateCompanionBuilder,
-    (AppSetting, BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>),
-    AppSetting,
-    PrefetchHooks Function()> {
+class $$AppSettingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppSettingsTable,
+          AppSetting,
+          $$AppSettingsTableFilterComposer,
+          $$AppSettingsTableOrderingComposer,
+          $$AppSettingsTableCreateCompanionBuilder,
+          $$AppSettingsTableUpdateCompanionBuilder,
+          (
+            AppSetting,
+            BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>,
+          ),
+          AppSetting,
+          PrefetchHooks Function()
+        > {
   $$AppSettingsTableTableManager(_$AppDatabase db, $AppSettingsTable table)
-      : super(TableManagerState(
+    : super(
+        TableManagerState(
           db: db,
           table: table,
-          filteringComposer:
-              $$AppSettingsTableFilterComposer(ComposerState(db, table)),
-          orderingComposer:
-              $$AppSettingsTableOrderingComposer(ComposerState(db, table)),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> settingKey = const Value.absent(),
-            Value<String> settingValue = const Value.absent(),
-            Value<String> valueType = const Value.absent(),
-            Value<DateTime> updatedAt = const Value.absent(),
-          }) =>
-              AppSettingsCompanion(
-            id: id,
-            settingKey: settingKey,
-            settingValue: settingValue,
-            valueType: valueType,
-            updatedAt: updatedAt,
+          filteringComposer: $$AppSettingsTableFilterComposer(
+            ComposerState(db, table),
           ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String settingKey,
-            required String settingValue,
-            required String valueType,
-            required DateTime updatedAt,
-          }) =>
-              AppSettingsCompanion.insert(
-            id: id,
-            settingKey: settingKey,
-            settingValue: settingValue,
-            valueType: valueType,
-            updatedAt: updatedAt,
+          orderingComposer: $$AppSettingsTableOrderingComposer(
+            ComposerState(db, table),
           ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> settingKey = const Value.absent(),
+                Value<String> settingValue = const Value.absent(),
+                Value<String> valueType = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => AppSettingsCompanion(
+                id: id,
+                settingKey: settingKey,
+                settingValue: settingValue,
+                valueType: valueType,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String settingKey,
+                required String settingValue,
+                required String valueType,
+                required DateTime updatedAt,
+              }) => AppSettingsCompanion.insert(
+                id: id,
+                settingKey: settingKey,
+                settingValue: settingValue,
+                valueType: valueType,
+                updatedAt: updatedAt,
+              ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
           prefetchHooksCallback: null,
-        ));
+        ),
+      );
 }
 
-typedef $$AppSettingsTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $AppSettingsTable,
-    AppSetting,
-    $$AppSettingsTableFilterComposer,
-    $$AppSettingsTableOrderingComposer,
-    $$AppSettingsTableCreateCompanionBuilder,
-    $$AppSettingsTableUpdateCompanionBuilder,
-    (AppSetting, BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>),
-    AppSetting,
-    PrefetchHooks Function()>;
-typedef $$OperationHistoryTableCreateCompanionBuilder
-    = OperationHistoryCompanion Function({
-  Value<int> id,
-  required String featureName,
-  required String inputPath,
-  Value<String?> outputPath,
-  required String parametersJson,
-  required String status,
-  Value<String?> errorMessage,
-  required DateTime createdAt,
-});
-typedef $$OperationHistoryTableUpdateCompanionBuilder
-    = OperationHistoryCompanion Function({
-  Value<int> id,
-  Value<String> featureName,
-  Value<String> inputPath,
-  Value<String?> outputPath,
-  Value<String> parametersJson,
-  Value<String> status,
-  Value<String?> errorMessage,
-  Value<DateTime> createdAt,
-});
+typedef $$AppSettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppSettingsTable,
+      AppSetting,
+      $$AppSettingsTableFilterComposer,
+      $$AppSettingsTableOrderingComposer,
+      $$AppSettingsTableCreateCompanionBuilder,
+      $$AppSettingsTableUpdateCompanionBuilder,
+      (
+        AppSetting,
+        BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>,
+      ),
+      AppSetting,
+      PrefetchHooks Function()
+    >;
+typedef $$OperationHistoryTableCreateCompanionBuilder =
+    OperationHistoryCompanion Function({
+      Value<int> id,
+      required String featureName,
+      required String inputPath,
+      Value<String?> outputPath,
+      required String parametersJson,
+      required String status,
+      Value<String?> errorMessage,
+      required DateTime createdAt,
+    });
+typedef $$OperationHistoryTableUpdateCompanionBuilder =
+    OperationHistoryCompanion Function({
+      Value<int> id,
+      Value<String> featureName,
+      Value<String> inputPath,
+      Value<String?> outputPath,
+      Value<String> parametersJson,
+      Value<String> status,
+      Value<String?> errorMessage,
+      Value<DateTime> createdAt,
+    });
 
 class $$OperationHistoryTableFilterComposer
     extends FilterComposer<_$AppDatabase, $OperationHistoryTable> {
   $$OperationHistoryTableFilterComposer(super.$state);
   ColumnFilters<int> get id => $state.composableBuilder(
-      column: $state.table.id,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.id,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get featureName => $state.composableBuilder(
-      column: $state.table.featureName,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.featureName,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get inputPath => $state.composableBuilder(
-      column: $state.table.inputPath,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.inputPath,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get outputPath => $state.composableBuilder(
-      column: $state.table.outputPath,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.outputPath,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get parametersJson => $state.composableBuilder(
-      column: $state.table.parametersJson,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.parametersJson,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get status => $state.composableBuilder(
-      column: $state.table.status,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.status,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get errorMessage => $state.composableBuilder(
-      column: $state.table.errorMessage,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.errorMessage,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnWithTypeConverterFilters<DateTime, DateTime, DateTime> get createdAt =>
       $state.composableBuilder(
-          column: $state.table.createdAt,
-          builder: (column, joinBuilders) => ColumnWithTypeConverterFilters(
-              column,
-              joinBuilders: joinBuilders));
+        column: $state.table.createdAt,
+        builder: (column, joinBuilders) =>
+            ColumnWithTypeConverterFilters(column, joinBuilders: joinBuilders),
+      );
 }
 
 class $$OperationHistoryTableOrderingComposer
     extends OrderingComposer<_$AppDatabase, $OperationHistoryTable> {
   $$OperationHistoryTableOrderingComposer(super.$state);
   ColumnOrderings<int> get id => $state.composableBuilder(
-      column: $state.table.id,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.id,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get featureName => $state.composableBuilder(
-      column: $state.table.featureName,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.featureName,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get inputPath => $state.composableBuilder(
-      column: $state.table.inputPath,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.inputPath,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get outputPath => $state.composableBuilder(
-      column: $state.table.outputPath,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.outputPath,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get parametersJson => $state.composableBuilder(
-      column: $state.table.parametersJson,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.parametersJson,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get status => $state.composableBuilder(
-      column: $state.table.status,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.status,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get errorMessage => $state.composableBuilder(
-      column: $state.table.errorMessage,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.errorMessage,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<DateTime> get createdAt => $state.composableBuilder(
-      column: $state.table.createdAt,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.createdAt,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 }
 
-class $$OperationHistoryTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $OperationHistoryTable,
-    OperationHistoryData,
-    $$OperationHistoryTableFilterComposer,
-    $$OperationHistoryTableOrderingComposer,
-    $$OperationHistoryTableCreateCompanionBuilder,
-    $$OperationHistoryTableUpdateCompanionBuilder,
-    (
-      OperationHistoryData,
-      BaseReferences<_$AppDatabase, $OperationHistoryTable,
-          OperationHistoryData>
-    ),
-    OperationHistoryData,
-    PrefetchHooks Function()> {
+class $$OperationHistoryTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OperationHistoryTable,
+          OperationHistoryData,
+          $$OperationHistoryTableFilterComposer,
+          $$OperationHistoryTableOrderingComposer,
+          $$OperationHistoryTableCreateCompanionBuilder,
+          $$OperationHistoryTableUpdateCompanionBuilder,
+          (
+            OperationHistoryData,
+            BaseReferences<
+              _$AppDatabase,
+              $OperationHistoryTable,
+              OperationHistoryData
+            >,
+          ),
+          OperationHistoryData,
+          PrefetchHooks Function()
+        > {
   $$OperationHistoryTableTableManager(
-      _$AppDatabase db, $OperationHistoryTable table)
-      : super(TableManagerState(
+    _$AppDatabase db,
+    $OperationHistoryTable table,
+  ) : super(
+        TableManagerState(
           db: db,
           table: table,
-          filteringComposer:
-              $$OperationHistoryTableFilterComposer(ComposerState(db, table)),
-          orderingComposer:
-              $$OperationHistoryTableOrderingComposer(ComposerState(db, table)),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> featureName = const Value.absent(),
-            Value<String> inputPath = const Value.absent(),
-            Value<String?> outputPath = const Value.absent(),
-            Value<String> parametersJson = const Value.absent(),
-            Value<String> status = const Value.absent(),
-            Value<String?> errorMessage = const Value.absent(),
-            Value<DateTime> createdAt = const Value.absent(),
-          }) =>
-              OperationHistoryCompanion(
-            id: id,
-            featureName: featureName,
-            inputPath: inputPath,
-            outputPath: outputPath,
-            parametersJson: parametersJson,
-            status: status,
-            errorMessage: errorMessage,
-            createdAt: createdAt,
+          filteringComposer: $$OperationHistoryTableFilterComposer(
+            ComposerState(db, table),
           ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String featureName,
-            required String inputPath,
-            Value<String?> outputPath = const Value.absent(),
-            required String parametersJson,
-            required String status,
-            Value<String?> errorMessage = const Value.absent(),
-            required DateTime createdAt,
-          }) =>
-              OperationHistoryCompanion.insert(
-            id: id,
-            featureName: featureName,
-            inputPath: inputPath,
-            outputPath: outputPath,
-            parametersJson: parametersJson,
-            status: status,
-            errorMessage: errorMessage,
-            createdAt: createdAt,
+          orderingComposer: $$OperationHistoryTableOrderingComposer(
+            ComposerState(db, table),
           ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> featureName = const Value.absent(),
+                Value<String> inputPath = const Value.absent(),
+                Value<String?> outputPath = const Value.absent(),
+                Value<String> parametersJson = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => OperationHistoryCompanion(
+                id: id,
+                featureName: featureName,
+                inputPath: inputPath,
+                outputPath: outputPath,
+                parametersJson: parametersJson,
+                status: status,
+                errorMessage: errorMessage,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String featureName,
+                required String inputPath,
+                Value<String?> outputPath = const Value.absent(),
+                required String parametersJson,
+                required String status,
+                Value<String?> errorMessage = const Value.absent(),
+                required DateTime createdAt,
+              }) => OperationHistoryCompanion.insert(
+                id: id,
+                featureName: featureName,
+                inputPath: inputPath,
+                outputPath: outputPath,
+                parametersJson: parametersJson,
+                status: status,
+                errorMessage: errorMessage,
+                createdAt: createdAt,
+              ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
           prefetchHooksCallback: null,
-        ));
+        ),
+      );
 }
 
-typedef $$OperationHistoryTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $OperationHistoryTable,
-    OperationHistoryData,
-    $$OperationHistoryTableFilterComposer,
-    $$OperationHistoryTableOrderingComposer,
-    $$OperationHistoryTableCreateCompanionBuilder,
-    $$OperationHistoryTableUpdateCompanionBuilder,
-    (
+typedef $$OperationHistoryTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OperationHistoryTable,
       OperationHistoryData,
-      BaseReferences<_$AppDatabase, $OperationHistoryTable,
-          OperationHistoryData>
-    ),
-    OperationHistoryData,
-    PrefetchHooks Function()>;
-typedef $$RecentFilesTableCreateCompanionBuilder = RecentFilesCompanion
-    Function({
-  Value<int> id,
-  required String filePath,
-  required String fileName,
-  required String mimeType,
-  required int sizeBytes,
-  required DateTime lastUsedAt,
-});
-typedef $$RecentFilesTableUpdateCompanionBuilder = RecentFilesCompanion
-    Function({
-  Value<int> id,
-  Value<String> filePath,
-  Value<String> fileName,
-  Value<String> mimeType,
-  Value<int> sizeBytes,
-  Value<DateTime> lastUsedAt,
-});
+      $$OperationHistoryTableFilterComposer,
+      $$OperationHistoryTableOrderingComposer,
+      $$OperationHistoryTableCreateCompanionBuilder,
+      $$OperationHistoryTableUpdateCompanionBuilder,
+      (
+        OperationHistoryData,
+        BaseReferences<
+          _$AppDatabase,
+          $OperationHistoryTable,
+          OperationHistoryData
+        >,
+      ),
+      OperationHistoryData,
+      PrefetchHooks Function()
+    >;
+typedef $$RecentFilesTableCreateCompanionBuilder =
+    RecentFilesCompanion Function({
+      Value<int> id,
+      required String filePath,
+      required String fileName,
+      required String mimeType,
+      required int sizeBytes,
+      required DateTime lastUsedAt,
+    });
+typedef $$RecentFilesTableUpdateCompanionBuilder =
+    RecentFilesCompanion Function({
+      Value<int> id,
+      Value<String> filePath,
+      Value<String> fileName,
+      Value<String> mimeType,
+      Value<int> sizeBytes,
+      Value<DateTime> lastUsedAt,
+    });
 
 class $$RecentFilesTableFilterComposer
     extends FilterComposer<_$AppDatabase, $RecentFilesTable> {
   $$RecentFilesTableFilterComposer(super.$state);
   ColumnFilters<int> get id => $state.composableBuilder(
-      column: $state.table.id,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.id,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get filePath => $state.composableBuilder(
-      column: $state.table.filePath,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.filePath,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get fileName => $state.composableBuilder(
-      column: $state.table.fileName,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.fileName,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get mimeType => $state.composableBuilder(
-      column: $state.table.mimeType,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.mimeType,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<int> get sizeBytes => $state.composableBuilder(
-      column: $state.table.sizeBytes,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.sizeBytes,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnWithTypeConverterFilters<DateTime, DateTime, DateTime> get lastUsedAt =>
       $state.composableBuilder(
-          column: $state.table.lastUsedAt,
-          builder: (column, joinBuilders) => ColumnWithTypeConverterFilters(
-              column,
-              joinBuilders: joinBuilders));
+        column: $state.table.lastUsedAt,
+        builder: (column, joinBuilders) =>
+            ColumnWithTypeConverterFilters(column, joinBuilders: joinBuilders),
+      );
 }
 
 class $$RecentFilesTableOrderingComposer
     extends OrderingComposer<_$AppDatabase, $RecentFilesTable> {
   $$RecentFilesTableOrderingComposer(super.$state);
   ColumnOrderings<int> get id => $state.composableBuilder(
-      column: $state.table.id,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.id,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get filePath => $state.composableBuilder(
-      column: $state.table.filePath,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.filePath,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get fileName => $state.composableBuilder(
-      column: $state.table.fileName,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.fileName,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get mimeType => $state.composableBuilder(
-      column: $state.table.mimeType,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.mimeType,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<int> get sizeBytes => $state.composableBuilder(
-      column: $state.table.sizeBytes,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.sizeBytes,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<DateTime> get lastUsedAt => $state.composableBuilder(
-      column: $state.table.lastUsedAt,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.lastUsedAt,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 }
 
-class $$RecentFilesTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $RecentFilesTable,
-    RecentFile,
-    $$RecentFilesTableFilterComposer,
-    $$RecentFilesTableOrderingComposer,
-    $$RecentFilesTableCreateCompanionBuilder,
-    $$RecentFilesTableUpdateCompanionBuilder,
-    (RecentFile, BaseReferences<_$AppDatabase, $RecentFilesTable, RecentFile>),
-    RecentFile,
-    PrefetchHooks Function()> {
+class $$RecentFilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RecentFilesTable,
+          RecentFile,
+          $$RecentFilesTableFilterComposer,
+          $$RecentFilesTableOrderingComposer,
+          $$RecentFilesTableCreateCompanionBuilder,
+          $$RecentFilesTableUpdateCompanionBuilder,
+          (
+            RecentFile,
+            BaseReferences<_$AppDatabase, $RecentFilesTable, RecentFile>,
+          ),
+          RecentFile,
+          PrefetchHooks Function()
+        > {
   $$RecentFilesTableTableManager(_$AppDatabase db, $RecentFilesTable table)
-      : super(TableManagerState(
+    : super(
+        TableManagerState(
           db: db,
           table: table,
-          filteringComposer:
-              $$RecentFilesTableFilterComposer(ComposerState(db, table)),
-          orderingComposer:
-              $$RecentFilesTableOrderingComposer(ComposerState(db, table)),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> filePath = const Value.absent(),
-            Value<String> fileName = const Value.absent(),
-            Value<String> mimeType = const Value.absent(),
-            Value<int> sizeBytes = const Value.absent(),
-            Value<DateTime> lastUsedAt = const Value.absent(),
-          }) =>
-              RecentFilesCompanion(
-            id: id,
-            filePath: filePath,
-            fileName: fileName,
-            mimeType: mimeType,
-            sizeBytes: sizeBytes,
-            lastUsedAt: lastUsedAt,
+          filteringComposer: $$RecentFilesTableFilterComposer(
+            ComposerState(db, table),
           ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String filePath,
-            required String fileName,
-            required String mimeType,
-            required int sizeBytes,
-            required DateTime lastUsedAt,
-          }) =>
-              RecentFilesCompanion.insert(
-            id: id,
-            filePath: filePath,
-            fileName: fileName,
-            mimeType: mimeType,
-            sizeBytes: sizeBytes,
-            lastUsedAt: lastUsedAt,
+          orderingComposer: $$RecentFilesTableOrderingComposer(
+            ComposerState(db, table),
           ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> filePath = const Value.absent(),
+                Value<String> fileName = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<DateTime> lastUsedAt = const Value.absent(),
+              }) => RecentFilesCompanion(
+                id: id,
+                filePath: filePath,
+                fileName: fileName,
+                mimeType: mimeType,
+                sizeBytes: sizeBytes,
+                lastUsedAt: lastUsedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String filePath,
+                required String fileName,
+                required String mimeType,
+                required int sizeBytes,
+                required DateTime lastUsedAt,
+              }) => RecentFilesCompanion.insert(
+                id: id,
+                filePath: filePath,
+                fileName: fileName,
+                mimeType: mimeType,
+                sizeBytes: sizeBytes,
+                lastUsedAt: lastUsedAt,
+              ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
           prefetchHooksCallback: null,
-        ));
+        ),
+      );
 }
 
-typedef $$RecentFilesTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $RecentFilesTable,
-    RecentFile,
-    $$RecentFilesTableFilterComposer,
-    $$RecentFilesTableOrderingComposer,
-    $$RecentFilesTableCreateCompanionBuilder,
-    $$RecentFilesTableUpdateCompanionBuilder,
-    (RecentFile, BaseReferences<_$AppDatabase, $RecentFilesTable, RecentFile>),
-    RecentFile,
-    PrefetchHooks Function()>;
-typedef $$CacheRecordsTableCreateCompanionBuilder = CacheRecordsCompanion
-    Function({
-  Value<int> id,
-  required String cacheKey,
-  required String filePath,
-  required int sizeBytes,
-  required DateTime createdAt,
-  Value<DateTime?> expiresAt,
-});
-typedef $$CacheRecordsTableUpdateCompanionBuilder = CacheRecordsCompanion
-    Function({
-  Value<int> id,
-  Value<String> cacheKey,
-  Value<String> filePath,
-  Value<int> sizeBytes,
-  Value<DateTime> createdAt,
-  Value<DateTime?> expiresAt,
-});
+typedef $$RecentFilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RecentFilesTable,
+      RecentFile,
+      $$RecentFilesTableFilterComposer,
+      $$RecentFilesTableOrderingComposer,
+      $$RecentFilesTableCreateCompanionBuilder,
+      $$RecentFilesTableUpdateCompanionBuilder,
+      (
+        RecentFile,
+        BaseReferences<_$AppDatabase, $RecentFilesTable, RecentFile>,
+      ),
+      RecentFile,
+      PrefetchHooks Function()
+    >;
+typedef $$CacheRecordsTableCreateCompanionBuilder =
+    CacheRecordsCompanion Function({
+      Value<int> id,
+      required String cacheKey,
+      required String filePath,
+      required int sizeBytes,
+      required DateTime createdAt,
+      Value<DateTime?> expiresAt,
+    });
+typedef $$CacheRecordsTableUpdateCompanionBuilder =
+    CacheRecordsCompanion Function({
+      Value<int> id,
+      Value<String> cacheKey,
+      Value<String> filePath,
+      Value<int> sizeBytes,
+      Value<DateTime> createdAt,
+      Value<DateTime?> expiresAt,
+    });
 
 class $$CacheRecordsTableFilterComposer
     extends FilterComposer<_$AppDatabase, $CacheRecordsTable> {
   $$CacheRecordsTableFilterComposer(super.$state);
   ColumnFilters<int> get id => $state.composableBuilder(
-      column: $state.table.id,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.id,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get cacheKey => $state.composableBuilder(
-      column: $state.table.cacheKey,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.cacheKey,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<String> get filePath => $state.composableBuilder(
-      column: $state.table.filePath,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.filePath,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnFilters<int> get sizeBytes => $state.composableBuilder(
-      column: $state.table.sizeBytes,
-      builder: (column, joinBuilders) =>
-          ColumnFilters(column, joinBuilders: joinBuilders));
+    column: $state.table.sizeBytes,
+    builder: (column, joinBuilders) =>
+        ColumnFilters(column, joinBuilders: joinBuilders),
+  );
 
   ColumnWithTypeConverterFilters<DateTime, DateTime, DateTime> get createdAt =>
       $state.composableBuilder(
-          column: $state.table.createdAt,
-          builder: (column, joinBuilders) => ColumnWithTypeConverterFilters(
-              column,
-              joinBuilders: joinBuilders));
+        column: $state.table.createdAt,
+        builder: (column, joinBuilders) =>
+            ColumnWithTypeConverterFilters(column, joinBuilders: joinBuilders),
+      );
 
   ColumnWithTypeConverterFilters<DateTime?, DateTime, DateTime> get expiresAt =>
       $state.composableBuilder(
-          column: $state.table.expiresAt,
-          builder: (column, joinBuilders) => ColumnWithTypeConverterFilters(
-              column,
-              joinBuilders: joinBuilders));
+        column: $state.table.expiresAt,
+        builder: (column, joinBuilders) =>
+            ColumnWithTypeConverterFilters(column, joinBuilders: joinBuilders),
+      );
 }
 
 class $$CacheRecordsTableOrderingComposer
     extends OrderingComposer<_$AppDatabase, $CacheRecordsTable> {
   $$CacheRecordsTableOrderingComposer(super.$state);
   ColumnOrderings<int> get id => $state.composableBuilder(
-      column: $state.table.id,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.id,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get cacheKey => $state.composableBuilder(
-      column: $state.table.cacheKey,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.cacheKey,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<String> get filePath => $state.composableBuilder(
-      column: $state.table.filePath,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.filePath,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<int> get sizeBytes => $state.composableBuilder(
-      column: $state.table.sizeBytes,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.sizeBytes,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<DateTime> get createdAt => $state.composableBuilder(
-      column: $state.table.createdAt,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.createdAt,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 
   ColumnOrderings<DateTime> get expiresAt => $state.composableBuilder(
-      column: $state.table.expiresAt,
-      builder: (column, joinBuilders) =>
-          ColumnOrderings(column, joinBuilders: joinBuilders));
+    column: $state.table.expiresAt,
+    builder: (column, joinBuilders) =>
+        ColumnOrderings(column, joinBuilders: joinBuilders),
+  );
 }
 
-class $$CacheRecordsTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $CacheRecordsTable,
-    CacheRecord,
-    $$CacheRecordsTableFilterComposer,
-    $$CacheRecordsTableOrderingComposer,
-    $$CacheRecordsTableCreateCompanionBuilder,
-    $$CacheRecordsTableUpdateCompanionBuilder,
-    (
-      CacheRecord,
-      BaseReferences<_$AppDatabase, $CacheRecordsTable, CacheRecord>
-    ),
-    CacheRecord,
-    PrefetchHooks Function()> {
+class $$CacheRecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CacheRecordsTable,
+          CacheRecord,
+          $$CacheRecordsTableFilterComposer,
+          $$CacheRecordsTableOrderingComposer,
+          $$CacheRecordsTableCreateCompanionBuilder,
+          $$CacheRecordsTableUpdateCompanionBuilder,
+          (
+            CacheRecord,
+            BaseReferences<_$AppDatabase, $CacheRecordsTable, CacheRecord>,
+          ),
+          CacheRecord,
+          PrefetchHooks Function()
+        > {
   $$CacheRecordsTableTableManager(_$AppDatabase db, $CacheRecordsTable table)
-      : super(TableManagerState(
+    : super(
+        TableManagerState(
           db: db,
           table: table,
-          filteringComposer:
-              $$CacheRecordsTableFilterComposer(ComposerState(db, table)),
-          orderingComposer:
-              $$CacheRecordsTableOrderingComposer(ComposerState(db, table)),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> cacheKey = const Value.absent(),
-            Value<String> filePath = const Value.absent(),
-            Value<int> sizeBytes = const Value.absent(),
-            Value<DateTime> createdAt = const Value.absent(),
-            Value<DateTime?> expiresAt = const Value.absent(),
-          }) =>
-              CacheRecordsCompanion(
-            id: id,
-            cacheKey: cacheKey,
-            filePath: filePath,
-            sizeBytes: sizeBytes,
-            createdAt: createdAt,
-            expiresAt: expiresAt,
+          filteringComposer: $$CacheRecordsTableFilterComposer(
+            ComposerState(db, table),
           ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String cacheKey,
-            required String filePath,
-            required int sizeBytes,
-            required DateTime createdAt,
-            Value<DateTime?> expiresAt = const Value.absent(),
-          }) =>
-              CacheRecordsCompanion.insert(
-            id: id,
-            cacheKey: cacheKey,
-            filePath: filePath,
-            sizeBytes: sizeBytes,
-            createdAt: createdAt,
-            expiresAt: expiresAt,
+          orderingComposer: $$CacheRecordsTableOrderingComposer(
+            ComposerState(db, table),
           ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> cacheKey = const Value.absent(),
+                Value<String> filePath = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> expiresAt = const Value.absent(),
+              }) => CacheRecordsCompanion(
+                id: id,
+                cacheKey: cacheKey,
+                filePath: filePath,
+                sizeBytes: sizeBytes,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String cacheKey,
+                required String filePath,
+                required int sizeBytes,
+                required DateTime createdAt,
+                Value<DateTime?> expiresAt = const Value.absent(),
+              }) => CacheRecordsCompanion.insert(
+                id: id,
+                cacheKey: cacheKey,
+                filePath: filePath,
+                sizeBytes: sizeBytes,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+              ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
           prefetchHooksCallback: null,
-        ));
+        ),
+      );
 }
 
-typedef $$CacheRecordsTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $CacheRecordsTable,
-    CacheRecord,
-    $$CacheRecordsTableFilterComposer,
-    $$CacheRecordsTableOrderingComposer,
-    $$CacheRecordsTableCreateCompanionBuilder,
-    $$CacheRecordsTableUpdateCompanionBuilder,
-    (
+typedef $$CacheRecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CacheRecordsTable,
       CacheRecord,
-      BaseReferences<_$AppDatabase, $CacheRecordsTable, CacheRecord>
-    ),
-    CacheRecord,
-    PrefetchHooks Function()>;
+      $$CacheRecordsTableFilterComposer,
+      $$CacheRecordsTableOrderingComposer,
+      $$CacheRecordsTableCreateCompanionBuilder,
+      $$CacheRecordsTableUpdateCompanionBuilder,
+      (
+        CacheRecord,
+        BaseReferences<_$AppDatabase, $CacheRecordsTable, CacheRecord>,
+      ),
+      CacheRecord,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;

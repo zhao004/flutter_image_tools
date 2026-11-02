@@ -131,6 +131,10 @@ class MergeController extends GetxController {
     toolbarTab.value = value;
   }
 
+  /// 将图片从 [oldIndex] 移动到已经校正过的 [newIndex]。
+  ///
+  /// `ReorderableListView.onReorderItem` 会在移除原项目后计算目标位置，
+  /// 因此这里不再对向下移动做额外索引修正。
   void reorderSelectedImages(int oldIndex, int newIndex) {
     if (isBusy.value) {
       return;
@@ -138,16 +142,15 @@ class MergeController extends GetxController {
     if (oldIndex < 0 || oldIndex >= selectedImages.length) {
       return;
     }
-    final targetIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
-    if (targetIndex < 0 || targetIndex >= selectedImages.length) {
+    if (newIndex < 0 || newIndex >= selectedImages.length) {
       return;
     }
-    if (oldIndex == targetIndex) {
+    if (oldIndex == newIndex) {
       return;
     }
 
     final image = selectedImages.removeAt(oldIndex);
-    selectedImages.insert(targetIndex, image);
+    selectedImages.insert(newIndex, image);
     result.value = null;
   }
 
