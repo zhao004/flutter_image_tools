@@ -4,6 +4,10 @@ ImageToolKit 是一个基于 Flutter 的本地图片处理工具箱。图片选�
 
 项目使用 Material Design 3、GetX、Drift 和 Android 平台通道，当前主要面向 Android，同时保留 Flutter 多平台项目结构。
 
+## 项目预览
+
+![img01.jpg](assets/images/img01.jpg)
+
 ## 功能概览
 
 ### 图片编辑工作台
