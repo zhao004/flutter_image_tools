@@ -116,6 +116,26 @@ flutter test
 
 项目策略要求源码修改后至少执行一项检查；提交前建议执行全部命令。
 
+## Android 自动发布
+
+发布工作流位于 `.github/workflows/android-release.yml`。推送 `vX.Y.Z` 格式的
+Git tag，或在 Actions 中手动输入一个已存在的发布标签后，工作流会执行代码
+生成、格式检查、静态分析和测试，然后发布三个独立 APK：
+
+- `armeabi-v7a`
+- `arm64-v8a`
+- `x86_64`
+
+GitHub 仓库需要创建 `flutter_android_build` Environment，并配置以下 Secrets：
+
+- `ANDROID_KEYSTORE_BASE64`：发布 keystore 的 Base64 内容，不能包含换行
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+发布前工作流会逐个校验 APK 的 V2、V3 签名，并在 GitHub Release 中同时
+上传 `SHA256SUMS.txt`。Dart 符号文件只作为 Actions 产物保留，不进入 Release。
+
 ## 编辑器扩展
 
 新增图片编辑功能时，应复用 `ImageEditorScaffold`、`EditorDynamicToolPanel` 和 `EditorImagePreview`，不要为新页面复制顶部栏、画布和底部工具布局。

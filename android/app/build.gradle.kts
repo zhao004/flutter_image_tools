@@ -5,6 +5,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// 正式签名只在 CI 还原 keystore 后启用；本地未配置时保留 debug 签名回退。
+val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank()
+val legacyPackaging = System.getenv("ANDROID_LEGACY_PACKAGING") == "true"
+
 android {
     namespace = "com.zhao.imagetoolkit"
     compileSdk = flutter.compileSdkVersion
@@ -30,11 +35,36 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = false
+            }
+        }
+    }
+
+    packaging {
+        if (legacyPackaging) {
+            jniLibs {
+                useLegacyPackaging = true
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
