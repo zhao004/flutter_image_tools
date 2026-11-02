@@ -71,23 +71,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs
-
-      # 锁定生成器内置的 dart_style 较旧，生成后需按当前 SDK 统一格式。
-      - name: Format generated Dart code
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -d '' -t generated_files < <(
-            find lib -type f -name '*.g.dart' -print0
-          )
-          if (( ${#generated_files[@]} > 0 )); then
-            dart format "${generated_files[@]}"
-          fi
-
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Generate code
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Analyze
         run: flutter analyze
