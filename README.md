@@ -140,6 +140,20 @@ GitHub 仓库需要创建 `flutter_android_build` Environment，并配置以下 
 发布前工作流会逐个校验 APK 的 V2、V3 签名，并在 GitHub Release 中同时
 上传 `SHA256SUMS.txt`。Dart 符号文件只作为 Actions 产物保留，不进入 Release。
 
+## 应用内自动更新
+
+Android Release 构建会在启动后最多每 24 小时检查一次 GitHub 最新正式版本，
+也可以在“设置 > 软件更新”中手动检查。发现更新后，应用会根据当前 ABI
+下载对应 APK，使用 Release 中的 `SHA256SUMS.txt` 校验文件完整性，再交给
+Android 系统安装器完成签名校验和覆盖安装。
+
+首次更新可能需要允许 ImageToolKit 安装未知应用。应用不会执行静默安装，
+也不会读取 GitHub Token；仓库必须继续公开 Release，并保持现有
+`imagetoolkit-<tag>-<abi>.apk` 与 `SHA256SUMS.txt` 资产命名。
+
+当前 `v1.0.0` 尚未包含更新器，因此首个包含该能力的正式版本仍需手动安装；
+之后发布的版本可以直接通过应用内更新流程获取。
+
 ## 编辑器扩展
 
 新增图片编辑功能时，应复用 `ImageEditorScaffold`、`EditorDynamicToolPanel` 和 `EditorImagePreview`，不要为新页面复制顶部栏、画布和底部工具布局。

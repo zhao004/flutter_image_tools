@@ -1,11 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 import '../database/database.dart';
+import '../pages/update/update_controller.dart';
 import '../repositories/app_settings_repository.dart';
 import '../repositories/cache_repository.dart';
 import '../repositories/operation_history_repository.dart';
 import '../repositories/recent_files_repository.dart';
 import '../services/local_image_channel.dart';
+import '../services/app_update_platform.dart';
+import '../services/app_update_service.dart';
 
 /// 全局依赖绑定，集中注册数据库、平台通道和仓储。
 ///
@@ -30,6 +34,22 @@ class InitialBinding extends Bindings {
     );
     Get.lazyPut<CacheRepository>(
       () => CacheRepository(database: Get.find<AppDatabase>()),
+      fenix: true,
+    );
+    Get.lazyPut<AppUpdatePlatform>(
+      () => MethodChannelAppUpdatePlatform(),
+      fenix: true,
+    );
+    Get.lazyPut<AppUpdateService>(
+      () => AppUpdateService(platform: Get.find<AppUpdatePlatform>()),
+      fenix: true,
+    );
+    Get.lazyPut<AppUpdateController>(
+      () => AppUpdateController(
+        service: Get.find<AppUpdateService>(),
+        settingsRepository: Get.find<AppSettingsRepository>(),
+        automaticChecksEnabled: kReleaseMode,
+      ),
       fenix: true,
     );
   }

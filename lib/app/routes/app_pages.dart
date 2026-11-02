@@ -49,6 +49,7 @@ import '../pages/rotate/rotate_binding.dart';
 import '../pages/rotate/rotate_view.dart';
 import '../pages/settings/settings_binding.dart';
 import '../pages/settings/settings_view.dart';
+import '../pages/update/update_view.dart';
 import '../pages/watermark/watermark_binding.dart';
 import '../pages/watermark/watermark_view.dart';
 
@@ -188,6 +189,7 @@ class AppPages {
       page: () => const SettingsView(),
       binding: SettingsBinding(),
     ),
+    GetPage(name: _Paths.update, page: () => const UpdateView()),
     GetPage(
       name: _Paths.watermark,
       page: () => const WatermarkView(),

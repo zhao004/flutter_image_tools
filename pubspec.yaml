@@ -49,6 +49,10 @@ dependencies:
   signature: 6.3.0
   crop_your_image: ^2.0.0
   flex_color_picker: 3.8.0
+  package_info_plus: 10.2.2
+  http: 1.6.0
+  crypto: 3.0.8
+  pub_semver: 2.2.1
 
 dev_dependencies:
   flutter_test:

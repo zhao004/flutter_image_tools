@@ -17,6 +17,8 @@ class AppSettingsRepository {
   static const String languageKey = 'language';
   static const String recentToolRoutesKey = 'recent_tool_routes';
   static const String favoriteToolRoutesKey = 'favorite_tool_routes';
+  static const String lastUpdateCheckAtKey = 'last_update_check_at';
+  static const String dismissedUpdateVersionKey = 'dismissed_update_version';
   static const int maxRecentToolRoutes = 8;
   static const int maxFavoriteToolRoutes = 12;
 
@@ -130,6 +132,36 @@ class AppSettingsRepository {
   Future<void> setFavoriteToolRoutes(List<String> routes) async {
     final normalized = _normalizeRoutes(routes, maxFavoriteToolRoutes);
     await _setValue(favoriteToolRoutesKey, jsonEncode(normalized), 'json');
+  }
+
+  Future<DateTime?> getLastUpdateCheckAt() async {
+    final value = await _getString(lastUpdateCheckAtKey);
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(value)?.toUtc();
+  }
+
+  Future<void> setLastUpdateCheckAt(DateTime checkedAt) {
+    return _setValue(
+      lastUpdateCheckAtKey,
+      checkedAt.toUtc().toIso8601String(),
+      'datetime',
+    );
+  }
+
+  Future<String?> getDismissedUpdateVersion() async {
+    final value = await _getString(dismissedUpdateVersionKey);
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  Future<void> setDismissedUpdateVersion(String version) async {
+    final normalized = version.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(version, 'version', '暂缓更新的版本不能为空');
+    }
+    await _setValue(dismissedUpdateVersionKey, normalized, 'string');
   }
 
   Future<int?> _getInt(String key) async {

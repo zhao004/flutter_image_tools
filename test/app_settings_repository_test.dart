@@ -84,5 +84,15 @@ void main() {
       expect(await repository.getThemeMode(), 'dark');
       expect(await repository.getLanguage(), 'en');
     });
+
+    test('更新检查时间和暂缓版本可持久化', () async {
+      final checkedAt = DateTime.utc(2026, 11, 2, 8, 30);
+
+      await repository.setLastUpdateCheckAt(checkedAt);
+      await repository.setDismissedUpdateVersion('1.1.0');
+
+      expect(await repository.getLastUpdateCheckAt(), checkedAt);
+      expect(await repository.getDismissedUpdateVersion(), '1.1.0');
+    });
   });
 }

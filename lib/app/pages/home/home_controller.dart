@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../utils/latest_snackbar.dart';
@@ -5,6 +8,7 @@ import '../../database/database.dart';
 import '../../repositories/app_settings_repository.dart';
 import '../../repositories/recent_files_repository.dart';
 import '../../routes/app_pages.dart';
+import '../update/update_controller.dart';
 
 enum ToolAvailability { available, planned }
 
@@ -36,11 +40,14 @@ class HomeController extends GetxController {
   HomeController({
     required AppSettingsRepository settingsRepository,
     required RecentFilesRepository recentFilesRepository,
+    required AppUpdateController updateController,
   }) : _settingsRepository = settingsRepository,
-       _recentFilesRepository = recentFilesRepository;
+       _recentFilesRepository = recentFilesRepository,
+       _updateController = updateController;
 
   final AppSettingsRepository _settingsRepository;
   final RecentFilesRepository _recentFilesRepository;
+  final AppUpdateController _updateController;
 
   final query = ''.obs;
   final recentFiles = <RecentFile>[].obs;
@@ -183,6 +190,55 @@ class HomeController extends GetxController {
     loadFavoriteTools();
     loadRecentTools();
     loadRecentFiles();
+    _scheduleAutomaticUpdateCheck();
+  }
+
+  void _scheduleAutomaticUpdateCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkForUpdates());
+    });
+  }
+
+  Future<void> _checkForUpdates() async {
+    try {
+      final release = await _updateController.checkAutomatically();
+      if (release == null || Get.currentRoute != Routes.home) {
+        return;
+      }
+      final currentVersion = _updateController.currentVersion.value.isEmpty
+          ? 'update.version.unknown'.tr
+          : _updateController.currentVersion.value;
+      await Get.dialog<void>(
+        barrierDismissible: false,
+        AlertDialog(
+          title: Text('update.available.title'.tr),
+          content: Text(
+            'update.available.message'.trParams(<String, String>{
+              'current': currentVersion,
+              'latest': release.versionText,
+            }),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await _updateController.postponeCurrentUpdate();
+                Get.back();
+              },
+              child: Text('common.later'.tr),
+            ),
+            FilledButton(
+              onPressed: () {
+                Get.back();
+                Get.toNamed(Routes.update);
+              },
+              child: Text('update.available.view'.tr),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      // 自动更新提示不能影响首页加载；用户仍可从设置页手动检查。
+    }
   }
 
   Future<void> loadFavoriteTools() async {

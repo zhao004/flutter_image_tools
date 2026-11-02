@@ -47,11 +47,16 @@ class MainActivity : FlutterActivity() {
     private var pendingPickResult: MethodChannel.Result? = null
     private var pendingBarcodeScanResult: MethodChannel.Result? = null
     private var isMultipleSelection = false
+    private var appUpdateChannelHandler: AppUpdateChannelHandler? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result -> handleMethodCall(call, result) }
+        appUpdateChannelHandler = AppUpdateChannelHandler(
+            this,
+            flutterEngine.dartExecutor.binaryMessenger,
+        ).also { it.register() }
     }
 
     private fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {

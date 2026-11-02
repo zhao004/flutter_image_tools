@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../routes/app_pages.dart';
 import 'settings_controller.dart';
+import '../update/update_controller.dart';
 
 /// 设置页，展示导出、主题、语言和本地管理入口。
 ///
@@ -201,6 +202,34 @@ class SettingsView extends GetView<SettingsController> {
                 onTap: () => Get.toNamed(Routes.cache),
               ),
             ),
+            if (Get.isRegistered<AppUpdateController>() &&
+                Get.find<AppUpdateController>().isSupported) ...[
+              const SizedBox(height: 16),
+              Card(
+                child: Obx(() {
+                  final updateController = Get.find<AppUpdateController>();
+                  final version = updateController.currentVersion.value.isEmpty
+                      ? 'update.version.unknown'.tr
+                      : updateController.currentVersion.value;
+                  final release = updateController.availableRelease.value;
+                  return ListTile(
+                    leading: const Icon(Icons.system_update_alt),
+                    title: Text('update.settings.title'.tr),
+                    subtitle: Text(
+                      release == null
+                          ? 'update.settings.current'.trParams({
+                              'version': version,
+                            })
+                          : 'update.settings.available'.trParams({
+                              'version': release.versionText,
+                            }),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Get.toNamed(Routes.update),
+                  );
+                }),
+              ),
+            ],
           ],
         ),
       ),
